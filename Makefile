@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 PORT ?= 8770
 
-.PHONY: help setup deps mesh run doctor test check
+.PHONY: help setup deps mesh shorts run doctor test check
 
 help: ## Show available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  make %-8s %s\n",$$1,$$2}'
@@ -15,6 +15,13 @@ setup: deps ## One-time setup: system tools, .venv, dependencies, .env
 mesh: ## Optional: enable the face-mesh modes (installs Python 3.12)
 	@command -v python3.12 >/dev/null || brew install python@3.12
 	bash setup-face-mesh.sh
+
+shorts: ## Optional: enable the shorts editor (tracking env, Remotion, local whisper.cpp)
+	@test -x .venv-face/bin/python || FACE_PYTHON=$$(command -v python3.12 || command -v python3) bash setup-face-mesh.sh
+	@command -v node >/dev/null || { echo "Install Node.js 18+ first (https://nodejs.org)"; exit 1; }
+	cd motion && npm ci && node transcribe.mjs
+	$(PY) -m pip install -q -r requirements.txt
+	$(PY) doctor.py --shorts
 
 run: ## Start the app at http://127.0.0.1:8770 (other port: make run PORT=8771)
 	PORT=$(PORT) bash start.command

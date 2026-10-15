@@ -7,6 +7,8 @@ from pipeline import run
 ROOT=Path(__file__).resolve().parent
 RUNS=ROOT/'runs';RUNS.mkdir(exist_ok=True)
 app=FastAPI();jobs={}
+from shorts_app import router as shorts_router
+app.include_router(shorts_router)
 @app.get('/')
 def index():return FileResponse(ROOT/'static/index.html')
 @app.post('/jobs')

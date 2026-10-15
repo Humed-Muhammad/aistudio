@@ -144,6 +144,19 @@ Select **Advanced + Face mesh** in the UI or use `workflow.py prepare VIDEO --mo
 For setup with all three preparation modes, also install Python 3.12 and run `bash setup-face-mesh.sh`. This creates an isolated mesh environment; the main app can retain its existing Python version. A Google Face Landmarker model is downloaded at first use. No SAM/depth inference is used by fast mode. Mesh modes are experimental and currently optimized for one centered speaker.
 
 
+## Shorts editor: captions and motion graphics
+
+Open **Shorts editor** (`/shorts`) to turn a raw vertical recording (up to 10 minutes) into a tight, polished short. Everything except the optional Claude auto-cut and auto-plan runs on your computer. Your voice is only cut, never regenerated.
+
+- **Cut to what matters**: the full recording is transcribed and split into parts. Auto-cut removes retakes, repeated points, tangents and dead air, with a reason shown for each removed part. You can toggle any part, and filler words and long pauses are trimmed automatically. The length follows the content.
+
+- **Captions** from local whisper.cpp word timings, in Bold (1–3 big words with the spoken word highlighted), Boxed, or Minimal style
+- **Motion graphics**: hook titles, text pops, typewriter and pill labels, zoom punch-ins on your face, shakes, flashes, a progress bar and sound effects
+- **Text behind you**, using a local person cutout
+- **Images that follow your hands**: upload a PNG (logo, product, icon) and it can sit above your palm, follow your fingertip, or pop in when you open your palm, pinch or point. It can also sit above your head or stay fixed on screen.
+
+Steps: upload → cut (auto or by hand) → review the cut and its tracking → add images and describe what you want → **Auto-plan with Claude** (needs `ANTHROPIC_API_KEY`), or ask Claude Code to write the plan, or edit the JSON → render a draft → render the final. Install once with `make shorts` (Node.js 18+ required). CLI: `python shorts.py prepare|cut|plan|render`.
+
 ## Tech stack
 
 | Layer | Technology and purpose |
@@ -155,6 +168,7 @@ For setup with all three preparation modes, also install Python 3.12 and run `ba
 | Colored depth | Replicate `lucataco/depth-anything-video`; optional Hugging Face Video Depth Anything or `chenxwh/depth-any-video` |
 | Segmentation | Replicate `lucataco/sam3-video`; raw per-frame masks and mandatory visual review |
 | Face mesh | Local Google MediaPipe Face Landmarker; saved landmarks and overlay, isolated Python 3.12 worker environment |
+| Shorts editor | Local MediaPipe gesture/face tracking and selfie segmentation, whisper.cpp captions, Remotion (React) rendering; optional Claude planner |
 | Generation | Enhancor Seedance; Edit for image references, Omni for video references; draft first, approved 1080p upgrade |
 | Media hosting | Tmpfiles primary; configurable Catbox fallback; direct-link checks before generation |
 | Completion | Persisted job files and polling; callback-only Cloudflare Quick Tunnel for the provider callback requirement |

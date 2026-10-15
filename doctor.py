@@ -3,7 +3,7 @@ import argparse,importlib,shutil,sys
 from config import setting
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--require-keys',action='store_true');parser.add_argument('--mesh',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--require-keys',action='store_true');parser.add_argument('--mesh',action='store_true');parser.add_argument('--shorts',action='store_true');args=parser.parse_args()
     failed=sys.version_info<(3,12)
     print('Python:',sys.version.split()[0], '(3.12+ required)')
     for name in ['av','numpy','PIL','requests','fastapi','uvicorn','multipart','gradio_client','scipy']:
@@ -17,6 +17,17 @@ def main():
         ready=worker.exists() and subprocess.run([str(worker),'-c','import mediapipe,av,PIL,numpy'],capture_output=True).returncode==0
         print('Face mesh worker: '+('OK' if ready else 'MISSING — run bash setup-face-mesh.sh'))
         failed=failed or not ready
+    if args.shorts:
+        from pathlib import Path
+        import subprocess
+        root=Path(__file__).resolve().parent;worker=root/'.venv-face/bin/python'
+        checks={'Tracking worker':worker.exists() and subprocess.run([str(worker),'-c','import mediapipe,av,PIL,numpy'],capture_output=True).returncode==0,
+         'Node.js':bool(shutil.which('node')),'Remotion':(root/'motion/node_modules/remotion').exists(),
+         'whisper.cpp':(root/'motion/whisper.cpp/main').exists() and any((root/'motion/whisper.cpp').glob('ggml-*.bin'))}
+        for name,ok in checks.items():print(name+': '+('OK' if ok else 'MISSING — run make shorts'))
+        print('Shorts planner: '+('Claude API key configured' if setting('ANTHROPIC_API_KEY') else 'no ANTHROPIC_API_KEY — plan with Claude Code or edit the plan JSON'))
+        if not all(checks.values()):print('SHORTS EDITOR NOT READY');return 1
+        print('SHORTS EDITOR READY (local; no paid calls needed)');return 0
     missing=[]
     from seedance_bridge import provider
     try:generator=provider()

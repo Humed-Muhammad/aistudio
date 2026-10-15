@@ -56,11 +56,11 @@ class ShortsPlanTests(unittest.TestCase):
 
  def test_auto_plan_uses_structured_output_and_keeps_chosen_preset(self):
   with tempfile.TemporaryDirectory() as d:
-   p=job(d);response=Mock(stop_reason='end_turn',parsed_output=shorts.Plan(caption_preset='minimal',events=[shorts.Event(type='zoom',start=1,end=2)]))
+   p=job(d);response=Mock(stop_reason='end_turn',parsed_output=shorts.PlannerPlan(caption_preset='minimal',caption_y=.7,highlight_color='#FFE14D',progress_bar=False,notes='',events=[shorts.PZoom(type='zoom',start=1,end=2,scale=1.2,focus='face')]))
    client=Mock();client.beta.messages.parse.return_value=response
    with patch('anthropic.Anthropic',return_value=client),patch('shorts.setting',lambda name,default='':default):plan,_=shorts.plan_auto(p,'notes')
    kwargs=client.beta.messages.parse.call_args.kwargs
-   self.assertIs(kwargs['output_format'],shorts.Plan);self.assertEqual(kwargs['model'],'claude-opus-5-5');self.assertEqual(kwargs['fallbacks'],'default')
+   self.assertIs(kwargs['output_format'],shorts.PlannerPlan);self.assertEqual(kwargs['model'],'claude-opus-5-5');self.assertEqual(kwargs['fallbacks'],'default')
    self.assertEqual(plan.caption_preset,'bold');self.assertEqual(len(plan.events),1)
 
  def test_render_props_bundle_plan_tracks_and_captions(self):
@@ -173,3 +173,17 @@ class ShortsCutApiTests(unittest.TestCase):
     self.assertEqual(client.put(f'/shorts/jobs/{ident}/cut',json={'keep':[7]}).status_code,422)
     j=client.put(f'/shorts/jobs/{ident}/cut',json={'keep':[0,2]}).json()
     self.assertEqual(j['cut']['keep'],[0,2]);self.assertLess(j['cut_summary']['kept'],1.5)
+
+class PlannerSchemaTests(unittest.TestCase):
+ def test_schemas_sent_to_claude_have_no_optional_fields(self):
+  from anthropic.lib._parse._transform import transform_schema
+  for model in [shorts.PlannerPlan,shorts.CutDecision]:
+   schema=transform_schema(model);nodes=[schema]+list(schema.get('$defs',{}).values())
+   optional=sum(len(set(n['properties'])-set(n.get('required',[]))) for n in nodes if isinstance(n,dict) and 'properties' in n)
+   self.assertEqual(optional,0,model.__name__)
+ def test_compact_events_convert_to_full_plan(self):
+  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=True,notes='n',events=[
+   shorts.PFlash(type='flash',start=2),shorts.PSfx(type='sfx',start=2,sound='pop',volume=.5),
+   shorts.PSticker(type='sticker',start=1,end=3,asset='',emoji='🔥',anchor='hand',hand='left',point='palm',trigger='open_palm',animation='pop',idle='float',size=1,x=.5,y=.5)]).to_plan()
+  self.assertEqual([(e.type,e.start,e.end) for e in plan.events],[('flash',2,2.3),('sfx',2,2.3),('sticker',1,3)])
+  self.assertEqual((plan.events[2].trigger,plan.progress_bar),('open_palm',True))

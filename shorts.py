@@ -73,6 +73,39 @@ class CutDecision(BaseModel):
     removed:list[Removal]
     summary:str=Field(description='one or two sentences for the creator: what the short is about and what was cut')
 
+# Planner-facing schema: one compact event per effect with every field required. Structured outputs
+# reject schemas with too many optional fields, which the all-in-one Event has; to_plan() converts back.
+Num=float
+class PText(BaseModel):
+    type:Literal['text'];start:Num;end:Num
+    text:str=Field(description='1-5 words');style:Literal['pop','slide','type'];color:str=Field(description='hex, e.g. #FFFFFF')
+    background:Literal['none','pill'];size:Num=Field(description='1 = 96px headline');x:Num;y:Num=Field(description='vertical centre 0-1')
+    behind_subject:bool
+class PSticker(BaseModel):
+    type:Literal['sticker'];start:Num;end:Num
+    asset:str=Field(description='uploaded image filename, or empty to use emoji');emoji:str
+    anchor:Literal['screen','hand','face'];hand:Literal['any','left','right']=Field(description='screen side of the hand')
+    point:Literal['palm','above_palm','fingertip','above_head','beside_face'];trigger:Literal['time','open_palm','fist','point','pinch','peace','thumbs_up','rock']
+    animation:Literal['pop','spin','drop','fade'];idle:Literal['float','pulse','spin','none']
+    size:Num=Field(description='hand: 1 = one hand length; screen/face: 1 = 30% of frame width');x:Num=Field(description='screen anchor only');y:Num=Field(description='screen anchor only')
+class PZoom(BaseModel):
+    type:Literal['zoom'];start:Num;end:Num;scale:Num=Field(description='1.05-1.4');focus:Literal['face','center']
+class PShake(BaseModel):
+    type:Literal['shake'];start:Num;end:Num;intensity:Num=Field(description='0.3-2')
+class PFlash(BaseModel):
+    type:Literal['flash'];start:Num
+class PSfx(BaseModel):
+    type:Literal['sfx'];start:Num
+    sound:Literal['whoosh','whip','pop','ding','switch','mouse-click','shutter-modern','vine-boom','record-scratch','page-turn','anime-wow','yippee'];volume:Num=Field(description='0.3-0.6')
+class PlannerPlan(BaseModel):
+    caption_preset:Literal['bold','minimal','boxed','none'];caption_y:Num=Field(description='captions vertical centre 0-1, clear of face and stickers')
+    highlight_color:str;progress_bar:bool
+    events:list[PText|PSticker|PZoom|PShake|PFlash|PSfx]
+    notes:str=Field(description='one short paragraph explaining the edit choices to the creator')
+    def to_plan(self):
+        events=[Event(**{'end':e.start+.3,**e.model_dump()}) for e in self.events]
+        return Plan(**{**self.model_dump(exclude={'events'}),'events':events})
+
 def status_file(folder):return Path(folder)/'status.json'
 def save_status(folder,state,message,**extra):
     data={'id':Path(folder).name,'kind':'shorts','state':state,'status':message,**extra}
@@ -456,10 +489,10 @@ def plan_auto(folder,notes='',preset=None):
         betas=['server-side-fallback-2026-07-01'],fallbacks='default',
         system=PLANNER_SYSTEM,
         messages=[{'role':'user','content':images+[{'type':'text','text':text+'\n\nReturn the complete edit plan.'}]}],
-        output_format=Plan)
+        output_format=PlannerPlan)
     if response.stop_reason=='refusal':raise RuntimeError('The planner declined this request.')
-    plan=response.parsed_output
-    if plan is None:raise RuntimeError(f'The planner returned no plan ({response.stop_reason}).')
+    if response.parsed_output is None:raise RuntimeError(f'The planner returned no plan ({response.stop_reason}).')
+    plan=response.parsed_output.to_plan()
     if preset or mode not in (None,'auto'):plan.caption_preset=preset or mode
     return save_plan(folder,plan)
 

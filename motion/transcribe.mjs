@@ -28,6 +28,7 @@ const whisperCppOutput = await transcribe({
   language,
   splitOnWord: true,
   printOutput: false,
+  onProgress: (p) => console.log(`PROGRESS ${p.toFixed(3)}`),
 });
 const { captions } = toCaptions({ whisperCppOutput });
 fs.writeFileSync(

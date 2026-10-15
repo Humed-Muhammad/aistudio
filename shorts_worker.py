@@ -73,6 +73,9 @@ def smooth(track,cuts,fps,n):
  return track
 
 source=root/'source.mp4'
+total=max(1,json.loads((root/'manifest.json').read_text())['frames']) if (root/'manifest.json').exists() else 0
+def progress(value):
+ if total:print(f'PROGRESS {min(1,value):.3f}',flush=True)
 with av.open(str(source)) as c:
  vs=c.streams.video[0];fps=round(float(vs.average_rate));W,H=vs.width,vs.height
 Path(root/'keyframes').mkdir(exist_ok=True)
@@ -84,6 +87,7 @@ with mp.tasks.vision.GestureRecognizer.create_from_options(gesture_opts) as gest
  fg=out.add_stream('libvpx-vp9',rate=fps);fg.width,fg.height,fg.pix_fmt=W,H,'yuva420p';fg.options={'crf':'32','b':'0','deadline':'realtime','cpu-used':'8','row-mt':'1'}
  for i,frame in enumerate(inp.decode(video=0)):
   rgb=np.ascontiguousarray(frame.to_ndarray(format='rgb24'))  # PyAV pads rows; MediaPipe needs packed pixels
+  if i%15==0:progress(.9*i/total)
   ms=round(i*1000/fps);image=mp.Image(image_format=mp.ImageFormat.SRGB,data=rgb)
   small=np.asarray(Image.fromarray(rgb).convert('L').resize((64,64)),dtype=np.float32)
   if previous is not None and np.abs(small-previous).mean()>28:cuts.append(i);alpha_prev=None
@@ -115,6 +119,7 @@ with av.open(str(source)) as inp, av.open(str(root/'tracking-preview.mp4'),'w') 
  st=out.add_stream('libx264',rate=fps);st.width,st.height,st.pix_fmt=PW,PH,'yuv420p';st.options={'crf':'26'}
  for i,frame in enumerate(inp.decode(video=0)):
   im=frame.to_image().resize((PW,PH));d=ImageDraw.Draw(im)
+  if i%60==0:progress(.9+.1*i/total)
   for side,col in [('left',(255,200,40)),('right',(80,220,255))]:
    h=tracks['hands'][side][i]
    if h:

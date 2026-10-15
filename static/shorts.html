@@ -8,104 +8,329 @@
 :root{color-scheme:light;--bg:#fafafb;--card:#fff;--line:#ececef;--muted:#7a7e8a;--accent:#1f18c0}body{color:#2b2f3a;font-family:'Hanken Grotesk',sans-serif}h1{font-family:'Schibsted Grotesk',sans-serif;font-weight:800;color:#16181f}h2,h3,.brand{font-family:'Space Grotesk',sans-serif;color:#16181f;letter-spacing:-.04em}.eyebrow,.number,.badge{font-family:'IBM Plex Mono',monospace}.panel{border-radius:16px;box-shadow:0 1px 2px #16181f0d,0 12px 32px -12px #16181f14}.steps a{background:#fff;color:#2b2f3a}.upload{background:#fafafb;border-color:#d7d9e0}.upload:hover{background:#eef0fb;border-color:#1f18c0}.upload small{color:#7a7e8a}button,.button{background:#1f18c0;color:#fff;border-radius:8px}.secondary{background:#fff;color:#2b2f3a;border-color:#dfe2e8}.badge,.number{background:#eef0fb;color:#1f18c0;border-color:#e3e3f4}label.field{color:#2b2f3a}input:not([type=file]),select,textarea{background:#fafafb;color:#2b2f3a;border-color:#dfe2e8}.status{background:#eef0fb;border-color:#e0e1f0;color:#2b2f3a}.status.error{background:#fff3f3;border-color:#edd1d1}.tabs button{color:#7a7e8a}.tabs button.active{background:#eef0fb;color:#1f18c0}.meta span{background:#f4f4f7;color:#656977}.viewer-foot{background:#fff}.viewer{border-color:#ececef}summary,pre{color:#656977}.empty{border-color:#dfe2e8}.companion{width:92px;height:92px;object-fit:contain;flex-shrink:0;background:#f4f4f7;border-radius:16px}.hero{display:flex;align-items:center;justify-content:space-between;gap:20px}.hero .companion{width:140px;height:140px;background:transparent}.heading .companion{width:48px;height:48px;margin-left:auto;border-radius:10px}header{height:64px;padding-bottom:12px}.brand{font-size:26px}@media(max-width:640px){.hero .companion{width:90px;height:90px}.hero h1{font-size:30px}}
 </style>
 <style>
-.thumbs{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}.thumb{display:grid;gap:6px;justify-items:center;width:112px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fafafb;font-size:11px;color:var(--muted);text-align:center;overflow-wrap:anywhere}.thumb img{width:84px;height:84px;object-fit:contain;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 50%/16px 16px;border-radius:8px}.thumb button{padding:4px 8px;font-size:11px}.stats{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.stats span{padding:6px 10px;border-radius:6px;background:#f4f4f7;color:#656977;font-size:12px}.phone{display:grid;place-items:center;background:#0d0e12;border-radius:14px;padding:12px}.phone video{max-height:640px;width:auto;max-width:100%;border-radius:8px;display:block}textarea.code{font:12px/1.5 'IBM Plex Mono',monospace;min-height:260px}.warnings{margin:12px 0 0;padding-left:18px;color:#a0581b;font-size:13px}.warnings:empty{display:none}.render-row{display:flex;gap:10px;flex-wrap:wrap}
-.steps{grid-template-columns:repeat(5,1fr)}.parts{max-height:480px;overflow:auto;border:1px solid var(--line);border-radius:12px;margin-top:16px}.part{display:grid;grid-template-columns:auto 58px 1fr;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);align-items:start;font-size:14px;line-height:1.5;cursor:pointer}.part:last-child{border-bottom:0}.part input{width:auto;margin-top:4px}.part time{font:12px/1.9 'IBM Plex Mono',monospace;color:var(--muted)}.part.off .text{text-decoration:line-through;color:var(--muted)}.why{display:block;font-size:12px;color:#a0581b}.hook{margin-left:6px;padding:1px 6px;border-radius:4px;background:#eef0fb;color:#1f18c0;font-size:11px}.viewtabs{margin-bottom:10px}@media(max-width:640px){.steps{grid-template-columns:repeat(2,1fr)}}
+main{max-width:1320px}
+.app{display:grid;grid-template-columns:280px 1fr;gap:24px;margin-top:22px;align-items:start}
+.side{position:sticky;top:16px;display:grid;gap:12px}
+.side .eyebrow{margin:8px 4px 0}
+.jobs{display:grid;gap:6px;max-height:calc(100vh - 180px);overflow:auto;padding-right:2px}
+.jobitem{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:8px;border:1px solid transparent;border-radius:12px;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit;width:100%}
+.jobitem:hover{background:#fff;border-color:var(--line)}
+.jobitem.active{background:#fff;border-color:#c9c6f5;box-shadow:0 1px 2px #16181f0d}
+.jobitem img,.jobitem .ph{width:44px;height:60px;object-fit:cover;border-radius:7px;background:#e9eaf0;display:block}
+.jobitem b{display:block;font-size:13px;font-weight:650;color:#16181f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jobitem small{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:3px}
+.dot{width:7px;height:7px;border-radius:50%;background:#c7c9d3;flex-shrink:0}.dot.running{background:#1f18c0;animation:pulse 1.2s infinite}.dot.error{background:#d64545}.dot.final{background:#1f9d55}
+@keyframes pulse{50%{opacity:.3}}
+.empty-list{font-size:13px;color:var(--muted);padding:8px 4px}
+.work{min-width:0}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 1px 2px #16181f0d,0 12px 32px -12px #16181f14}
+.job-head{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.title-input{flex:1;min-width:200px;font:800 26px 'Schibsted Grotesk',sans-serif!important;letter-spacing:-.5px;border:1px solid transparent!important;background:transparent!important;padding:4px 8px!important;margin-left:-8px;border-radius:8px}
+.title-input:hover{border-color:var(--line)!important}.title-input:focus{border-color:#1f18c0!important;background:#fff!important;outline:none}
+.job-meta{font-size:13px;color:var(--muted);width:100%;margin-top:-6px}
+.ghost{background:transparent!important;color:#7a7e8a!important;border:1px solid var(--line)!important;padding:8px 12px!important;font-size:13px!important}
+.ghost:hover{color:#d64545!important;border-color:#edd1d1!important}
+.stepper{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;list-style:none;padding:0;margin:20px 0}
+.stepper button{width:100%;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:center;text-align:left;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:#fff;color:#2b2f3a;font-weight:600}
+.stepper button small{display:block;font-weight:400;font-size:11px;color:var(--muted)}
+.stepper .n{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#f1f2f6;color:#7a7e8a;font:600 12px 'IBM Plex Mono',monospace}
+.stepper .done .n{background:#e3f4ea;color:#1f9d55}.stepper .current{border-color:#1f18c0;box-shadow:0 0 0 3px #1f18c014}.stepper .current .n{background:#1f18c0;color:#fff}
+.stepper .viewing{background:#f6f6ff}.stepper button:disabled{opacity:.45;cursor:not-allowed}
+.activity{display:grid;grid-template-columns:40px 1fr;gap:16px;align-items:center;padding:18px 20px;border-radius:14px;background:#f3f3ff;border:1px solid #dcdcf7;margin-bottom:18px}
+.spinner{width:34px;height:34px;border-radius:50%;border:3px solid #d7d6f5;border-top-color:#1f18c0;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.activity b{font-size:16px;color:#16181f}.activity p{margin:2px 0 10px;color:#4a4e5c}
+.bar{height:8px;border-radius:99px;background:#dedcf6;overflow:hidden}.bar i{display:block;height:100%;width:0;background:#1f18c0;border-radius:99px;transition:width .6s}
+.bar.indeterminate i{width:35%;animation:slide 1.4s ease-in-out infinite}@keyframes slide{0%{margin-left:-35%}100%{margin-left:100%}}
+.activity small{display:block;margin-top:8px;color:#7a7e8a;font-size:12px}
+.problem{padding:18px 20px;border-radius:14px;background:#fff5f5;border:1px solid #f0d0d0;margin-bottom:18px}
+.problem b{color:#a12d2d;font-size:15px}.problem p{margin:4px 0 12px;color:#5c3b3b}
+.problem pre{white-space:pre-wrap;font-size:11px;max-height:160px;overflow:auto}
+.notice{display:flex;gap:10px;align-items:center;padding:12px 16px;border-radius:12px;background:#effaf3;border:1px solid #cdebd8;color:#1d6b40;font-size:14px;margin-bottom:18px}
+.notice::before{content:'✓';font-weight:800}.notice.err{background:#fff5f5;border-color:#f0d0d0;color:#a12d2d}.notice.err::before{content:'!'}
+.step h2{font-size:22px;margin:0 0 4px}.step>p.lead{margin:0 0 20px}
+.big-numbers{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end;padding:16px 20px;border-radius:14px;background:#fafafb;border:1px solid var(--line);margin-bottom:16px}
+.big-numbers div{display:grid;gap:2px}.big-numbers strong{font:800 28px 'Schibsted Grotesk',sans-serif;color:#16181f}.big-numbers span{font-size:12px;color:var(--muted)}
+.big-numbers .arrow{font-size:22px;color:#b3b5c1;align-self:center}
+.ai textarea{min-height:0!important;height:64px}
+.ai{display:grid;gap:10px;padding:16px;border-radius:14px;border:1px dashed #c9c6f5;background:#fbfbff;margin-bottom:16px}
+.ai .row{justify-content:space-between}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.toolbar .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.toolbar .seg button{background:#fff;color:#4a4e5c;border:0;border-radius:0;padding:7px 12px;font-size:13px}.toolbar .seg button.on{background:#eef0fb;color:#1f18c0}
+.small{padding:7px 12px!important;font-size:13px!important}
+.parts{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+.part{display:grid;grid-template-columns:auto 52px 1fr;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);align-items:start;font-size:14px;line-height:1.5;cursor:pointer}
+.part:last-child{border-bottom:0}.part:hover{background:#fafafb}.part input{width:auto;margin-top:4px}
+.part time{font:12px/1.9 'IBM Plex Mono',monospace;color:var(--muted)}.part.off{background:#fcfcfd}.part.off .text{text-decoration:line-through;color:#a3a6b2}
+.why{display:inline-block;margin-top:2px;font-size:12px;color:#a0581b;text-decoration:none}.hook{margin-left:6px;padding:1px 6px;border-radius:4px;background:#eef0fb;color:#1f18c0;font-size:11px}
+.footer{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+.footer .hint{max-width:520px}
+.stale{padding:10px 14px;border-radius:10px;background:#fff8ec;border:1px solid #f1dfbd;color:#7a5216;font-size:13px;margin-bottom:12px}
+.player{display:grid;grid-template-columns:minmax(0,380px) 1fr;gap:24px;align-items:start}
+.phone{display:grid;place-items:center;background:#0d0e12;border-radius:16px;padding:10px}.phone video{width:100%;max-height:640px;border-radius:10px;display:block;background:#000}
+.facts{display:grid;gap:10px}.fact{display:flex;justify-content:space-between;padding:10px 14px;border-radius:10px;background:#fafafb;border:1px solid var(--line);font-size:14px}.fact span{color:var(--muted)}
+.events{display:grid;gap:6px;margin-top:10px}.ev{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#fff}
+.ev time{font:12px 'IBM Plex Mono',monospace;color:var(--muted)}.ev .kind{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#1f18c0;margin-right:6px}
+.ev button{background:transparent;color:#a3a6b2;border:0;padding:4px 8px;font-size:16px}.ev button:hover{color:#d64545}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:18px}
+.thumbs{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}.thumb{display:grid;gap:4px;justify-items:center;width:100px;padding:8px;border:1px solid var(--line);border-radius:10px;font-size:11px;color:var(--muted);text-align:center;overflow-wrap:anywhere;background:#fff}
+.thumb img{width:76px;height:76px;object-fit:contain;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 50%/14px 14px;border-radius:6px}.thumb button{padding:3px 8px;font-size:11px}
+.warnings{margin:12px 0 0;padding:12px 16px 12px 32px;border-radius:10px;background:#fff8ec;color:#7a5216;font-size:13px}.warnings:empty{display:none}
+.exports{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}.export{padding:18px;border:1px solid var(--line);border-radius:14px;display:grid;gap:8px;align-content:start}
+.export h3{margin:0}.export.ready{border-color:#cdebd8;background:#f8fdf9}
+.dropzone{display:grid;place-items:center;gap:8px;padding:48px 24px;border:2px dashed #d7d9e0;border-radius:16px;background:#fafafb;text-align:center;cursor:pointer;position:relative}
+.dropzone.over,.dropzone:hover{border-color:#1f18c0;background:#f3f3ff}.dropzone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.dropzone strong{font-size:17px;color:#16181f}.dropzone .icon{font-size:30px;color:#1f18c0}
+.howto{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:22px}.howto div{padding:12px;border-radius:12px;background:#fafafb;border:1px solid var(--line);font-size:12px;color:var(--muted)}.howto b{display:block;color:#16181f;font-size:13px;margin-bottom:4px}
+code{font-size:12px;background:#f1f2f6;padding:1px 5px;border-radius:4px}
+@media(max-width:900px){.app{grid-template-columns:1fr}.side{position:static}.jobs{grid-auto-flow:column;grid-auto-columns:220px;overflow-x:auto;max-height:none}.stepper{grid-template-columns:repeat(5,minmax(110px,1fr));overflow-x:auto}.player,.exports{grid-template-columns:1fr}.howto{grid-template-columns:1fr 1fr}}
 </style></head><body><main>
-<header><div class="brand">Genjustsu <span class="eyebrow">/ TEIN</span></div><a class="button secondary" href="/">Character workflow →</a></header>
-<div class="hero"><div><span class="eyebrow">SHORTS EDITOR · 9:16</span><h1>Your talk.<br>Cut tight. Pro graphics.</h1><p>Cuts your recording down to what matters, then adds captions, punch-in zooms, text behind you and images that follow your hands. Your voice is never regenerated.</p></div><img class="companion" src="/static/companions/video.webp" alt="TEIN video companion"></div>
-<nav class="steps" aria-label="Workflow"><a href="#source"><b>01</b>Upload</a><a href="#cut"><b>02</b>Cut</a><a href="#review"><b>03</b>Review</a><a href="#plan"><b>04</b>Graphics</a><a href="#render"><b>05</b>Render</a></nav>
-<div id="status" class="status" role="status"><span class="dot"></span><span id="status-text">Start with a vertical recording of up to 10 minutes.</span></div>
+<header><div class="brand">Genjustsu <span class="eyebrow">/ SHORTS EDITOR</span></div><a class="button secondary" href="/">Character workflow →</a></header>
+<div class="app">
+<aside class="side">
+ <button id="new" type="button">＋ New video</button>
+ <span class="eyebrow">Your videos</span>
+ <nav class="jobs" id="jobs" aria-label="Your videos"></nav>
+</aside>
+<section class="work">
 
-<section class="panel" id="source"><div class="heading"><span class="number">01</span><h2>Start with your recording</h2></div>
-<form id="form"><label class="upload"><span class="icon">↑</span><span><strong>Choose vertical video</strong><small data-filename>MP4 or MOV · 9:16 · up to 10 minutes</small></span><input aria-label="Video" required type="file" name="video" accept="video/*"></label>
-<label class="field" style="margin-top:20px">Caption style<select name="preset"><option value="bold">Bold · 1-3 big words, active word highlighted</option><option value="boxed">Boxed · highlight box on the spoken word</option><option value="minimal">Minimal · clean phrases</option><option value="auto">Let the planner choose</option><option value="none">No captions</option></select></label>
-<div class="actions"><span class="hint">Transcribes the full recording locally. Next you choose what to keep.</span><button id="go">Upload & transcribe →</button></div></form></section>
+<div id="start" class="card" hidden>
+ <h2 style="font-size:26px">New video</h2><p>Upload a vertical recording (up to 10 minutes). It's transcribed on this Mac, then you pick what to keep.</p>
+ <form id="upload-form">
+  <label class="dropzone" id="drop"><span class="icon">↑</span><strong id="drop-title">Drop your video here, or click to choose</strong><span class="hint" id="drop-hint">MP4 or MOV · vertical 9:16</span><input type="file" name="video" accept="video/*" required aria-label="Video file"></label>
+  <div class="controls" style="margin-top:18px">
+   <label class="field">Title<input name="title" id="new-title" placeholder="e.g. Telegram bot pitch" maxlength="80"></label>
+   <label class="field">Caption style<select name="preset"><option value="bold">Bold · big words, spoken word highlighted</option><option value="boxed">Boxed · highlight box on the spoken word</option><option value="minimal">Minimal · clean phrases</option><option value="auto">Let Claude choose</option><option value="none">No captions</option></select></label>
+  </div>
+  <div id="upload-progress" class="activity" hidden><div class="spinner"></div><div><b>Uploading your video</b><p id="upload-msg"></p><div class="bar"><i id="upload-bar"></i></div></div></div>
+  <div class="footer"><span class="hint">Nothing leaves your computer at this step.</span><button id="upload-button">Upload & transcribe →</button></div>
+ </form>
+ <div class="howto"><div><b>1 · Transcribe</b>Speech becomes text, locally.</div><div><b>2 · Cut</b>Drop retakes, repeats and dead air.</div><div><b>3 · Review</b>Watch your tightened edit.</div><div><b>4 · Graphics</b>Captions, zooms, images on your hands.</div><div><b>5 · Export</b>Quick draft, then the final.</div></div>
+</div>
 
-<section class="panel" id="cut"><div class="heading"><span class="number">02</span><h2>Cut to what matters</h2></div>
-<p class="hint">Unchecked parts are dropped. Auto-cut removes retakes, repeated points, tangents and dead air. The length follows the content, usually 1–3 minutes.</p>
-<div id="cut-empty" class="empty">Your transcript appears here after upload.</div>
-<div id="cut-ready" hidden><div class="stats" id="cut-stats"></div><p id="cut-summary" class="hint"></p>
-<label class="field">What matters most? (optional)<textarea id="cut-notes" rows="2" placeholder="e.g. Keep the pricing story and the ending. Drop the intro about my week."></textarea></label>
-<div class="actions"><label class="row hint" style="gap:8px"><input type="checkbox" id="tighten" style="width:auto"> Remove filler words (um, uh) and long pauses</label><button id="auto-cut" type="button" class="secondary">Auto-cut with Claude</button></div>
-<div class="parts" id="parts"></div>
-<div class="actions"><span class="hint">Builds your edited video and tracks it. Applying again resets the graphics plan.</span><button id="apply-cut" type="button">Apply cut →</button></div></div></section>
+<div id="job" hidden>
+ <div class="card" style="padding-bottom:6px">
+  <div class="job-head"><input id="title" class="title-input" aria-label="Video title" maxlength="80"><button id="delete" type="button" class="ghost">Delete</button><div id="job-meta" class="job-meta"></div></div>
+  <ol class="stepper" id="stepper"></ol>
+ </div>
+ <div style="height:16px"></div>
+ <div id="activity" class="activity" hidden><div class="spinner"></div><div><b id="act-title"></b><p id="act-msg"></p><div class="bar" id="act-barwrap"><i id="act-bar"></i></div><small id="act-time"></small></div></div>
+ <div id="problem" class="problem" hidden><b id="prob-title">Something went wrong</b><p id="prob-msg"></p><div class="row"><button id="retry" type="button">Try again</button><details><summary class="hint">Technical details</summary><pre id="prob-detail"></pre></details></div></div>
+ <div id="notice" class="notice" hidden></div>
 
-<section class="panel" id="review"><div class="heading"><span class="number">03</span><h2>Review the cut</h2></div>
-<p class="hint">Watch the cut with sound. In Tracking: yellow = hand on the left of the screen, blue = right, green = face, red border = scene change. Graphics follow exactly these positions.</p>
-<div id="review-empty" class="empty">Your edited video appears here after you apply the cut.</div>
-<div id="review-ready" hidden><div class="stats" id="stats"></div><div class="tabs viewtabs" role="group" aria-label="Review video"><button type="button" id="view-cut" class="active">Cut video</button><button type="button" id="view-tracking">Tracking</button></div><div class="phone"><video id="review-video" controls playsinline preload="metadata"></video></div>
-<details style="margin-top:14px"><summary>Transcript of the cut</summary><p id="transcript" class="hint"></p></details></div></section>
+ <section class="card step" data-step="transcribe" hidden>
+  <h2>Transcribing your recording</h2><p class="lead">This runs on your Mac. A 10-minute video takes about 2–3 minutes. You can leave this page and come back.</p>
+ </section>
 
-<section class="panel" id="plan"><div class="heading"><span class="number">04</span><h2>Plan graphics</h2></div>
-<h3>Images to animate</h3><p class="hint">Upload logos, products or icons. Transparent PNGs look best. Refer to them by file name.</p>
-<label class="upload"><span class="icon">＋</span><span><strong>Add images</strong><small>PNG, JPG, WebP or GIF</small></span><input id="assets" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Add images"></label>
-<div class="thumbs" id="thumbs"></div>
-<label class="field" style="margin-top:22px">What do you want?<textarea id="notes" rows="3" placeholder="e.g. Put logo.png on my open palm when I say “our app”. Big zoom on the price. Keep it clean."></textarea></label>
-<div class="actions"><span class="hint">Claude plans from your transcript, frames, tracking and images. Or ask Claude Code in your terminal to plan job <b id="job-id">—</b>.</span><button id="auto" type="button" disabled>Auto-plan with Claude →</button></div>
-<p id="plan-notes" class="hint"></p>
-<details id="plan-details"><summary>Edit plan JSON</summary><textarea id="plan-json" class="code" spellcheck="false"></textarea><div class="actions"><span class="hint">Times are in seconds of the cut video. Hand left/right = side of the screen.</span><button id="save-plan" type="button" class="secondary" disabled>Save plan</button></div></details>
-<ul id="warnings" class="warnings"></ul></section>
+ <section class="card step" data-step="cut" hidden>
+  <h2>Keep what matters</h2><p class="lead">Your recording is split into parts. Unchecked parts are cut. Retakes, repeated points and dead air should go; the length follows the content.</p>
+  <div class="big-numbers" id="cut-numbers"></div>
+  <div class="ai" id="ai-cut">
+   <label class="field">Tell Claude what matters (optional)<textarea id="cut-notes" rows="2" placeholder="e.g. Keep the pricing story and the ending. Drop the intro about my week."></textarea></label>
+   <div class="row"><span class="hint" id="cut-ai-hint">Claude reads the transcript and unchecks retakes, repeats, tangents and dead air. You can change anything after.</span><button id="auto-cut" type="button" class="act">✨ Auto-cut with Claude</button></div>
+  </div>
+  <p id="cut-summary" class="hint"></p>
+  <div class="toolbar">
+   <span class="seg" id="cut-filter"><button type="button" data-f="all" class="on">All parts</button><button type="button" data-f="kept">Kept</button><button type="button" data-f="removed">Cut</button></span>
+   <button type="button" class="secondary small act" id="keep-all">Keep all</button>
+   <label class="row hint" style="gap:8px;margin-left:auto"><input type="checkbox" id="tighten" style="width:auto" class="act"> Also remove “um/uh” and long pauses</label>
+  </div>
+  <div class="parts" id="parts"></div>
+  <div class="footer"><span class="hint" id="cut-footer-hint">Next, your edit is built and tracked (about 2× its length). Nothing is uploaded.</span><button id="apply-cut" type="button" class="act">Build my edit →</button></div>
+ </section>
 
-<section class="panel" id="render"><div class="heading"><span class="number">05</span><h2>Render</h2></div>
-<p class="hint">Draft renders at half resolution for fast review. Final renders at full resolution with your voice and any sound effects.</p>
-<div class="render-row"><button id="draft" type="button" disabled>Render draft</button><button id="final" type="button" class="secondary" disabled>Render final →</button></div>
-<div id="render-empty" class="empty" style="margin-top:18px">Your edit appears here.</div>
-<div id="render-ready" hidden style="margin-top:18px"><div class="tabs" id="tabs" role="group" aria-label="Preview selection"></div><div class="phone"><video id="result-video" controls playsinline preload="metadata"></video></div><div class="viewer-foot"><span class="badge" id="result-label"></span><a id="result-download" download>Download ↓</a></div></div></section>
-</main>
+ <section class="card step" data-step="review" hidden>
+  <h2>Watch your edit</h2><p class="lead">This is your cut with your original voice. Check that nothing important is missing before adding graphics.</p>
+  <div id="review-stale" class="stale" hidden>You changed the cut after building it. Go back to <b>Cut</b> and press “Build my edit” to update this video.</div>
+  <div class="player"><div><div class="toolbar" style="margin-top:0"><span class="seg"><button type="button" id="view-cut" class="on">Your edit</button><button type="button" id="view-tracking">Tracking overlay</button></span></div><div class="phone"><video id="review-video" controls playsinline preload="metadata"></video></div></div>
+   <div class="facts" id="facts"></div></div>
+  <details style="margin-top:16px"><summary>Read the transcript of your edit</summary><p id="transcript" class="hint"></p></details>
+  <div class="footer"><button type="button" class="secondary" id="back-to-cut">← Change the cut</button><button type="button" id="to-graphics">Looks good · add graphics →</button></div>
+ </section>
+
+ <section class="card step" data-step="graphics" hidden>
+  <h2>Captions & graphics</h2><p class="lead">Pick a caption style, add images you want on screen, then let Claude plan zooms, text pops and stickers—or ask Claude Code to do it.</p>
+  <div class="controls">
+   <label class="field">Caption style<select id="caption-style" class="act"><option value="bold">Bold · big words</option><option value="boxed">Boxed highlight</option><option value="minimal">Minimal</option><option value="none">No captions</option></select></label>
+   <label class="field">Highlight color<input id="highlight" type="color" class="act" style="height:44px;padding:4px"></label>
+   <label class="field">Progress bar<select id="progress-bar" class="act"><option value="false">Off</option><option value="true">On (top of video)</option></select></label>
+  </div>
+  <h3>Images to animate</h3><p class="hint" style="margin-top:-6px">Logos, products, icons. Transparent PNGs look best. They can sit on your palm, follow your finger, or float above your head.</p>
+  <label class="dropzone" style="padding:22px"><span><strong style="font-size:15px">＋ Add images</strong></span><span class="hint">PNG, JPG, WebP or GIF</span><input id="assets" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Add images"></label>
+  <div class="thumbs" id="thumbs"></div>
+  <div class="ai" style="margin-top:18px">
+   <label class="field">What do you want? (optional)<textarea id="notes" rows="2" placeholder="e.g. Put logo.png on my open palm when I say “our app”. Big zoom on the price. Keep it clean."></textarea></label>
+   <div class="row"><span class="hint" id="plan-ai-hint">Claude watches frames, reads the transcript and tracking, then plans the effects.</span><button id="auto" type="button" class="act">✨ Auto-plan graphics</button></div>
+  </div>
+  <h3 style="margin-top:20px">Planned graphics <span class="hint" id="event-count"></span></h3>
+  <p id="plan-notes" class="hint"></p>
+  <div class="events" id="events"></div>
+  <ul id="warnings" class="warnings"></ul>
+  <details style="margin-top:14px"><summary>Advanced · edit the plan as JSON</summary><textarea id="plan-json" class="code" spellcheck="false" style="min-height:240px;font:12px/1.5 'IBM Plex Mono',monospace"></textarea><div class="row" style="margin-top:8px"><button id="save-plan" type="button" class="secondary small act">Save JSON</button><span class="hint">Times are seconds in your edit. Hand left/right = screen side.</span></div></details>
+  <div class="footer"><span class="hint">Ask Claude Code: “plan graphics for shorts job <code id="job-id"></code>”.</span><button id="to-render" type="button">Next · export →</button></div>
+ </section>
+
+ <section class="card step" data-step="render" hidden>
+  <h2>Export</h2><p class="lead">Render a quick draft to check timing, then the final in full quality. Everything renders on this Mac.</p>
+  <div class="exports">
+   <div class="export" id="draft-card"><h3>Draft</h3><span class="hint">Half resolution · about 3× the video length</span><div class="row"><button id="draft" type="button" class="act">Render draft</button><a id="draft-dl" class="hint" download hidden>Download ↓</a></div></div>
+   <div class="export" id="final-card"><h3>Final</h3><span class="hint">Full quality, ready to post</span><div class="row"><button id="final" type="button" class="act">Render final</button><a id="final-dl" class="hint" download hidden>Download ↓</a></div></div>
+  </div>
+  <div class="toolbar"><span class="seg" id="result-tabs"></span></div>
+  <div class="phone" id="result-wrap" hidden style="max-width:420px"><video id="result-video" controls playsinline preload="metadata"></video></div>
+  <div class="footer"><button type="button" class="secondary" id="back-to-graphics">← Change graphics</button><span class="hint">Re-render any time after changing the cut or graphics.</span></div>
+ </section>
+</div>
+</section></div></main>
 <script>
-const $=s=>document.querySelector(s);let jobId=new URLSearchParams(location.search).get('job'),job=null,poll,shown='',planDirty=false,reviewFile='source.mp4';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const params=new URLSearchParams(location.search);
+let jobId=params.get('job'),job=null,jobs=[],view=null,lastCurrent=null,poll,listPoll,planDirty=false,cutFilter='all',reviewFile='source.mp4',resultFile=null;
 const base=()=>'/runs/'+jobId+'/';
-const clock=t=>`${Math.floor(t/60)}:${String(Math.round(t%60)).padStart(2,'0')}`;
-function status(t,error=false){$('#status-text').textContent=t;$('#status').classList.toggle('error',error)}
-async function json(url,options){const r=await fetch(url,options);const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(typeof j.detail==='string'?j.detail:'The request could not be completed.');return j}
-const busy=()=>job&&['preparing','cutting','planning','rendering'].includes(job.state);
-function setVideo(el,src){if(el.dataset.src!==src){el.src=src;el.dataset.src=src}}
-function chips(el,items){el.replaceChildren(...items.map(s=>{const e=document.createElement('span');e.textContent=s;return e}))}
-function showCut(j){
- if(!j.cut){$('#cut-empty').hidden=false;$('#cut-ready').hidden=true;return}
- $('#cut-empty').hidden=true;$('#cut-ready').hidden=false;const c=j.cut,sum=j.cut_summary;
- if(sum)chips($('#cut-stats'),sum.whole?[`Original ${clock(sum.original)}`,'Keeping everything as recorded']:[`Original ${clock(sum.original)}`,`Keeping ${clock(sum.kept)}`,`${sum.kept_parts} of ${sum.parts} parts`,`${sum.jumps} pieces`]);
- $('#cut-summary').textContent=c.summary||(j.units.length?'':'No speech found: the whole video will be used.');
- $('#tighten').checked=c.tighten;const why=Object.fromEntries((c.removed||[]).map(r=>[r.id,r.why])),hook=c.keep.length>1&&c.keep[0]>c.keep[1]?c.keep[0]:null;
- $('#parts').replaceChildren(...j.units.map(u=>{const on=c.keep.includes(u.id),row=document.createElement('label');row.className='part'+(on?'':' off');
-  const box=document.createElement('input');box.type='checkbox';box.checked=on;box.disabled=busy();box.onchange=()=>toggle(u.id,box.checked);
-  const time=document.createElement('time');time.textContent=clock(u.start);const text=document.createElement('span');text.className='text';text.textContent=u.text;
-  if(u.id===hook){const h=document.createElement('span');h.className='hook';h.textContent='HOOK · plays first';text.append(h)}
-  if(!on&&why[u.id]){const w=document.createElement('span');w.className='why';w.textContent=why[u.id];text.append(w)}
-  row.append(box,time,text);return row}));
- for(const id of ['#auto-cut','#apply-cut','#tighten'])$(id).disabled=busy();
+const clock=t=>t==null?'–':`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
+const ago=s=>{const m=Math.round((Date.now()/1000-s)/60);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':new Date(s*1000).toLocaleDateString()};
+function h(tag,attrs={},...kids){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==='class')e.className=v;else if(k.startsWith('on'))e[k]=v;else if(v!==false&&v!=null)e.setAttribute(k,v===true?'':v)}e.append(...kids.flat().filter(k=>k!=null&&k!==false));return e}
+async function api(url,options){const r=await fetch(url,options);const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(typeof j.detail==='string'?j.detail:'Something went wrong. Please try again.');return j}
+const sendJSON=(url,method,body)=>api(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+function toast(msg,error=false){const n=$('#notice');n.hidden=false;n.textContent=msg;n.classList.toggle('err',error)}
+const running=()=>job&&job.state==='running';
+const ACTION={transcribe:'Transcribing',autocut:'Claude is choosing what to keep',apply:'Building your edit',plan:'Claude is planning graphics',render:'Rendering'};
+const FAIL={transcribe:"We couldn't transcribe this video",autocut:"Auto-cut didn't finish",apply:"We couldn't build your edit",plan:"Auto-plan didn't finish",render:"The render failed"};
+
+/* ---------- job list ---------- */
+async function loadJobs(){try{jobs=await api('/shorts/jobs');drawJobs()}catch{}clearTimeout(listPoll);listPoll=setTimeout(loadJobs,jobs.some(j=>j.state==='running')?3000:15000)}
+function drawJobs(){
+ const list=$('#jobs');if(!jobs.length){list.replaceChildren(h('div',{class:'empty-list'},'No videos yet. Start with “New video”.'));return}
+ list.replaceChildren(...jobs.map(j=>{const st=j.state==='running'?`${ACTION[j.action]||'Working'}${j.progress!=null?' '+Math.round(j.progress*100)+'%':'…'}`:j.state==='error'?'Needs attention':j.stage;
+  const dot=j.state==='running'?'running':j.state==='error'?'error':j.stage==='Final ready'?'final':'';
+  return h('button',{type:'button',class:'jobitem'+(j.id===jobId?' active':''),onclick:()=>openJob(j.id)},
+   j.thumb?h('img',{src:j.thumb,alt:''}):h('span',{class:'ph'}),
+   h('span',{},h('b',{},j.title),h('small',{},h('span',{class:'dot '+dot}),`${j.duration?clock(j.duration)+' · ':''}${st}`)))}))
 }
-async function saveCut(cut){try{show(await json(`/shorts/jobs/${jobId}/cut`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(cut)}))}catch(e){status(e.message,true);refresh()}}
-function toggle(id,on){const c=structuredClone(job.cut),hook=c.keep.length>1&&c.keep[0]>c.keep[1]?c.keep[0]:null;let rest=c.keep.filter(k=>k!==id&&k!==hook);if(on)rest.push(id);rest.sort((a,b)=>a-b);c.keep=hook!==null&&hook!==id?[hook,...rest]:rest;if(on)c.removed=(c.removed||[]).filter(r=>r.id!==id);saveCut(c)}
+function openJob(id,step=null){jobId=id;view=step;lastCurrent=null;planDirty=false;resultFile=null;history.pushState(null,'','?job='+id);$('#start').hidden=true;$('#job').hidden=false;$('#notice').hidden=true;drawJobs();refresh()}
+function newVideo(){jobId=null;job=null;history.pushState(null,'','/shorts');$('#job').hidden=true;$('#start').hidden=false;drawJobs()}
+$('#new').onclick=newVideo;window.onpopstate=()=>{const id=new URLSearchParams(location.search).get('job');id?openJob(id):newVideo()};
+
+/* ---------- upload ---------- */
+const drop=$('#drop'),fileInput=drop.querySelector('input');
+['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));['dragleave','drop'].forEach(e=>drop.addEventListener(e,()=>drop.classList.remove('over')));
+drop.addEventListener('drop',ev=>{ev.preventDefault();if(ev.dataTransfer.files[0]){fileInput.files=ev.dataTransfer.files;fileInput.onchange()}});
+fileInput.onchange=()=>{const f=fileInput.files[0];if(!f)return;$('#drop-title').textContent=f.name;$('#drop-hint').textContent=(f.size/1048576).toFixed(0)+' MB · ready to upload';if(!$('#new-title').value)$('#new-title').value=f.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ')};
+$('#upload-form').onsubmit=e=>{e.preventDefault();if(!fileInput.files[0])return;const data=new FormData(e.target),x=new XMLHttpRequest();$('#upload-button').disabled=true;$('#upload-progress').hidden=false;
+ x.upload.onprogress=p=>{if(p.lengthComputable){$('#upload-bar').style.width=(100*p.loaded/p.total)+'%';$('#upload-msg').textContent=`${(p.loaded/1048576).toFixed(0)} of ${(p.total/1048576).toFixed(0)} MB`}};
+ x.onload=()=>{$('#upload-button').disabled=false;$('#upload-progress').hidden=true;let j={};try{j=JSON.parse(x.responseText)}catch{}if(x.status>=300){toastStart(j.detail||'Upload failed.');return}e.target.reset();$('#drop-title').textContent='Drop your video here, or click to choose';$('#drop-hint').textContent='MP4 or MOV · vertical 9:16';loadJobs();openJob(j.id)};
+ x.onerror=()=>{$('#upload-button').disabled=false;$('#upload-progress').hidden=true;toastStart('Upload failed. Is the app still running?')};x.open('POST','/shorts/jobs');x.send(data)};
+function toastStart(msg){$('#upload-msg').textContent=msg;$('#upload-progress').hidden=false;$('#upload-progress').querySelector('b').textContent='Upload problem';$('#upload-progress').querySelector('.spinner').hidden=true}
+
+/* ---------- steps ---------- */
+const STEPS=[['transcribe','Transcribe','Speech to text'],['cut','Cut','Keep what matters'],['review','Review','Watch your edit'],['graphics','Graphics','Captions & effects'],['render','Export','Draft & final']];
+function stepState(j){const t=!!j.cut,built=!!j.tracking,planned=!!(j.plan&&j.plan.events.length),seen=localStorage.getItem('reviewed:'+jobId)==='1';
+ const done={transcribe:t,cut:built,review:built&&(seen||planned||!!j.files['shorts-draft.mp4']),graphics:planned,render:!!j.files['shorts-final.mp4']};
+ const open={transcribe:true,cut:t,review:built,graphics:built,render:built};
+ return {done,open,current:STEPS.map(s=>s[0]).find(k=>!done[k]&&open[k])||'render'}}
+function drawSteps(j,st){$('#stepper').replaceChildren(...STEPS.map(([k,label,hint],i)=>h('li',{},h('button',{type:'button',disabled:!st.open[k],class:[st.done[k]?'done':'',st.current===k?'current':'',view===k?'viewing':''].join(' '),onclick:()=>{view=k;show(job)}},h('span',{class:'n'},st.done[k]?'✓':String(i+1)),h('span',{},label,h('small',{},hint))))))}
+
+/* ---------- render the whole job ---------- */
 function show(j){
- job=j;status(j.status||'',j.state==='error');$('#job-id').textContent=jobId;showCut(j);
- const ready=!!j.tracking;$('#auto').disabled=!ready||busy();$('#save-plan').disabled=!ready||busy();$('#draft').disabled=!j.plan||busy();$('#final').disabled=!j.plan||busy();$('#go').disabled=busy();
- $('#review-empty').hidden=ready;$('#review-ready').hidden=!ready;
- if(ready){const t=j.tracking,pct=n=>Math.round(100*n/t.frames)+'%';
-  chips($('#stats'),[`${clock(j.manifest.duration)}`,`Face ${pct(t.face)}`,`Left hand ${pct(t.left)}`,`Right hand ${pct(t.right)}`,`${t.cuts} scene changes`,`Speech: ${j.transcript.language||'none'}`]);
-  if(!j.files[reviewFile])reviewFile='tracking-preview.mp4';setVideo($('#review-video'),base()+reviewFile+'?'+j.files[reviewFile]);
-  $('#view-cut').classList.toggle('active',reviewFile==='source.mp4');$('#view-tracking').classList.toggle('active',reviewFile!=='source.mp4');
-  $('#transcript').textContent=j.transcript.text||'No speech detected.'}
- $('#thumbs').replaceChildren(...j.assets.map(name=>{const d=document.createElement('div');d.className='thumb';const img=document.createElement('img');img.src=base()+'assets/'+name;img.alt=name;const n=document.createElement('span');n.textContent=name;const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='Remove';b.onclick=async()=>{try{show(await json(`/shorts/jobs/${jobId}/assets/${encodeURIComponent(name)}`,{method:'DELETE'}))}catch(e){status(e.message,true)}};d.append(img,n,b);return d}));
- if(!planDirty){$('#plan-json').value=j.plan?JSON.stringify(j.plan,null,1):'';$('#plan-notes').textContent=j.plan?.notes||''}
- $('#warnings').replaceChildren(...j.warnings.map(w=>{const li=document.createElement('li');li.textContent=w;return li}));
- const outs=[['shorts-final.mp4','Final'],['shorts-draft.mp4','Draft']].filter(([f])=>j.files[f]);
- $('#render-empty').hidden=!!outs.length;$('#render-ready').hidden=!outs.length;
- if(outs.length){$('#tabs').replaceChildren(...outs.map(([f,label])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>pick(f,label);return b}));pick(...(outs.find(([f])=>f===shown)||outs[0]))}
+ job=j;$('#job-id').textContent=jobId;if(document.activeElement!==$('#title'))$('#title').value=j.title;
+ $('#job-meta').textContent=`Uploaded ${ago(j.created)}${j.cut_summary?' · original '+clock(j.cut_summary.original):''}${j.manifest?' · edit '+clock(j.manifest.duration):''}`;
+ const st=stepState(j);if(!view||(lastCurrent&&view===lastCurrent&&st.current!==lastCurrent)||!st.open[view])view=st.current;lastCurrent=st.current;drawSteps(j,st);
+ $$('.step').forEach(s=>s.hidden=s.dataset.step!==view);
+ // activity / problem / notice
+ const act=$('#activity');act.hidden=!running();
+ if(running()){$('#act-title').textContent=ACTION[j.action]||'Working';$('#act-msg').textContent=j.status;
+  const p=j.progress;$('#act-barwrap').classList.toggle('indeterminate',p==null);$('#act-bar').style.width=p==null?'':(Math.max(2,p*100))+'%';
+  tick()}
+ $('#problem').hidden=j.state!=='error';if(j.state==='error'){$('#prob-title').textContent=FAIL[j.action]||'Something went wrong';$('#prob-msg').textContent=friendly(j.status);$('#prob-detail').textContent=j.status}
+ if(j.state==='done'&&j.finished&&Date.now()/1000-j.finished<600&&$('#notice').dataset.for!==String(j.finished)){toast(j.status);$('#notice').dataset.for=String(j.finished)}
+ if(running())$('#notice').hidden=true;
+ $$('.act').forEach(b=>b.disabled=running());
+ drawCut(j);drawReview(j);drawGraphics(j);drawRender(j);
+ const item=jobs.find(x=>x.id===jobId);if(item&&(item.state!==j.state||item.progress!==j.progress||item.stage!==j.stage||item.title!==j.title)){Object.assign(item,{state:j.state,progress:j.progress,stage:j.stage,title:j.title,action:j.action});drawJobs()}
 }
-function pick(file,label){shown=file;const src=base()+file+'?'+job.files[file];document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.textContent===label));setVideo($('#result-video'),src);$('#result-label').textContent=label.toUpperCase();$('#result-download').href=src}
-async function refresh(){if(!jobId)return;try{show(await json('/shorts/jobs/'+jobId));clearTimeout(poll);if(busy())poll=setTimeout(refresh,2000)}catch(e){status(e.message,true)}}
-async function post(url,data){try{show(await json(url,{method:'POST',body:data}));refresh()}catch(e){status(e.message,true)}}
-for(const input of document.querySelectorAll('#form input[type=file]'))input.onchange=()=>{const f=input.files[0];if(f)input.closest('.upload').querySelector('[data-filename]').textContent=f.name};
-$('#form').onsubmit=async e=>{e.preventDefault();$('#go').disabled=true;try{status('Uploading…');const j=await json('/shorts/jobs',{method:'POST',body:new FormData(e.target)});jobId=j.id;history.replaceState(null,'','?job='+jobId);planDirty=false;show(j);refresh()}catch(err){status(err.message,true);$('#go').disabled=false}};
+function friendly(msg){if(/ANTHROPIC_API_KEY/.test(msg))return 'Claude isn’t set up yet: add ANTHROPIC_API_KEY to the .env file and restart the app. You can also do this step by hand.';
+ if(/Interrupted/.test(msg))return 'The app was restarted while this was running.';if(/vertical/.test(msg))return 'This editor needs a vertical (9:16) video.';if(/minutes or less/.test(msg))return msg;
+ if(/credit|billing|402/.test(msg))return 'Your Anthropic account seems to be out of credit.';if(/overloaded|529|rate/i.test(msg))return 'Claude is busy right now. Wait a moment and try again.';return 'Try again. If it keeps failing, share the technical details with Claude Code.'}
+$('#retry').onclick=()=>{const a=job.action;if(a==='transcribe')post('transcribe');else if(a==='autocut')$('#auto-cut').onclick();else if(a==='apply')post('cut/apply');else if(a==='plan')$('#auto').onclick();else if(a==='render')renderVideo(!!job.final);else refresh()};
+
+/* ---------- cut ---------- */
+function drawCut(j){
+ if(!j.cut)return;const c=j.cut,s=j.cut_summary||{};
+ $('#cut-numbers').replaceChildren(h('div',{},h('strong',{},clock(s.original)),h('span',{},'recorded')),h('span',{class:'arrow'},'→'),h('div',{},h('strong',{},clock(s.kept)),h('span',{},'your edit')),
+  h('div',{},h('strong',{},`${s.kept_parts??'–'}/${s.parts??'–'}`),h('span',{},'parts kept')),s.whole?null:h('div',{},h('strong',{},String(s.jumps??'–')),h('span',{},'pieces joined')));
+ $('#cut-summary').textContent=c.summary?('Claude: '+c.summary):(j.units.length?'':'No speech found, so the whole video is used.');
+ $('#auto-cut').disabled=running()||!j.planner_available;$('#cut-ai-hint').textContent=j.planner_available?'Claude reads the transcript and unchecks retakes, repeats, tangents and dead air. You can change anything after.':'Add ANTHROPIC_API_KEY to .env to use this, or ask Claude Code: “cut shorts job '+jobId+'”.';
+ $('#tighten').checked=c.tighten;
+ const why=Object.fromEntries((c.removed||[]).map(r=>[r.id,r.why])),hook=c.keep.length>1&&c.keep[0]>c.keep[1]?c.keep[0]:null,keep=new Set(c.keep);
+ const rows=j.units.filter(u=>cutFilter==='all'||(cutFilter==='kept')===keep.has(u.id));
+ $('#parts').replaceChildren(...rows.map(u=>{const on=keep.has(u.id);return h('label',{class:'part'+(on?'':' off')},
+  h('input',{type:'checkbox',checked:on,disabled:running(),onchange:e=>toggle(u.id,e.target.checked)}),h('time',{},clock(u.start)),
+  h('span',{class:'text'},u.text,u.id===hook?h('span',{class:'hook'},'HOOK · plays first'):null,!on&&why[u.id]?h('div',{},h('span',{class:'why'},'Cut: '+why[u.id])):null))}));
+ if(!rows.length)$('#parts').replaceChildren(h('div',{class:'empty-list',style:'padding:16px'},'Nothing here.'));
+ const stale=j.files['source.mp4']&&j.cut_mtime>j.files['source.mp4'];$('#apply-cut').textContent=j.tracking?(stale?'Rebuild my edit →':'Rebuild my edit'):'Build my edit →';
+ $('#cut-footer-hint').textContent=stale?'You changed the cut. Rebuild to update your edit (graphics will be reset).':j.tracking?'Your edit is built. Rebuilding resets the graphics plan.':'Next, your edit is built and tracked (about 2× its length). Nothing is uploaded.';
+}
+$$('#cut-filter button').forEach(b=>b.onclick=()=>{cutFilter=b.dataset.f;$$('#cut-filter button').forEach(x=>x.classList.toggle('on',x===b));drawCut(job)});
+async function saveCut(cut){try{show(await sendJSON(`/shorts/jobs/${jobId}/cut`,'PUT',cut))}catch(e){toast(e.message,true);refresh()}}
+function toggle(id,on){const c=structuredClone(job.cut),hook=c.keep.length>1&&c.keep[0]>c.keep[1]?c.keep[0]:null;let rest=c.keep.filter(k=>k!==id&&k!==hook);if(on)rest.push(id);rest.sort((a,b)=>a-b);c.keep=hook!==null&&hook!==id?[hook,...rest]:rest;saveCut(c)}
+$('#keep-all').onclick=()=>saveCut({...job.cut,keep:job.units.map(u=>u.id),removed:[]});
 $('#tighten').onchange=()=>saveCut({...job.cut,tighten:$('#tighten').checked});
-$('#auto-cut').onclick=()=>{const data=new FormData();data.set('notes',$('#cut-notes').value);post(`/shorts/jobs/${jobId}/cut/auto`,data)};
-$('#apply-cut').onclick=()=>{planDirty=false;reviewFile='source.mp4';post(`/shorts/jobs/${jobId}/cut/apply`)};
-$('#view-cut').onclick=()=>{reviewFile='source.mp4';show(job)};$('#view-tracking').onclick=()=>{reviewFile='tracking-preview.mp4';show(job)};
-$('#assets').onchange=async e=>{if(!jobId){status('Upload your video first.',true);return}const data=new FormData();[...e.target.files].forEach(f=>data.append('images',f));try{show(await json(`/shorts/jobs/${jobId}/assets`,{method:'POST',body:data}))}catch(err){status(err.message,true)}e.target.value=''};
-$('#auto').onclick=()=>{const data=new FormData();data.set('notes',$('#notes').value);planDirty=false;post(`/shorts/jobs/${jobId}/plan/auto`,data)};
+$('#auto-cut').onclick=()=>{const d=new FormData();d.set('notes',$('#cut-notes').value);post('cut/auto',d)};
+$('#apply-cut').onclick=()=>{if(job.plan&&job.plan.events.length&&!confirm('Rebuilding resets your planned graphics. Continue?'))return;localStorage.removeItem('reviewed:'+jobId);reviewFile='source.mp4';post('cut/apply')};
+
+/* ---------- review ---------- */
+function setVideo(el,src){if(el.dataset.src!==src){el.src=src;el.dataset.src=src}}
+function drawReview(j){if(!j.tracking)return;const t=j.tracking,pct=n=>Math.round(100*n/t.frames)+'%';
+ const stale=j.files['source.mp4']&&j.cut_mtime>j.files['source.mp4'];$('#review-stale').hidden=!stale;
+ if(!j.files[reviewFile])reviewFile='tracking-preview.mp4';setVideo($('#review-video'),base()+reviewFile+'?'+j.files[reviewFile]);
+ $('#view-cut').classList.toggle('on',reviewFile==='source.mp4');$('#view-tracking').classList.toggle('on',reviewFile!=='source.mp4');
+ $('#facts').replaceChildren(...[['Length',clock(j.manifest.duration)],['Face found',pct(t.face)],['Left-side hand visible',pct(t.left)],['Right-side hand visible',pct(t.right)],['Scene changes',String(t.cuts)],['Language',j.transcript.language||'none']].map(([a,b])=>h('div',{class:'fact'},h('span',{},a),h('b',{},b))),
+  h('p',{class:'hint'},'Graphics can follow your face and hands only where they are found. Use “Tracking overlay” to check.'));
+ $('#transcript').textContent=j.transcript.text||'No speech detected.'}
+$('#view-cut').onclick=()=>{reviewFile='source.mp4';drawReview(job)};$('#view-tracking').onclick=()=>{reviewFile='tracking-preview.mp4';drawReview(job)};
+$('#back-to-cut').onclick=()=>{view='cut';show(job)};$('#to-graphics').onclick=()=>{localStorage.setItem('reviewed:'+jobId,'1');view='graphics';show(job)};
+
+/* ---------- graphics ---------- */
+function describe(e){const t=`${e.start.toFixed(1)}s`;
+ if(e.type==='text')return['Text',`“${e.text}”${e.behind_subject?' behind you':''}`];
+ if(e.type==='sticker'){const what=e.asset||e.emoji;const where=e.anchor==='hand'?`on ${e.hand==='any'?'a':e.hand+'-side'} hand${e.trigger!=='time'?' when '+e.trigger.replace('_',' '):''}`:e.anchor==='face'?(e.point==='beside_face'?'beside your face':'above your head'):'on screen';return['Image',`${what} ${where}`]}
+ if(e.type==='zoom')return['Zoom',`punch in ${e.scale}× on ${e.focus==='face'?'your face':'the center'}`];
+ if(e.type==='shake')return['Shake','camera shake'];if(e.type==='flash')return['Flash','white flash'];if(e.type==='sfx')return['Sound',e.sound];return[e.type,'']}
+function drawGraphics(j){if(!j.plan)return;const p=j.plan;
+ $('#caption-style').value=p.caption_preset;$('#highlight').value=p.highlight_color.length===7?p.highlight_color:'#ffe14d';$('#progress-bar').value=String(p.progress_bar);
+ $('#thumbs').replaceChildren(...j.assets.map(name=>h('div',{class:'thumb'},h('img',{src:base()+'assets/'+name,alt:name}),h('span',{},name),h('button',{type:'button',class:'secondary',onclick:async()=>{try{show(await api(`/shorts/jobs/${jobId}/assets/${encodeURIComponent(name)}`,{method:'DELETE'}))}catch(e){toast(e.message,true)}}},'Remove'))));
+ $('#auto').disabled=running()||!j.planner_available;$('#plan-ai-hint').textContent=j.planner_available?'Claude looks at frames, the transcript, tracking and your images, then plans the effects.':'Add ANTHROPIC_API_KEY to .env to use this, or ask Claude Code to plan graphics for this job.';
+ $('#event-count').textContent=p.events.length?`· ${p.events.length}`:'';$('#plan-notes').textContent=p.notes?('Claude: '+p.notes):'';
+ $('#events').replaceChildren(...(p.events.length?p.events.map((e,i)=>{const[k,d]=describe(e);return h('div',{class:'ev'},h('time',{},`${clock(e.start)}${e.end-e.start>.5?'–'+clock(e.end):''}`),h('span',{},h('span',{class:'kind'},k),d),h('button',{type:'button',title:'Remove',class:'act',onclick:()=>{const q=structuredClone(job.plan);q.events.splice(i,1);savePlan(q)}},'×'))}):[h('div',{class:'empty-list'},'No graphics yet. Captions are always added. Use Auto-plan, or ask Claude Code.')]));
+ $('#warnings').replaceChildren(...j.warnings.map(w=>h('li',{},w)));
+ if(!planDirty)$('#plan-json').value=JSON.stringify(p,null,1)}
+async function savePlan(plan){try{planDirty=false;show(await sendJSON(`/shorts/jobs/${jobId}/plan`,'PUT',plan))}catch(e){toast(e.message,true)}}
+$('#caption-style').onchange=()=>savePlan({...job.plan,caption_preset:$('#caption-style').value});
+$('#highlight').onchange=()=>savePlan({...job.plan,highlight_color:$('#highlight').value});
+$('#progress-bar').onchange=()=>savePlan({...job.plan,progress_bar:$('#progress-bar').value==='true'});
 $('#plan-json').oninput=()=>{planDirty=true};
-$('#save-plan').onclick=async()=>{let plan;try{plan=JSON.parse($('#plan-json').value)}catch{status('The plan is not valid JSON.',true);return}try{planDirty=false;show(await json(`/shorts/jobs/${jobId}/plan`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(plan)}));status('Plan saved.')}catch(e){planDirty=true;status(e.message,true)}};
-for(const [id,final] of [['#draft',false],['#final',true]])$(id).onclick=()=>{if(planDirty){status('Save your plan edits before rendering.',true);return}const data=new FormData();data.set('final',final);post(`/shorts/jobs/${jobId}/render`,data)};
-refresh();
+$('#save-plan').onclick=()=>{let p;try{p=JSON.parse($('#plan-json').value)}catch{toast('That JSON has a mistake.',true);return}savePlan(p).then(()=>toast('Plan saved.'))};
+$('#assets').onchange=async e=>{const d=new FormData();[...e.target.files].forEach(f=>d.append('images',f));try{show(await api(`/shorts/jobs/${jobId}/assets`,{method:'POST',body:d}))}catch(err){toast(err.message,true)}e.target.value=''};
+$('#auto').onclick=()=>{const d=new FormData();d.set('notes',$('#notes').value);planDirty=false;post('plan/auto',d)};
+$('#to-render').onclick=()=>{view='render';show(job)};
+
+/* ---------- export ---------- */
+function drawRender(j){
+ for(const[k,f]of[['draft','shorts-draft.mp4'],['final','shorts-final.mp4']]){const has=!!j.files[f];$(`#${k}-card`).classList.toggle('ready',has);const a=$(`#${k}-dl`);a.hidden=!has;if(has)a.href=base()+f+'?'+j.files[f];$('#'+k).textContent=has?`Re-render ${k}`:`Render ${k}`}
+ const outs=[['shorts-final.mp4','Final'],['shorts-draft.mp4','Draft']].filter(([f])=>j.files[f]);$('#result-wrap').hidden=!outs.length;
+ if(!outs.find(([f])=>f===resultFile))resultFile=outs[0]?.[0];
+ $('#result-tabs').replaceChildren(...outs.map(([f,l])=>h('button',{type:'button',class:f===resultFile?'on':'',onclick:()=>{resultFile=f;drawRender(job)}},l)));
+ if(resultFile)setVideo($('#result-video'),base()+resultFile+'?'+j.files[resultFile])}
+function renderVideo(final){const d=new FormData();d.set('final',final);post('render',d)}
+$('#draft').onclick=()=>renderVideo(false);$('#final').onclick=()=>renderVideo(true);$('#back-to-graphics').onclick=()=>{view='graphics';show(job)};
+
+/* ---------- title / delete / plumbing ---------- */
+$('#title').onchange=async()=>{const t=$('#title').value.trim();if(!t){$('#title').value=job.title;return}try{show(await sendJSON(`/shorts/jobs/${jobId}`,'PATCH',{title:t}));loadJobs()}catch(e){toast(e.message,true)}};
+$('#title').onkeydown=e=>{if(e.key==='Enter')e.target.blur()};
+$('#delete').onclick=async()=>{if(!confirm(`Delete “${job.title}” and all its files? This can’t be undone.`))return;try{await api(`/shorts/jobs/${jobId}`,{method:'DELETE'});jobs=jobs.filter(j=>j.id!==jobId);newVideo();loadJobs()}catch(e){toast(e.message,true)}};
+async function post(path,data){try{$('#notice').hidden=true;show(await api(`/shorts/jobs/${jobId}/${path}`,{method:'POST',body:data}));refresh();loadJobs()}catch(e){toast(e.message,true)}}
+async function refresh(){if(!jobId)return;const id=jobId;try{const j=await api('/shorts/jobs/'+id);if(id!==jobId)return;show(j);clearTimeout(poll);if(running())poll=setTimeout(refresh,1500);else if(jobs.find(x=>x.id===id)?.state==='running')loadJobs()}catch(e){if(id!==jobId)return;if(/not found/i.test(e.message)){jobs=jobs.filter(x=>x.id!==id);newVideo()}else toast(e.message,true)}}
+function tick(){if(!running())return;const j=job,p=j.progress,el=Date.now()/1000-(j.started||Date.now()/1000);let t=`${clock(el)} elapsed`;if(p>.04&&p<1)t+=` · about ${clock(el*(1-p)/p)} left`;if(['autocut','plan'].includes(j.action))t+=' · usually under a minute';$('#act-time').textContent=t}
+setInterval(tick,1000); // keep the elapsed clock moving without redrawing
+loadJobs().then(()=>{if(params.has('new'))newVideo();else if(jobId)openJob(jobId,params.get('step'));else if(jobs.length)openJob(jobs[0].id);else newVideo()});
 </script></body></html>

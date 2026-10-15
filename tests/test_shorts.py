@@ -187,3 +187,25 @@ class PlannerSchemaTests(unittest.TestCase):
    shorts.PSticker(type='sticker',start=1,end=3,asset='',emoji='🔥',anchor='hand',hand='left',point='palm',trigger='open_palm',animation='pop',idle='float',size=1,x=.5,y=.5)]).to_plan()
   self.assertEqual([(e.type,e.start,e.end) for e in plan.events],[('flash',2,2.3),('sfx',2,2.3),('sticker',1,3)])
   self.assertEqual((plan.events[2].trigger,plan.progress_bar),('open_palm',True))
+
+class ShortsJobListTests(unittest.TestCase):
+ def test_create_list_rename_delete_and_progress(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app,threading,time
+  client=TestClient(app.app);gate=threading.Event()
+  def fake_prepare(src,folder,preset,status):
+   status('Transcribing your recording (runs on this Mac)',.4);gate.wait(5)
+  with tempfile.TemporaryDirectory() as d, patch.object(shorts_app,'RUNS',Path(d)), patch('shorts.prepare',fake_prepare):
+   j=client.post('/shorts/jobs',files={'video':('my_cool-video.mov',b'x')},data={'preset':'bold'}).json()
+   self.assertEqual(j['title'],'my cool video');ident=j['id']
+   for _ in range(50):
+    s=client.get(f'/shorts/jobs/{ident}').json()
+    if s.get('progress'):break
+    time.sleep(.02)
+   self.assertEqual((s['state'],s['action'],s['progress']),('running','transcribe',.4))
+   self.assertEqual(client.delete(f'/shorts/jobs/{ident}').status_code,409)  # busy
+   gate.set();shorts_app.active[ident].join(2)
+   listed=client.get('/shorts/jobs').json();self.assertEqual([(x['id'],x['state']) for x in listed],[(ident,'done')])
+   self.assertEqual(client.patch(f'/shorts/jobs/{ident}',json={'title':'  '}).status_code,422)
+   self.assertEqual(client.patch(f'/shorts/jobs/{ident}',json={'title':'Telegram pitch'}).json()['title'],'Telegram pitch')
+   self.assertEqual(client.delete(f'/shorts/jobs/{ident}').status_code,200);self.assertEqual(client.get('/shorts/jobs').json(),[])

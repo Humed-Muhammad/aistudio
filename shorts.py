@@ -10,7 +10,7 @@ Speech is never regenerated: the cut only removes parts of the original audio.
 from pathlib import Path
 from fractions import Fraction
 from typing import Literal
-import json,subprocess,shutil,wave,base64,os
+import json,subprocess,shutil,wave,base64,os,re
 import av,numpy as np
 from pydantic import BaseModel,Field
 from config import ROOT,setting
@@ -109,7 +109,25 @@ class PlannerPlan(BaseModel):
 def status_file(folder):return Path(folder)/'status.json'
 def save_status(folder,state,message,**extra):
     data={'id':Path(folder).name,'kind':'shorts','state':state,'status':message,**extra}
-    status_file(folder).write_text(json.dumps(data));return data
+    tmp=status_file(folder).with_suffix('.tmp');tmp.write_text(json.dumps(data));tmp.replace(status_file(folder));return data
+
+def say(message,progress=None):print(message if progress is None else f'{message} · {progress:.0%}',flush=True)
+
+def run_with_progress(cmd,status,message,cwd=None):
+    """Run a helper that prints 'PROGRESS 0.42' lines; forward them as status updates."""
+    proc=subprocess.Popen(cmd,cwd=cwd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True);tail=[]
+    for line in proc.stdout:
+        line=line.strip()
+        if line.startswith('PROGRESS '):status(message,min(1.,float(line.split()[1])))
+        elif line:tail=(tail+[line])[-12:]
+    if proc.wait():raise RuntimeError(f'{message} failed: '+' | '.join(tail)[-1200:])
+
+def thumbnail(src,dst):
+    """Small poster frame for the job list."""
+    with av.open(str(src)) as inp:
+        for f in inp.decode(video=0):
+            if float(f.time or 0)>=min(1.,probe(src)['duration']/2):break
+        im=upright(f);im.thumbnail((240,240));im.convert('RGB').save(dst,quality=80)
 
 def normalize(src,dst):
     """Constant 30 fps, at most 1080 px wide; original audio packets copied unchanged."""
@@ -201,10 +219,10 @@ def refine_timing(captions,wav):
             if end-start>=80:c['startMs'],c['endMs']=int(start),int(end)
     return captions
 
-def transcribe(src,folder,name='full-captions.json'):
+def transcribe(src,folder,name='full-captions.json',status=say):
     folder=Path(folder);wav=folder/'speech-16k.wav';out=folder/name
     if not speech_wav(src,wav):out.write_text(json.dumps({'language':None,'captions':[]}));return []
-    subprocess.run(['node','transcribe.mjs',str(wav),str(out),setting('SHORTS_WHISPER_MODEL','small'),setting('SHORTS_LANGUAGE','auto')],cwd=MOTION,check=True)
+    run_with_progress(['node','transcribe.mjs',str(wav),str(out),setting('SHORTS_WHISPER_MODEL','small'),setting('SHORTS_LANGUAGE','auto')],status,'Transcribing your recording (runs on this Mac)',cwd=MOTION)
     captions=clean_captions(out);data=json.loads(out.read_text());data['captions']=refine_timing(captions,wav)
     out.write_text(json.dumps(data,indent=1));return data['captions']
 
@@ -261,7 +279,7 @@ def layout(ranges):
         r.update(out=done/FPS,frames=frames);done+=frames
     return [r for r in ranges if r['frames']>0]
 
-def cut_media(src,dst,ranges):
+def cut_media(src,dst,ranges,progress=lambda p:None):
     """Join source ranges into a 30 fps video; audio is cut at the same points with 8 ms fades."""
     info=probe(src);w,h=output_size(info['width'],info['height'])
     if h<w:raise ValueError('This editor expects vertical (9:16) footage.')
@@ -282,6 +300,7 @@ def cut_media(src,dst,ranges):
                     im=upright(cur);f=av.VideoFrame.from_image(im if im.size==(w,h) else im.resize((w,h)))
                     f.pts=index;f.time_base=Fraction(1,FPS);index+=1
                     for p in st.encode(f):out.mux(p)
+                    if index%30==0:progress(.9*index/total)
         for p in st.encode():out.mux(p)
         if ast:
             # Decode once from the start (as the transcript was): seeking shifts AAC timing by tens of ms.
@@ -330,22 +349,24 @@ def cut_summary(folder):
     whole=not cut.tighten and cut.keep==list(range(len(units)))
     return {'original':info['duration'],'kept':info['duration'] if whole else sum(r['frames'] for r in ranges)/FPS,'parts':len(units),'kept_parts':len(cut.keep),'jumps':len(ranges),'whole':whole}
 
-def prepare(src,folder,preset='bold',status=print):
+def prepare(src,folder,preset='bold',status=say):
     """Step 1: check the recording and transcribe all of it so the cut can be chosen."""
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True);(folder/'assets').mkdir(exist_ok=True);check_tools()
     (folder/'workflow-mode.json').write_text(json.dumps({'mode':'shorts','preset':preset}))
-    status('Reading video');info=probe(src)
+    status('Reading your video',0);info=probe(src)
     limit=float(setting('SHORTS_MAX_SECONDS','600'))
     if info['duration']>limit:raise ValueError(f'Use a recording of {limit/60:g} minutes or less (SHORTS_MAX_SECONDS).')
     if info['height']<info['width']:raise ValueError('This editor expects vertical (9:16) footage.')
     (folder/'source-info.json').write_text(json.dumps(info))
-    status(f"Transcribing the full {info['duration']/60:.1f} min recording locally (whisper.cpp)")
-    captions=transcribe(src,folder);units=make_units(captions)
+    try:thumbnail(src,folder/'thumb.jpg')
+    except Exception:pass  # the list just shows no picture
+    status('Transcribing your recording (runs on this Mac)',0)
+    captions=transcribe(src,folder,status=status);units=make_units(captions)
     (folder/'units.json').write_text(json.dumps(units,indent=1))
     save_cut(folder,CutPlan(keep=[u['id'] for u in units]))
-    status('Ready · choose what to keep')
+    status('Transcript ready · choose what to keep')
 
-def apply_cut(folder,status=print):
+def apply_cut(folder,status=say):
     """Step 2: build the edited video from the cut, then track it."""
     folder=Path(folder);check_tools();src=folder/'upload.mp4'
     captions=json.loads((folder/'full-captions.json').read_text())['captions'];units=json.loads((folder/'units.json').read_text())
@@ -353,22 +374,23 @@ def apply_cut(folder,status=print):
     for stale in ['tracks.json','foreground.webm','tracking-preview.mp4','shorts-draft.mp4','shorts-final.mp4','plan.json','plan-warnings.json']:(folder/stale).unlink(missing_ok=True)
     shutil.rmtree(folder/'keyframes',ignore_errors=True)
     if not captions or (not cut.tighten and cut.keep==list(range(len(units)))):
-        status('Keeping the whole recording · original audio untouched');meta=normalize(src,folder/'source.mp4')
+        status('Step 1 of 2 · Preparing the whole recording',None);meta=normalize(src,folder/'source.mp4')
         kept=[c for c in captions if not is_filler(c)];ranges=[]
     else:
         ranges=layout(cut_ranges(cut,captions,units,info['duration']))
         if not ranges:raise ValueError('The cut keeps nothing. Keep at least one part.')
-        status(f'Cutting {len(ranges)} pieces from the recording');meta=cut_media(src,folder/'source.mp4',ranges)
+        step=f'Step 1 of 2 · Cutting {len(ranges)} pieces into your edit';status(step,0)
+        meta=cut_media(src,folder/'source.mp4',ranges,lambda p:status(step,p))
         kept=remap_captions(captions,ranges)
     language=json.loads((folder/'full-captions.json').read_text()).get('language')
     (folder/'captions.json').write_text(json.dumps({'language':language,'captions':kept},indent=1))
     (folder/'cut-map.json').write_text(json.dumps([{k:r[k] for k in ['start','end','out','frames']} for r in ranges],indent=1))
     (folder/'manifest.json').write_text(json.dumps(meta,indent=2))
-    status('Tracking hands, gestures, face and person cutout locally')
-    subprocess.run([str(ROOT/'.venv-face/bin/python'),str(ROOT/'shorts_worker.py'),str(folder)],check=True)
+    status('Step 2 of 2 · Tracking face, hands and you (for graphics)',0)
+    run_with_progress([str(ROOT/'.venv-face/bin/python'),str(ROOT/'shorts_worker.py'),str(folder)],status,'Step 2 of 2 · Tracking face, hands and you (for graphics)')
     preset=json.loads((folder/'workflow-mode.json').read_text()).get('preset','bold')
     save_plan(folder,Plan(caption_preset=preset if preset in PRESETS else 'bold'))
-    status(f"Cut ready · {meta['duration']:.0f}s · review tracking, then plan graphics")
+    status(f"Your {meta['duration']:.0f}s edit is ready to review")
 
 CUT_SYSTEM="""You are a senior editor turning a raw talking recording into a tight short-form video.
 You get the transcript split into numbered parts with timings. Decide which parts to keep.
@@ -509,19 +531,20 @@ def pop_sound(path):
     t=np.arange(int(.12*44100))/44100;tone=np.sin(2*np.pi*(900-5200*t)*t)*np.exp(-t*38)
     with wave.open(str(path),'wb') as w:w.setnchannels(1);w.setsampwidth(2);w.setframerate(44100);w.writeframes((tone*.8*32767).astype('<i2').tobytes())
 
-def render(folder,final=False,status=print):
+def render(folder,final=False,status=say):
     folder=Path(folder);need_motion()
     if not (folder/'sfx-pop.wav').exists():pop_sound(folder/'sfx-pop.wav')
     props,warnings=render_props(folder);(folder/'render-props.json').write_text(json.dumps(props))
     name='shorts-final.mp4' if final else 'shorts-draft.mp4';partial=folder/('.rendering-'+name)
     cmd=['npx','remotion','render','src/index.ts','Shorts',str(partial),'--props',str(folder/'render-props.json'),'--public-dir',str(folder),'--codec','h264','--crf','18' if final else '23','--log','info']+browser_args()
     if not final:cmd+=['--scale','0.5']
-    status(('Rendering final 1080p' if final else 'Rendering draft (half resolution)')+' · original audio kept')
+    label='Rendering the final video (full quality)' if final else 'Rendering a quick draft (half resolution)';status(label,0)
     proc=subprocess.Popen(cmd,cwd=MOTION,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
     tail=[]
     for line in proc.stdout:
         line=line.strip();tail=(tail+[line])[-15:]
-        if line.startswith(('Rendered','Encoded','Stitched')):status(line)
+        done=re.match(r'(Rendered|Encoded) (\d+)/(\d+)',line)
+        if done:status(label,(.85 if done[1]=='Rendered' else .15)*int(done[2])/max(1,int(done[3]))+(.85 if done[1]=='Encoded' else 0))
     if proc.wait():raise RuntimeError('Render failed:\n'+'\n'.join(tail))
     partial.replace(folder/name);return folder/name,warnings
 

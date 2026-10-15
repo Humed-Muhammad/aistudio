@@ -1,7 +1,7 @@
 import tempfile,unittest
 from pathlib import Path
 from unittest.mock import Mock,patch
-from media_host import upload
+from media_host import upload,replicate_file
 
 class HostingTests(unittest.TestCase):
  def test_tmpfiles_uses_actual_download_link(self):
@@ -30,3 +30,11 @@ class FallbackTests(unittest.TestCase):
  def test_success_never_calls_fallback(self):
   with patch('media_host.setting',side_effect=lambda k,d='':d),patch('media_host._upload_once',return_value='https://tmpfiles.org/dl/test.mp4') as send:
    upload('test.mp4');self.assertEqual(send.call_count,1)
+ def test_replicate_upload_retries_dropped_connection(self):
+  import requests
+  ok=Mock(status_code=201);ok.json.return_value={'urls':{'get':'https://api.replicate.com/v1/files/x'}}
+  with tempfile.TemporaryDirectory() as d:
+   f=Path(d)/'a.wav';f.write_bytes(b'x')
+   with patch('media_host.requests.post',side_effect=[requests.ConnectionError('Broken pipe'),ok]) as post,patch('media_host.time.sleep'):
+    self.assertEqual(replicate_file(f,{}),'https://api.replicate.com/v1/files/x');self.assertEqual(post.call_count,2)
+

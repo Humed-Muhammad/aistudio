@@ -10,14 +10,17 @@ for command in ['status','repair-rgb','resume','hd','review','submit']:
  if command=='review':c.add_argument('--approve',action='store_true');c.add_argument('--fingerprint',required=True);c.add_argument('--note',required=True)
  if command=='submit':c.add_argument('--prompt-file',required=True);c.add_argument('--reference',required=True);c.add_argument('--second-reference')
  if command=='resume':c.add_argument('--hd',action='store_true')
-sub.choices['prepare'].add_argument('--mode',choices=['depth','face_mesh','depth_mesh'],default='depth')
+sub.choices['prepare'].add_argument('--mode',choices=['depth','face_mesh','depth_mesh','wan'],default='depth')
 a=p.parse_args()
 if a.command=='prepare':
  import uuid,shutil
  from pipeline import run
  folder=ROOT/'runs'/uuid.uuid4().hex;folder.mkdir(parents=True)
  shutil.copy2(a.video,folder/'upload.mp4');print('JOB:',folder.name,flush=True)
- if a.mode=='face_mesh':
+ if a.mode=='wan':
+  from pipeline import run_wan
+  run_wan(folder/'upload.mp4',folder)
+ elif a.mode=='face_mesh':
   from face_mesh import run as run_mesh
   run_mesh(folder/'upload.mp4',folder)
  elif a.mode=='depth_mesh':

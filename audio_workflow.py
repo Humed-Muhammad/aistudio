@@ -28,13 +28,14 @@ def separate(src,folder,status=print):
     token=os.getenv('REPLICATE_API_TOKEN')
     if not token:raise ValueError('REPLICATE_API_TOKEN is required for audio separation.')
     headers={'Authorization':'Bearer '+token}
-    with (folder/'original-audio.wav').open('rb') as f:r=requests.post('https://api.replicate.com/v1/files',headers=headers,files={'content':f},timeout=120)
-    r.raise_for_status();url=r.json()['urls']['get'];status('Audio · separating vocals and original music')
+    from media_host import replicate_file
+    url=replicate_file(folder/'original-audio.wav',headers);status('Audio · separating vocals and original music')
     r=requests.post('https://api.replicate.com/v1/predictions',headers=headers,json={'version':'25a173108cff36ef9f80f854c162d01df9e6528be175794b81158fa03836d953','input':{'audio':url,'model_name':'htdemucs','output_format':'wav'}},timeout=60);r.raise_for_status();j=r.json()
     (folder/'audio-prediction.json').write_text(json.dumps(j,indent=2))
     for _ in range(180):
         if j['status'] in ['succeeded','failed','canceled']:break
-        time.sleep(5);r=requests.get(j['urls']['get'],headers=headers,timeout=30);r.raise_for_status();j=r.json()
+        from media_host import replicate_get
+        time.sleep(5);j=replicate_get(j['urls']['get'],headers)
     if j['status']!='succeeded':raise RuntimeError('Audio separation: '+str(j.get('error') or j['status']))
     stems={}
     for name,url in j['output'].items():

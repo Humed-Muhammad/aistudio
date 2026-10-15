@@ -48,3 +48,25 @@ def upload(path):
                 if attempt==0:time.sleep(1)
         warnings.warn('Media upload failed on '+host+'; trying next configured host if available.')
     raise RuntimeError('All configured media hosts failed ('+', '.join(errors)+'). No generation was submitted. Check connectivity or choose another host.')
+
+def replicate_file(path,headers,attempts=4):
+    """Upload to Replicate's file store. Retries dropped connections and 5xx only; uploads are free and never start a prediction."""
+    for attempt in range(attempts):
+        try:
+            with open(path,'rb') as f:r=requests.post('https://api.replicate.com/v1/files',headers=headers,files={'content':f},timeout=180)
+            if r.status_code>=500 and attempt<attempts-1:raise requests.ConnectionError(f'Replicate upload returned {r.status_code}')
+            r.raise_for_status();return r.json()['urls']['get']
+        except (requests.ConnectionError,requests.Timeout):
+            if attempt==attempts-1:raise
+            time.sleep(3*(attempt+1))
+
+def replicate_get(url,headers,attempts=5):
+    """Read-only Replicate request (model info or prediction status). Safe to retry: it never starts or bills a prediction."""
+    for attempt in range(attempts):
+        try:
+            r=requests.get(url,headers=headers,timeout=60)
+            if r.status_code>=500 and attempt<attempts-1:raise requests.ConnectionError(f'Replicate returned {r.status_code}')
+            r.raise_for_status();return r.json()
+        except (requests.ConnectionError,requests.Timeout):
+            if attempt==attempts-1:raise
+            time.sleep(5*(attempt+1))

@@ -11,14 +11,17 @@ app=FastAPI();jobs={}
 def index():return FileResponse(ROOT/'static/index.html')
 @app.post('/jobs')
 def create(video:UploadFile=File(...),prompt:str=Form('person'),provider:str=Form('replicate'),mode:str=Form('depth')):
-    if mode not in ['depth','face_mesh','depth_mesh']:raise HTTPException(400,'Unknown workflow mode')
+    if mode not in ['depth','face_mesh','depth_mesh','wan']:raise HTTPException(400,'Unknown workflow mode')
     if provider not in ['huggingface','replicate','replicate-chenxwh']:raise HTTPException(400,'Unknown provider')
     ident=uuid.uuid4().hex;folder=RUNS/ident;folder.mkdir();src=folder/'upload.mp4'
     with src.open('wb') as out:shutil.copyfileobj(video.file,out)
     jobs[ident]={'state':'running','status':'Starting','id':ident}
     def work():
         try:
-            if mode=='face_mesh':
+            if mode=='wan':
+                from pipeline import run_wan
+                run_wan(src,folder,lambda s:jobs[ident].update(status=s))
+            elif mode=='face_mesh':
                 from face_mesh import run as run_mesh
                 run_mesh(src,folder,lambda s:jobs[ident].update(status=s))
             elif mode=='depth_mesh':
@@ -115,7 +118,8 @@ def create_hd(ident:str):
         from seedance_bridge import submit_hd,wait_and_finish
         try:
             request_id=submit_hd(folder)
-            hd_jobs[ident].update(request_id=request_id,status='Generating 1080p through Enhancor');save()
+            from seedance_bridge import saved_provider
+            hd_jobs[ident].update(request_id=request_id,status='Generating 1080p through '+({'replicate':'Replicate (new render at 1080p, same inputs and seed)','wan':'Wan Animate (new render at 720p, its maximum; same inputs and seed)'}.get(saved_provider(folder/'hd'),'Enhancor')));save()
             wait_and_finish(hd,request_id,lambda s:hd_jobs[ident].update(status=s))
             hd_jobs[ident].update(state='done',status='1080p ready · original source audio restored')
         except Exception as e:hd_jobs[ident].update(state='error',status=str(e))
@@ -156,6 +160,13 @@ def resume_saved_generations():
                 except Exception as e:registry[ident].update(state='error',status=str(e))
                 (folder/'status.json').write_text(json.dumps(registry[ident]))
             threading.Thread(target=collect_saved,daemon=True).start()
+
+@app.get('/provider')
+def generation_provider():
+    from seedance_bridge import provider,REPLICATE_MODEL
+    try:name=provider()
+    except ValueError as e:raise HTTPException(500,str(e))
+    return {'provider':name,'model':REPLICATE_MODEL if name=='replicate' else 'Seedance 2.5 (Enhancor)'}
 
 @app.get('/health')
 def health():

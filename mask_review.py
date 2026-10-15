@@ -8,9 +8,14 @@ def is_mesh(folder):
     p=Path(folder)/'workflow-mode.json'
     return p.exists() and json.loads(p.read_text()).get('mode') in ['face_mesh','depth_mesh']
 
+def mode(folder):
+    p=Path(folder)/'workflow-mode.json'
+    return json.loads(p.read_text()).get('mode') if p.exists() else 'depth'
+
 def fingerprint(folder):
     digest=hashlib.sha256()
     names=list(('workflow-mode.json','original.mp4','face-landmarks.json','composite-silent.mp4','seedance-input.mp4') if is_mesh(folder) else FILES)
+    if mode(folder)=='wan':names=['workflow-mode.json','original.mp4','seedance-input.mp4']
     if is_mesh(folder) and json.loads((Path(folder)/'workflow-mode.json').read_text()).get('mode')=='depth_mesh':names+=['depth.mp4','mask.mp4','depth-composite-silent.mp4']
     for name in names:
         path=Path(folder)/name

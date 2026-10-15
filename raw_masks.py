@@ -4,13 +4,14 @@ import requests
 
 def segment_raw(video,folder,prompt='person'):
     folder=Path(folder);h={'Authorization':'Bearer '+os.environ['REPLICATE_API_TOKEN']}
-    with open(video,'rb') as f:r=requests.post('https://api.replicate.com/v1/files',headers=h,files={'content':f},timeout=120)
-    r.raise_for_status();url=r.json()['urls']['get']
+    from media_host import replicate_file
+    url=replicate_file(video,h)
     payload={'version':'408f82fc20c300aac5d61d2e34ddb34cd0181e810e9f609d250aed14d5f81269','input':{'video':url,'prompt':prompt,'mask_only':True,'return_zip':True}}
     r=requests.post('https://api.replicate.com/v1/predictions',headers=h,json=payload,timeout=60);r.raise_for_status();j=r.json();(folder/'sam-raw-request.json').write_text(json.dumps(j,indent=2));print('SAM raw-mask job:',j['id'],flush=True)
     for _ in range(180):
         if j['status'] in ['succeeded','failed','canceled']:break
-        time.sleep(5);r=requests.get(j['urls']['get'],headers=h,timeout=30);r.raise_for_status();j=r.json()
+        from media_host import replicate_get
+        time.sleep(5);j=replicate_get(j['urls']['get'],h)
     if j['status']!='succeeded':raise RuntimeError(str(j.get('error') or j['status']))
     r=requests.get(j['output'],timeout=180);r.raise_for_status();(folder/'sam-masks.zip').write_bytes(r.content)
     out=folder/'raw-masks';out.mkdir(exist_ok=True)

@@ -33,3 +33,13 @@ Use the same character references, draft-first submission, collection, original-
 Select **Advanced + Face mesh** in the UI or use `workflow.py prepare VIDEO --mode depth_mesh`. This runs the original depth/SAM pipeline, preserves its depth composite, then tracks the face from the original frames and overlays the mesh onto that composite. Landmarks are saved in `face-landmarks.json`. Review BOTH mask coverage and face tracking before approval. All artifacts, including depth, mask, mesh and embedded audio, are bound to review approval. Follow the same draft → approved HD → original-audio restoration flow.
 
 For setup with all three preparation modes, also install Python 3.12 and run `bash setup-face-mesh.sh`. This creates an isolated mesh environment; the main app can retain its existing Python version. A Google Face Landmarker model is downloaded at first use. No SAM/depth inference is used by fast mode. Mesh modes are experimental and currently optimized for one centered speaker.
+
+
+## Replicate provider (pay-per-use alternative)
+
+`GENERATION_PROVIDER=replicate` (or no Enhancor key) submits to `bytedance/seedance-2.0` on Replicate with `REPLICATE_API_TOKEN` only; no webhook. Prompts cite `[Video1]`/`[Image1]`; image references → Edit, video identity → Omni (`reference_videos` = source + identity). Total reference video is limited to 15 s: refuse longer jobs rather than trimming silently. Drafts render at 480p with a saved seed. Replicate has no `draft_id`: an approved HD upgrade is a new, fully billed 1080p render of the same inputs and seed and may differ from the draft; say so before the user approves it. All review gates, draft-first submission and original-audio restoration apply unchanged.
+
+
+## Real faces: Wan Animate Replace
+
+Seedance on Replicate rejects photorealistic human faces (E005 "flagged as sensitive"); only Enhancor's `pass_faces` allows them. For real-person references, prepare with **Real faces · Wan Animate replace** (`--mode wan`). It normalizes the original video only: no depth, SAM or vocal isolation calls. Review the source clip (one clearly visible subject, no cuts) before approval; there is no mask to claim. Submission sends the original video plus ONE character photo to `wan-video/wan-2.2-animate-replace`; it takes no prompt, so say so instead of showing one. Video identity references and second characters are refused. Drafts render at 480 with a saved seed; the approved upgrade is a new, fully billed 720p render (Wan's maximum, not 1080p) that may differ from the draft. Original-audio restoration applies unchanged.

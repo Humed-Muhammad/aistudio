@@ -57,15 +57,17 @@ def depth_replicate(src,dst,model_name="lucataco/depth-anything-video"):
     if not token:raise ValueError('Replicate fallback requires REPLICATE_API_TOKEN in the server environment.')
     # Resolve live model schema instead of assuming an input field.
     headers={'Authorization':f'Bearer {token}'}
-    r=requests.get('https://api.replicate.com/v1/models/'+model_name,headers=headers,timeout=30);r.raise_for_status();model=r.json();v=model['latest_version'];props=v['openapi_schema']['components']['schemas']['Input']['properties']
+    from media_host import replicate_get
+    model=replicate_get('https://api.replicate.com/v1/models/'+model_name,headers);v=model['latest_version'];props=v['openapi_schema']['components']['schemas']['Input']['properties']
     key=next((k for k in props if 'video' in k and props[k].get('format')=='uri'),None)
     if not key:raise ValueError('Unable to identify Replicate video input in schema.')
-    with open(src,'rb') as f:r=requests.post('https://api.replicate.com/v1/files',headers=headers,files={'content':f},timeout=120)
-    r.raise_for_status();url=r.json()['urls']['get']
+    from media_host import replicate_file
+    url=replicate_file(src,headers)
     r=requests.post('https://api.replicate.com/v1/predictions',headers=headers,json={'version':v['id'],'input':{key:url}},timeout=60);r.raise_for_status();j=r.json()
+    Path(dst).with_name('depth-prediction.json').write_text(json.dumps({'id':j['id'],'model':model_name,'get':j['urls']['get']}))
     for _ in range(180):
         if j['status'] in ['succeeded','failed','canceled']:break
-        time.sleep(5);r=requests.get(j['urls']['get'],headers=headers,timeout=30);r.raise_for_status();j=r.json()
+        time.sleep(5);j=replicate_get(j['urls']['get'],headers)
     if j['status']!='succeeded':raise RuntimeError(str(j.get('error') or j['status']))
     output=j['output'];url=output if isinstance(output,str) else output[0] if isinstance(output,list) else next(v for k,v in output.items() if 'depth' in k)
     r=requests.get(url,timeout=120);r.raise_for_status();Path(dst).write_bytes(r.content)
@@ -91,10 +93,22 @@ def composite(original,depth,seg,directory,audio_source=None):
     raw=Path(seg).is_dir()
     mask_files=sorted(Path(seg).glob('mask_*.png')) if raw else []
     counts=[sum(1 for _ in frames(p)) for p in [original,depth]]+[len(mask_files) if raw else sum(1 for _ in frames(seg))]
+    if raw and len(set(counts[:2]))==1 and mask_files:
+        # SAM emits nothing before the subject first appears (e.g. a fade from black) or after it leaves.
+        # Fill only those edge frames with empty masks; any gap inside the run still fails.
+        indices=[int(p.stem.split('_')[-1]) for p in mask_files]
+        first,last=indices[0],indices[-1]
+        if indices!=list(range(first,last+1)) or last>=counts[0]:raise ValueError('Missing or shifted frame indices in raw masks.')
+        if first>0 or last<counts[0]-1:
+            (Path(directory)/'mask-edge-fill.json').write_text(json.dumps({'method':'empty masks for frames where SAM detected no subject at clip edges','leading_frames':list(range(first)),'trailing_frames':list(range(last+1,counts[0])),'review':'confirm visually that no subject is visible in these frames'},indent=2))
+        by_index=dict(zip(indices,mask_files));counts[2]=counts[0]
     if len(set(counts))!=1:raise ValueError(f'Frame alignment failed (original/depth/SAM): {counts}. No misaligned export produced.')
-    if raw and [int(p.stem.split('_')[-1]) for p in mask_files]!=list(range(counts[0])):raise ValueError('Missing or shifted frame indices in raw masks.')
+    def raw_masks():
+        for i in range(counts[0]):
+            yield np.asarray(Image.open(by_index[i]).convert('RGB')) if i in by_index else None
     outs={};area=0
-    for i,(rgb,d,sam) in enumerate(zip(frames(original),frames(depth),(np.asarray(Image.open(p).convert('RGB')) for p in mask_files) if raw else frames(seg))):
+    for i,(rgb,d,sam) in enumerate(zip(frames(original),frames(depth),raw_masks() if raw else frames(seg))):
+        if raw and sam is None:sam=np.zeros((*rgb.shape[:2],3),np.uint8)
         h,w=rgb.shape[:2]
         if raw:
             mask=(sam[:,:,0]>127).astype(np.uint8)*255
@@ -144,3 +158,15 @@ def run(src,directory,prompt='person',provider='replicate',status=print):
     prepare_seedance_video(directory)
     meta.update(prompt=prompt,depth_provider=provider,sam_space=SAM,mask_method='SAM 3 raw PNG masks')
     (directory/'manifest.json').write_text(json.dumps(meta,indent=2));status('Complete')
+
+def run_wan(src,directory,status=print):
+    """Wan Animate Replace input: the normalized original video only. No depth, SAM or vocal isolation calls."""
+    directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
+    with av.open(str(src)) as probe:
+        if not probe.streams.audio:raise ValueError('Source has no audio track.')
+    status('Preparing video · 24 fps');meta=normalize(src,directory/'original.mp4')
+    shutil.copyfile(directory/'original.mp4',directory/'seedance-input.mp4')
+    (directory/'workflow-mode.json').write_text(json.dumps({'mode':'wan'}))
+    (directory/'audio-manifest.json').write_text(json.dumps({'seedance_video':'seedance-input.mp4','vocal_isolation':'not used: Wan Animate reads motion and lips from the original video','final_audio':'entire original source audio'},indent=2))
+    meta.update(mask_method='none: Wan Animate segments the subject itself');(directory/'manifest.json').write_text(json.dumps(meta,indent=2))
+    status('Ready · review the source clip, then add a character photo')

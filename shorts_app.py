@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 import shorts
 ROOT=Path(__file__).resolve().parent;RUNS=ROOT/'runs'
-router=APIRouter();active={};lock=threading.Lock()
+router=APIRouter();active={};cancels={};lock=threading.Lock()
 IMAGES=['.png','.jpg','.jpeg','.webp','.gif']
 # What each background action is called in the UI, and how to retry it.
 ACTIONS={'transcribe':'Transcribing','autocut':'Auto-cut','apply':'Building your edit','plan':'Auto-plan','render':'Rendering'}
@@ -14,12 +14,21 @@ ACTIONS={'transcribe':'Transcribing','autocut':'Auto-cut','apply':'Building your
 def folder(ident):
     if len(ident)!=32 or any(c not in '0123456789abcdef' for c in ident):raise HTTPException(404)
     path=RUNS/ident
-    if not (path/'upload.mp4').exists():raise HTTPException(404)
+    if not is_job(path):raise HTTPException(404)
     return path
+
+# A job holds one upload.mp4, or several recordings in parts/ that are joined into it.
+def is_job(path):return (path/'upload.mp4').exists() or (path/'parts').is_dir()
+
+def natural(name):return [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)',name)]
 
 def read(path,name,default=None):
     try:return json.loads((path/name).read_text())
     except (OSError,ValueError):return default
+
+def check(path):
+    try:return shorts.transcript_check(path) if (path/'full-captions.json').exists() else None
+    except (OSError,ValueError,KeyError):return None
 
 def busy(ident):return bool(active.get(ident) and active[ident].is_alive())
 
@@ -28,15 +37,21 @@ def start(path,action,message,work,**extra):
     with lock:
         if busy(path.name):raise HTTPException(409,'This video is still busy. Wait for the current step to finish.')
         started=time.time();info={'action':action,'started':started,**extra}
-        shorts.save_status(path,'running',message,progress=None,**info)
+        shorts.save_status(path,'running',message,progress=None,**info);stop=threading.Event()
+        def status(m,p=None):  # every progress update is also a place where Cancel takes effect
+            if stop.is_set():raise shorts.Cancelled()
+            shorts.save_status(path,'running',m,progress=p,**info)
+        status.cancelled=stop
         def run():
-            try:shorts.save_status(path,'done',work(lambda m,p=None:shorts.save_status(path,'running',m,progress=p,**info)) or 'Done',finished=time.time(),**info)
-            except Exception as e:shorts.save_status(path,'error',str(e),finished=time.time(),**info)
-        active[path.name]=threading.Thread(target=run,daemon=True);active[path.name].start()
+            try:shorts.save_status(path,'done',work(status) or 'Done',finished=time.time(),**info)
+            except Exception as e:
+                if stop.is_set():shorts.save_status(path,'cancelled','Stopped. Start this step again whenever you like.',finished=time.time(),**info)
+                else:shorts.save_status(path,'error',str(e),finished=time.time(),**info)
+        cancels[path.name]=stop;active[path.name]=threading.Thread(target=run,daemon=True);active[path.name].start()
 
 def status_of(path):
     saved=read(path,'status.json',{'state':'idle','status':''})
-    if saved['state'] not in ['done','error','idle'] and not busy(path.name):
+    if saved['state'] not in ['done','error','idle','cancelled'] and not busy(path.name):
         saved=shorts.save_status(path,'error','Interrupted because the app was restarted. Try again.',action=saved.get('action'),final=saved.get('final'))
     return saved
 
@@ -66,31 +81,64 @@ def page():return FileResponse(ROOT/'static/shorts.html')
 
 @router.get('/shorts/jobs')
 def list_jobs():
-    jobs=[summary(p) for p in RUNS.iterdir() if p.is_dir() and (read(p,'workflow-mode.json') or {}).get('mode')=='shorts' and (p/'upload.mp4').exists()]
+    jobs=[summary(p) for p in RUNS.iterdir() if p.is_dir() and (read(p,'workflow-mode.json') or {}).get('mode')=='shorts' and is_job(p)]
     return sorted(jobs,key=lambda j:-j['created'])
 
 @router.post('/shorts/jobs')
-def create(video:UploadFile=File(...),preset:str=Form('bold'),title:str=Form('')):
+def create(video:list[UploadFile]=File(...),preset:str=Form('bold'),title:str=Form(''),noise:str=Form('off'),language:str=Form('')):
     if preset not in shorts.PRESETS+['auto']:raise HTTPException(400,'Unknown caption style')
+    if noise not in shorts.NOISE:raise HTTPException(400,'Unknown noise setting')
+    if language and language not in shorts.LANGUAGES:raise HTTPException(400,'Unknown language')
+    if len(video)>20:raise HTTPException(400,'Upload at most 20 recordings at once.')
+    video=sorted(video,key=lambda v:natural(v.filename or ''))  # phone names (IMG_1234) follow recording order
     path=RUNS/uuid.uuid4().hex;path.mkdir(parents=True)
-    with (path/'upload.mp4').open('wb') as out:shutil.copyfileobj(video.file,out)
-    name=title.strip() or re.sub(r'[_-]+',' ',Path(video.filename or '').stem).strip() or 'Untitled video'
+    if len(video)==1:
+        with (path/'upload.mp4').open('wb') as out:shutil.copyfileobj(video[0].file,out)
+    else:
+        (path/'parts').mkdir()
+        for k,v in enumerate(video):
+            safe=re.sub(r'[^\w.-]+','_',Path(v.filename or f'part{k+1}.mp4').name)[-60:]
+            with (path/'parts'/f'{k+1:02d}-{safe}').open('wb') as out:shutil.copyfileobj(v.file,out)
+    name=title.strip() or re.sub(r'[_-]+',' ',Path(video[0].filename or '').stem).strip() or 'Untitled video'
     (path/'job.json').write_text(json.dumps({'title':name[:80],'created':time.time()}))
-    (path/'workflow-mode.json').write_text(json.dumps({'mode':'shorts','preset':preset}))
+    (path/'workflow-mode.json').write_text(json.dumps({'mode':'shorts','preset':preset,'noise':noise,'language':language or shorts.job_language(path)}))
     transcribe(path.name);return state(path.name)
 
 @router.post('/shorts/jobs/{ident}/transcribe')
 def transcribe(ident:str):
     path=folder(ident);preset=(read(path,'workflow-mode.json') or {}).get('preset','bold')
     def work(status):
+        if not (path/'upload.mp4').exists():
+            parts=shorts.join_recordings(sorted((path/'parts').iterdir(),key=lambda p:natural(p.name)),path/'upload.mp4',status)
+            (path/'job.json').write_text(json.dumps({**meta(path),'parts':parts}))
         shorts.prepare(path/'upload.mp4',path,preset,status);return 'Transcript ready · choose what to keep'
     start(path,'transcribe','Starting',work);return state(ident)
 
+@router.post('/shorts/jobs/{ident}/cancel')
+def cancel(ident:str):
+    path=folder(ident)
+    if not busy(ident):raise HTTPException(409,'Nothing is running for this video.')
+    cancels[ident].set()
+    for _ in range(40):  # most steps stop within a second; a web request is abandoned at once
+        if not busy(ident):break
+        time.sleep(.05)
+    return state(ident)
+
 @router.patch('/shorts/jobs/{ident}')
 def rename(ident:str,body:dict=Body(...)):
-    path=folder(ident);title=str(body.get('title','')).strip()[:80]
-    if not title:raise HTTPException(422,'Give the video a name.')
-    (path/'job.json').write_text(json.dumps({**meta(path),'title':title}));return state(ident)
+    path=folder(ident)
+    if 'language' in body:  # used when the video is transcribed again
+        if body['language'] not in shorts.LANGUAGES:raise HTTPException(422,'Unknown language')
+        mode=read(path,'workflow-mode.json') or {'mode':'shorts'};(path/'workflow-mode.json').write_text(json.dumps({**mode,'language':body['language']}))
+    if 'noise' in body:  # used from the next build; the cleaned audio is cached per setting
+        if body['noise'] not in shorts.NOISE:raise HTTPException(422,'Unknown noise setting')
+        if busy(ident):raise HTTPException(409,'Wait for the current step to finish.')
+        mode=read(path,'workflow-mode.json') or {'mode':'shorts'};(path/'workflow-mode.json').write_text(json.dumps({**mode,'noise':body['noise']}))
+    if 'title' in body:
+        title=str(body.get('title','')).strip()[:80]
+        if not title:raise HTTPException(422,'Give the video a name.')
+        (path/'job.json').write_text(json.dumps({**read(path,'job.json',{}),**meta(path),'title':title}))
+    return state(ident)
 
 @router.delete('/shorts/jobs/{ident}')
 def delete(ident:str):
@@ -106,27 +154,40 @@ def state(ident:str):
     except (OSError,ValueError,KeyError):cut_summary=None
     return {**status_of(path),**summary(path),'id':ident,'manifest':read(path,'manifest.json'),'plan':read(path,'plan.json'),'warnings':read(path,'plan-warnings.json',[]),
      'assets':sorted(p.name for p in (path/'assets').iterdir() if p.suffix.lower() in IMAGES) if (path/'assets').exists() else [],
+     'clips':[{'name':n,**c,'poster':next((f'/runs/{ident}/assets/.frames/{Path(n).stem}/{f.name}' for f in sorted((path/'assets'/'.frames'/Path(n).stem).glob('*.jpg'))),None)} for n,c in shorts.load_clips(path).items()],
      'files':{n:(path/n).stat().st_mtime for n in files},
      'units':[{k:u[k] for k in ['id','start','end','text']} for u in read(path,'units.json',[])],'cut':cut,'cut_summary':cut_summary,
      'tracking':{'frames':tracks['frames'],'cuts':len(tracks['cuts']),'face':sum(map(bool,tracks['face'])),
        'left':sum(map(bool,tracks['hands']['left'])),'right':sum(map(bool,tracks['hands']['right']))} if tracks else None,
      'transcript':{'language':captions.get('language'),'text':''.join(c['text'] for c in captions.get('captions',[])).strip()},
-     'cut_mtime':(path/'cut.json').stat().st_mtime if cut else None,'planner_available':bool(shorts.setting('ANTHROPIC_API_KEY'))}
+     'cut_mtime':(path/'cut.json').stat().st_mtime if cut else None,'planner_available':bool(shorts.setting('ANTHROPIC_API_KEY')),
+     'noise':shorts.job_noise(path),'strong_noise_available':bool(shorts.setting('ELEVENLABS_API_KEY')),
+     'language':shorts.job_language(path),'transcript_check':check(path),
+     'stopping':bool(cancels.get(ident) and cancels[ident].is_set() and busy(ident))}
 
 @router.post('/shorts/jobs/{ident}/assets')
 def add_assets(ident:str,images:list[UploadFile]=File(...)):
+    """Images are stored as-is; screen recordings are converted for the renderer (can take a little while)."""
     path=folder(ident)/'assets';path.mkdir(exist_ok=True)
-    for image in images:
-        name=Path(image.filename or 'image.png');ext=name.suffix.lower()
-        if ext not in IMAGES:raise HTTPException(400,f'{name.name}: use PNG, JPG, WebP or GIF (transparent PNG looks best).')
-        stem=re.sub(r'[^a-z0-9_-]+','-',name.stem.lower()).strip('-') or 'image'
-        with (path/(stem+ext)).open('wb') as out:shutil.copyfileobj(image.file,out)
+    for upload in images:
+        name=Path(upload.filename or 'image.png');ext=name.suffix.lower()
+        if ext not in IMAGES+shorts.CLIPS:raise HTTPException(400,f'{name.name}: use an image (PNG, JPG, WebP, GIF) or a screen recording (MP4, MOV).')
+        stem=re.sub(r'[^a-z0-9_-]+','-',name.stem.lower()).strip('-') or 'file'
+        if ext in IMAGES:
+            with (path/(stem+ext)).open('wb') as out:shutil.copyfileobj(upload.file,out)
+            continue
+        raw=path/('.'+stem+'.upload'+ext)
+        with raw.open('wb') as out:shutil.copyfileobj(upload.file,out)
+        try:shorts.add_clip(raw,path.parent,stem)
+        except Exception as e:raise HTTPException(400,f'{name.name}: could not read this recording ({e}).')
+        finally:raw.unlink(missing_ok=True)
     return state(ident)
 
 @router.delete('/shorts/jobs/{ident}/assets/{name}')
 def remove_asset(ident:str,name:str):
-    path=folder(ident)/'assets'/Path(name).name
-    if path.suffix.lower() in IMAGES:path.unlink(missing_ok=True)
+    path=folder(ident);name=Path(name).name
+    if name in shorts.load_clips(path):shorts.remove_clip(path,name)
+    elif Path(name).suffix.lower() in IMAGES:(path/'assets'/name).unlink(missing_ok=True)
     return state(ident)
 
 def invalid(e):
@@ -147,7 +208,7 @@ def auto_plan(ident:str,notes:str=Form('')):
     if not (path/'tracks.json').exists():raise HTTPException(409,'Build your edit first (step 2).')
     if not shorts.setting('ANTHROPIC_API_KEY'):raise HTTPException(400,'Set ANTHROPIC_API_KEY in .env to use the automatic planner, or ask Claude Code to write the plan.')
     def work(status):
-        status('Claude is watching your edit and planning graphics…');plan,warnings=shorts.plan_auto(path,notes)
+        status('Claude is watching your edit and planning graphics…');plan,warnings=shorts.plan_auto(path,notes,status=status)
         return f'{len(plan.events)} graphics planned'+(f' · {len(warnings)} need attention' if warnings else '')
     start(path,'plan','Planning graphics',work);return state(ident)
 
@@ -173,7 +234,7 @@ def auto_cut(ident:str,notes:str=Form('')):
     if not (path/'units.json').exists():raise HTTPException(409,'Wait for the transcript first.')
     if not shorts.setting('ANTHROPIC_API_KEY'):raise HTTPException(400,'Set ANTHROPIC_API_KEY in .env for the automatic cut, or ask Claude Code to choose the parts.')
     def work(status):
-        status('Claude is reading your transcript and choosing what matters…');shorts.cut_auto(path,notes)
+        status('Claude is reading your transcript and choosing what matters…');shorts.cut_auto(path,notes,status=status)
         s=shorts.cut_summary(path);return f"Suggested cut: {s['kept']:.0f}s of {s['original']:.0f}s · check it, then build your edit"
     start(path,'autocut','Auto-cut',work);return state(ident)
 

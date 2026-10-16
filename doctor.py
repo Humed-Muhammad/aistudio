@@ -19,12 +19,14 @@ def main():
         failed=failed or not ready
     if args.shorts:
         from pathlib import Path
+        from shorts import transcriber as shorts_transcriber
         import subprocess
         root=Path(__file__).resolve().parent;worker=root/'.venv-face/bin/python'
         checks={'Tracking worker':worker.exists() and subprocess.run([str(worker),'-c','import mediapipe,av,PIL,numpy'],capture_output=True).returncode==0,
          'Node.js':bool(shutil.which('node')),'Remotion':(root/'motion/node_modules/remotion').exists(),
          'whisper.cpp':(root/'motion/whisper.cpp/main').exists() and any((root/'motion/whisper.cpp').glob('ggml-*.bin'))}
         for name,ok in checks.items():print(name+': '+('OK' if ok else 'MISSING — run make shorts'))
+        print('Transcription: '+('ElevenLabs Scribe (cloud; supports Amharic)' if shorts_transcriber()=='elevenlabs' else 'local whisper.cpp (no Amharic; set ELEVENLABS_API_KEY for Amharic)'))
         print('Shorts planner: '+('Claude API key configured' if setting('ANTHROPIC_API_KEY') else 'no ANTHROPIC_API_KEY — plan with Claude Code or edit the plan JSON'))
         if not all(checks.values()):print('SHORTS EDITOR NOT READY');return 1
         print('SHORTS EDITOR READY (local; no paid calls needed)');return 0

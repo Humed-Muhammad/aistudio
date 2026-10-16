@@ -10,32 +10,31 @@ import {
 } from "remotion";
 import { createTikTokStyleCaptions } from "@remotion/captions";
 import type { Caption, TikTokPage } from "@remotion/captions";
-import { loadFont as loadMontserrat } from "@remotion/google-fonts/Montserrat";
-import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
+import { ACCENT_FONT, BODY_FONT, HEADLINE_FONT } from "./fonts";
 import type { Plan } from "./types";
-
-const { fontFamily: montserrat } = loadMontserrat("normal", {
-  weights: ["800", "900"],
-  subsets: ["latin"],
-});
-const { fontFamily: inter } = loadInter("normal", {
-  weights: ["600", "700"],
-  subsets: ["latin"],
-});
-export const HEADLINE_FONT = `${montserrat}, "Geeza Pro", sans-serif`;
 
 // How long a page may combine words: bold shows 1-3 words, minimal shows phrases.
 // A page never lingers longer than this after it starts (whisper stretches words over silence).
 const MAX_PAGE_MS = 4000;
-const PAGE_MS = { bold: 450, boxed: 800, minimal: 1400 } as const;
+const PAGE_MS = {
+  editorial: 1100,
+  bold: 450,
+  boxed: 800,
+  minimal: 1400,
+} as const;
+
+/** Lowercase word without punctuation, so "mistakes," matches "mistakes". */
+const norm = (word: string) =>
+  word.toLowerCase().replace(/[^\p{L}\p{N}%$]/gu, "");
 
 type Preset = keyof typeof PAGE_MS;
 
-const Page: React.FC<{ page: TikTokPage; preset: Preset; plan: Plan }> = ({
-  page,
-  preset,
-  plan,
-}) => {
+const Page: React.FC<{
+  page: TikTokPage;
+  preset: Preset;
+  plan: Plan;
+  y: number;
+}> = ({ page, preset, plan, y }) => {
   const frame = useCurrentFrame();
   const { fps, width } = useVideoConfig();
   const k = width / 1080;
@@ -51,7 +50,7 @@ const Page: React.FC<{ page: TikTokPage; preset: Preset; plan: Plan }> = ({
     position: "absolute",
     left: 80 * k,
     right: 80 * k,
-    top: `${plan.caption_y * 100}%`,
+    top: `${y * 100}%`,
     translate: "0 -50%",
     display: "flex",
     flexWrap: "wrap",
@@ -62,12 +61,72 @@ const Page: React.FC<{ page: TikTokPage; preset: Preset; plan: Plan }> = ({
     lineHeight: 1.12,
   };
 
+  if (preset === "editorial") {
+    // The whole phrase is on screen at once; words light up as they are spoken. Stressed words use the
+    // big italic serif accent. A soft dark halo keeps everything readable over bright footage.
+    const stress = new Set(
+      plan.emphasis
+        .flatMap((p) => p.split(/\s+/))
+        .map(norm)
+        .filter(Boolean),
+    );
+    const enterPage = interpolate(frame, [0, 6], [0, 1], {
+      extrapolateRight: "clamp",
+      easing: Easing.out(Easing.cubic),
+    });
+    const halo = `0 0 ${20 * k}px rgba(0,0,0,.7), 0 ${3 * k}px ${8 * k}px rgba(0,0,0,.55)`;
+    return (
+      <div
+        style={{
+          ...container,
+          fontSize: 60 * k, // the gap below is measured in this size
+          columnGap: "0.28em",
+          rowGap: "0.12em",
+          alignItems: "baseline",
+          lineHeight: 1.05,
+          opacity: enterPage,
+          filter:
+            enterPage < 1 ? `blur(${(1 - enterPage) * 8 * k}px)` : undefined,
+          translate: `0 calc(-50% + ${(1 - enterPage) * 16 * k}px)`,
+        }}
+      >
+        {page.tokens.map((t, i) => {
+          const word = t.text.trim();
+          const accent = stress.size ? stress.has(norm(word)) : /\d/.test(word);
+          const said = interpolate(now - t.fromMs, [-60, 60], [0, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          });
+          return (
+            <span
+              key={i}
+              style={{
+                display: "inline-block",
+                fontFamily: accent ? ACCENT_FONT : BODY_FONT,
+                fontStyle: accent ? "italic" : "normal",
+                fontWeight: accent ? 400 : 700,
+                fontSize: (accent ? 104 : 60) * k,
+                color: accent ? plan.highlight_color : "white",
+                opacity: 0.42 + 0.58 * said,
+                textShadow: accent
+                  ? `0 0 ${28 * k}px ${plan.highlight_color}55, ${halo}`
+                  : halo,
+              }}
+            >
+              {word}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+
   if (preset === "minimal") {
     return (
       <div
         style={{
           ...container,
-          fontFamily: `${inter}, "Geeza Pro", sans-serif`,
+          fontFamily: BODY_FONT,
           fontWeight: 700,
           fontSize: 54 * k,
           color: "white",
@@ -138,10 +197,22 @@ const Page: React.FC<{ page: TikTokPage; preset: Preset; plan: Plan }> = ({
   );
 };
 
+// While a full-screen, dimmed or split graphic is up, captions drop to the bottom so they never cover it
+// (or, in split view, the speaker's face).
+const LOW_Y = 0.88;
+
 export const Captions: React.FC<{ captions: Caption[]; plan: Plan }> = ({
   captions,
   plan,
 }) => {
+  const lowered = (ms: number) =>
+    plan.events.some(
+      (e) =>
+        e.type === "card" &&
+        e.scene !== "overlay" &&
+        e.start * 1000 - 300 <= ms &&
+        ms < e.end * 1000,
+    );
   const { fps } = useVideoConfig();
   const preset = plan.caption_preset;
   const pages = useMemo(
@@ -174,7 +245,12 @@ export const Captions: React.FC<{ captions: Caption[]; plan: Plan }> = ({
             durationInFrames={until - from}
             layout="none"
           >
-            <Page page={page} preset={preset} plan={plan} />
+            <Page
+              page={page}
+              preset={preset}
+              plan={plan}
+              y={lowered(page.startMs) ? LOW_Y : plan.caption_y}
+            />
           </Sequence>
         );
       })}

@@ -95,15 +95,17 @@ code{font-size:12px;background:#f1f2f6;padding:1px 5px;border-radius:4px}
 <section class="work">
 
 <div id="start" class="card" hidden>
- <h2 style="font-size:26px">New video</h2><p>Upload a vertical recording (up to 10 minutes). It's transcribed on this Mac, then you pick what to keep.</p>
+ <h2 style="font-size:26px">New video</h2><p>Upload a vertical recording, or several that are joined in order (up to 10 minutes in total). It's transcribed (Amharic and English), then you pick what to keep.</p>
  <form id="upload-form">
-  <label class="dropzone" id="drop"><span class="icon">↑</span><strong id="drop-title">Drop your video here, or click to choose</strong><span class="hint" id="drop-hint">MP4 or MOV · vertical 9:16</span><input type="file" name="video" accept="video/*" required aria-label="Video file"></label>
+  <label class="dropzone" id="drop"><span class="icon">↑</span><strong id="drop-title">Drop your video here, or click to choose</strong><span class="hint" id="drop-hint">MP4 or MOV · vertical 9:16 · select several recordings to join them</span><input type="file" name="video" accept="video/*" multiple required aria-label="Video files"></label>
   <div class="controls" style="margin-top:18px">
    <label class="field">Title<input name="title" id="new-title" placeholder="e.g. Telegram bot pitch" maxlength="80"></label>
-   <label class="field">Caption style<select name="preset"><option value="bold">Bold · big words, spoken word highlighted</option><option value="boxed">Boxed · highlight box on the spoken word</option><option value="minimal">Minimal · clean phrases</option><option value="auto">Let Claude choose</option><option value="none">No captions</option></select></label>
+   <label class="field">Caption style<select name="preset"><option value="editorial">Editorial · clean words, key words in serif accent</option><option value="bold">Bold · big words, spoken word highlighted</option><option value="boxed">Boxed · highlight box on the spoken word</option><option value="minimal">Minimal · clean phrases</option><option value="auto">Let Claude choose</option><option value="none">No captions</option></select></label>
+   <label class="field">Spoken language<select name="language"><option value="am">Amharic (with English words)</option><option value="en">English only</option><option value="auto">Detect automatically</option></select></label>
+   <label class="field">Background noise<select name="noise"><option value="off">Keep original audio</option><option value="light">Light · remove fan, hum, hiss (free, on this Mac)</option><option value="strong">Strong · studio voice (ElevenLabs, ~1,000 credits per minute)</option></select></label>
   </div>
-  <div id="upload-progress" class="activity" hidden><div class="spinner"></div><div><b>Uploading your video</b><p id="upload-msg"></p><div class="bar"><i id="upload-bar"></i></div></div></div>
-  <div class="footer"><span class="hint">Nothing leaves your computer at this step.</span><button id="upload-button">Upload & transcribe →</button></div>
+  <div id="upload-progress" class="activity" hidden><div class="spinner"></div><div><b>Uploading your video</b><p id="upload-msg"></p><div class="bar"><i id="upload-bar"></i></div></div><button id="upload-cancel" type="button" class="secondary small" style="margin-left:auto;align-self:center">Cancel</button></div>
+  <div class="footer"><span class="hint">Your video stays on this Mac. With an ElevenLabs key, only the audio is sent to ElevenLabs (transcription, Strong noise removal).</span><button id="upload-button">Upload & transcribe →</button></div>
  </form>
  <div class="howto"><div><b>1 · Transcribe</b>Speech becomes text, locally.</div><div><b>2 · Cut</b>Drop retakes, repeats and dead air.</div><div><b>3 · Review</b>Watch your tightened edit.</div><div><b>4 · Graphics</b>Captions, zooms, images on your hands.</div><div><b>5 · Export</b>Quick draft, then the final.</div></div>
 </div>
@@ -114,7 +116,7 @@ code{font-size:12px;background:#f1f2f6;padding:1px 5px;border-radius:4px}
   <ol class="stepper" id="stepper"></ol>
  </div>
  <div style="height:16px"></div>
- <div id="activity" class="activity" hidden><div class="spinner"></div><div><b id="act-title"></b><p id="act-msg"></p><div class="bar" id="act-barwrap"><i id="act-bar"></i></div><small id="act-time"></small></div></div>
+ <div id="activity" class="activity" hidden><div class="spinner"></div><div><b id="act-title"></b><p id="act-msg"></p><div class="bar" id="act-barwrap"><i id="act-bar"></i></div><small id="act-time"></small></div><button id="cancel" type="button" class="secondary small" style="margin-left:auto;align-self:center">Cancel</button></div>
  <div id="problem" class="problem" hidden><b id="prob-title">Something went wrong</b><p id="prob-msg"></p><div class="row"><button id="retry" type="button">Try again</button><details><summary class="hint">Technical details</summary><pre id="prob-detail"></pre></details></div></div>
  <div id="notice" class="notice" hidden></div>
 
@@ -129,11 +131,13 @@ code{font-size:12px;background:#f1f2f6;padding:1px 5px;border-radius:4px}
    <label class="field">Tell Claude what matters (optional)<textarea id="cut-notes" rows="2" placeholder="e.g. Keep the pricing story and the ending. Drop the intro about my week."></textarea></label>
    <div class="row"><span class="hint" id="cut-ai-hint">Claude reads the transcript and unchecks retakes, repeats, tangents and dead air. You can change anything after.</span><button id="auto-cut" type="button" class="act">✨ Auto-cut with Claude</button></div>
   </div>
+  <div id="lang-warn" class="problem" hidden><b>Some of your speech wasn’t transcribed</b><p id="lang-warn-msg"></p><div class="row"><label class="row hint" style="gap:8px">Spoken language <select id="language" style="width:auto"><option value="am">Amharic (with English words)</option><option value="en">English only</option><option value="auto">Detect automatically</option></select></label><button id="retranscribe" type="button" class="act">Transcribe again</button></div></div>
   <p id="cut-summary" class="hint"></p>
   <div class="toolbar">
    <span class="seg" id="cut-filter"><button type="button" data-f="all" class="on">All parts</button><button type="button" data-f="kept">Kept</button><button type="button" data-f="removed">Cut</button></span>
    <button type="button" class="secondary small act" id="keep-all">Keep all</button>
    <label class="row hint" style="gap:8px;margin-left:auto"><input type="checkbox" id="tighten" style="width:auto" class="act"> Also remove “um/uh” and long pauses</label>
+   <label class="row hint" style="gap:8px">Noise <select id="noise" class="act" style="width:auto"><option value="off">Original audio</option><option value="light">Light (free)</option><option value="strong">Strong (ElevenLabs, ~1,000 credits/min)</option></select></label>
   </div>
   <div class="parts" id="parts"></div>
   <div class="footer"><span class="hint" id="cut-footer-hint">Next, your edit is built and tracked (about 2× its length). Nothing is uploaded.</span><button id="apply-cut" type="button" class="act">Build my edit →</button></div>
@@ -149,17 +153,18 @@ code{font-size:12px;background:#f1f2f6;padding:1px 5px;border-radius:4px}
  </section>
 
  <section class="card step" data-step="graphics" hidden>
-  <h2>Captions & graphics</h2><p class="lead">Pick a caption style, add images you want on screen, then let Claude plan zooms, text pops and stickers—or ask Claude Code to do it.</p>
+  <h2>Captions & graphics</h2><p class="lead">Pick a caption style, add images and screen recordings, then let Claude plan zooms, text pops, stickers and screen cut-ins, or ask Claude Code to do it.</p>
   <div class="controls">
-   <label class="field">Caption style<select id="caption-style" class="act"><option value="bold">Bold · big words</option><option value="boxed">Boxed highlight</option><option value="minimal">Minimal</option><option value="none">No captions</option></select></label>
+   <label class="field">Caption style<select id="caption-style" class="act"><option value="editorial">Editorial · serif accent words</option><option value="bold">Bold · big words</option><option value="boxed">Boxed highlight</option><option value="minimal">Minimal</option><option value="none">No captions</option></select></label>
    <label class="field">Highlight color<input id="highlight" type="color" class="act" style="height:44px;padding:4px"></label>
    <label class="field">Progress bar<select id="progress-bar" class="act"><option value="false">Off</option><option value="true">On (top of video)</option></select></label>
+   <label class="field">Sound design<select id="auto-sound" class="act"><option value="true">Automatic (whooshes, clicks, risers)</option><option value="false">Only sounds in the plan</option></select></label>
   </div>
-  <h3>Images to animate</h3><p class="hint" style="margin-top:-6px">Logos, products, icons. Transparent PNGs look best. They can sit on your palm, follow your finger, or float above your head.</p>
-  <label class="dropzone" style="padding:22px"><span><strong style="font-size:15px">＋ Add images</strong></span><span class="hint">PNG, JPG, WebP or GIF</span><input id="assets" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Add images"></label>
+  <h3>Images & screen recordings</h3><p class="hint" style="margin-top:-6px">Images (logos, products, icons; transparent PNGs look best) can sit on your palm, follow your finger or float above your head. Screen recordings cut in while you keep talking: full screen, split with you below, your face in a bubble, or you in front.</p>
+  <label class="dropzone" style="padding:22px" id="asset-drop"><span><strong style="font-size:15px" id="asset-drop-title">＋ Add images or screen recordings</strong></span><span class="hint" id="asset-drop-hint">PNG, JPG, WebP, GIF · MP4 or MOV recordings</span><input id="assets" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,.mov,.m4v" aria-label="Add images or screen recordings"></label>
   <div class="thumbs" id="thumbs"></div>
   <div class="ai" style="margin-top:18px">
-   <label class="field">What do you want? (optional)<textarea id="notes" rows="2" placeholder="e.g. Put logo.png on my open palm when I say “our app”. Big zoom on the price. Keep it clean."></textarea></label>
+   <label class="field">What do you want? (optional)<textarea id="notes" rows="2" placeholder="e.g. Show the app recording when I say “here’s how it works”, split screen. Put logo.png on my open palm. Big zoom on the price."></textarea></label>
    <div class="row"><span class="hint" id="plan-ai-hint">Claude watches frames, reads the transcript and tracking, then plans the effects.</span><button id="auto" type="button" class="act">✨ Auto-plan graphics</button></div>
   </div>
   <h3 style="margin-top:20px">Planned graphics <span class="hint" id="event-count"></span></h3>
@@ -201,7 +206,7 @@ const FAIL={transcribe:"We couldn't transcribe this video",autocut:"Auto-cut did
 async function loadJobs(){try{jobs=await api('/shorts/jobs');drawJobs()}catch{}clearTimeout(listPoll);listPoll=setTimeout(loadJobs,jobs.some(j=>j.state==='running')?3000:15000)}
 function drawJobs(){
  const list=$('#jobs');if(!jobs.length){list.replaceChildren(h('div',{class:'empty-list'},'No videos yet. Start with “New video”.'));return}
- list.replaceChildren(...jobs.map(j=>{const st=j.state==='running'?`${ACTION[j.action]||'Working'}${j.progress!=null?' '+Math.round(j.progress*100)+'%':'…'}`:j.state==='error'?'Needs attention':j.stage;
+ list.replaceChildren(...jobs.map(j=>{const st=j.state==='running'?`${ACTION[j.action]||'Working'}${j.progress!=null?' '+Math.round(j.progress*100)+'%':'…'}`:j.state==='error'?'Needs attention':j.state==='cancelled'?'Stopped':j.stage;
   const dot=j.state==='running'?'running':j.state==='error'?'error':j.stage==='Final ready'?'final':'';
   return h('button',{type:'button',class:'jobitem'+(j.id===jobId?' active':''),onclick:()=>openJob(j.id)},
    j.thumb?h('img',{src:j.thumb,alt:''}):h('span',{class:'ph'}),
@@ -215,10 +220,17 @@ $('#new').onclick=newVideo;window.onpopstate=()=>{const id=new URLSearchParams(l
 const drop=$('#drop'),fileInput=drop.querySelector('input');
 ['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));['dragleave','drop'].forEach(e=>drop.addEventListener(e,()=>drop.classList.remove('over')));
 drop.addEventListener('drop',ev=>{ev.preventDefault();if(ev.dataTransfer.files[0]){fileInput.files=ev.dataTransfer.files;fileInput.onchange()}});
-fileInput.onchange=()=>{const f=fileInput.files[0];if(!f)return;$('#drop-title').textContent=f.name;$('#drop-hint').textContent=(f.size/1048576).toFixed(0)+' MB · ready to upload';if(!$('#new-title').value)$('#new-title').value=f.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ')};
+// Same order as the server: natural file-name order, which follows the phone's recording order.
+const naturalSort=fs=>[...fs].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'}));
+fileInput.onchange=()=>{const fs=naturalSort(fileInput.files);if(!fs.length)return;const mb=(fs.reduce((t,f)=>t+f.size,0)/1048576).toFixed(0);
+ $('#drop-title').textContent=fs.length>1?`${fs.length} recordings · joined in this order`:fs[0].name;
+ $('#drop-hint').textContent=fs.length>1?fs.map((f,i)=>`${i+1}. ${f.name}`).join('   ')+` · ${mb} MB`:mb+' MB · ready to upload';
+ if(!$('#new-title').value)$('#new-title').value=fs[0].name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ')};
 $('#upload-form').onsubmit=e=>{e.preventDefault();if(!fileInput.files[0])return;const data=new FormData(e.target),x=new XMLHttpRequest();$('#upload-button').disabled=true;$('#upload-progress').hidden=false;
  x.upload.onprogress=p=>{if(p.lengthComputable){$('#upload-bar').style.width=(100*p.loaded/p.total)+'%';$('#upload-msg').textContent=`${(p.loaded/1048576).toFixed(0)} of ${(p.total/1048576).toFixed(0)} MB`}};
- x.onload=()=>{$('#upload-button').disabled=false;$('#upload-progress').hidden=true;let j={};try{j=JSON.parse(x.responseText)}catch{}if(x.status>=300){toastStart(j.detail||'Upload failed.');return}e.target.reset();$('#drop-title').textContent='Drop your video here, or click to choose';$('#drop-hint').textContent='MP4 or MOV · vertical 9:16';loadJobs();openJob(j.id)};
+ x.onload=()=>{$('#upload-button').disabled=false;$('#upload-progress').hidden=true;let j={};try{j=JSON.parse(x.responseText)}catch{}if(x.status>=300){toastStart(j.detail||'Upload failed.');return}e.target.reset();$('#drop-title').textContent='Drop your video here, or click to choose';$('#drop-hint').textContent='MP4 or MOV · vertical 9:16 · select several recordings to join them';loadJobs();openJob(j.id)};
+ $('#upload-cancel').hidden=false;$('#upload-cancel').onclick=()=>x.abort();
+ x.onabort=()=>{$('#upload-button').disabled=false;$('#upload-progress').hidden=true;$('#upload-bar').style.width='0'};
  x.onerror=()=>{$('#upload-button').disabled=false;$('#upload-progress').hidden=true;toastStart('Upload failed. Is the app still running?')};x.open('POST','/shorts/jobs');x.send(data)};
 function toastStart(msg){$('#upload-msg').textContent=msg;$('#upload-progress').hidden=false;$('#upload-progress').querySelector('b').textContent='Upload problem';$('#upload-progress').querySelector('.spinner').hidden=true}
 
@@ -240,8 +252,12 @@ function show(j){
  const act=$('#activity');act.hidden=!running();
  if(running()){$('#act-title').textContent=ACTION[j.action]||'Working';$('#act-msg').textContent=j.status;
   const p=j.progress;$('#act-barwrap').classList.toggle('indeterminate',p==null);$('#act-bar').style.width=p==null?'':(Math.max(2,p*100))+'%';
+  $('#cancel').disabled=!!j.stopping;$('#cancel').textContent=j.stopping?'Stopping…':'Cancel';
   tick()}
- $('#problem').hidden=j.state!=='error';if(j.state==='error'){$('#prob-title').textContent=FAIL[j.action]||'Something went wrong';$('#prob-msg').textContent=friendly(j.status);$('#prob-detail').textContent=j.status}
+ const stopped=j.state==='cancelled';$('#problem').hidden=j.state!=='error'&&!stopped;
+ if(j.state==='error'){$('#prob-title').textContent=FAIL[j.action]||'Something went wrong';$('#prob-msg').textContent=friendly(j.status);$('#prob-detail').textContent=j.status}
+ if(stopped){$('#prob-title').textContent=`${ACTION[j.action]||'This step'} was stopped`;$('#prob-msg').textContent='Nothing else was changed. Start it again whenever you like.';$('#prob-detail').textContent=j.status}
+ $('#retry').textContent=stopped?'Start again':'Try again';
  if(j.state==='done'&&j.finished&&Date.now()/1000-j.finished<600&&$('#notice').dataset.for!==String(j.finished)){toast(j.status);$('#notice').dataset.for=String(j.finished)}
  if(running())$('#notice').hidden=true;
  $$('.act').forEach(b=>b.disabled=running());
@@ -251,6 +267,7 @@ function show(j){
 function friendly(msg){if(/ANTHROPIC_API_KEY/.test(msg))return 'Claude isn’t set up yet: add ANTHROPIC_API_KEY to the .env file and restart the app. You can also do this step by hand.';
  if(/Interrupted/.test(msg))return 'The app was restarted while this was running.';if(/vertical/.test(msg))return 'This editor needs a vertical (9:16) video.';if(/minutes or less/.test(msg))return msg;
  if(/credit|billing|402/.test(msg))return 'Your Anthropic account seems to be out of credit.';if(/overloaded|529|rate/i.test(msg))return 'Claude is busy right now. Wait a moment and try again.';return 'Try again. If it keeps failing, share the technical details with Claude Code.'}
+$('#cancel').onclick=async()=>{$('#cancel').disabled=true;$('#cancel').textContent='Stopping…';try{show(await api(`/shorts/jobs/${jobId}/cancel`,{method:'POST'}));loadJobs()}catch(e){toast(e.message,true);refresh()}};
 $('#retry').onclick=()=>{const a=job.action;if(a==='transcribe')post('transcribe');else if(a==='autocut')$('#auto-cut').onclick();else if(a==='apply')post('cut/apply');else if(a==='plan')$('#auto').onclick();else if(a==='render')renderVideo(!!job.final);else refresh()};
 
 /* ---------- cut ---------- */
@@ -260,28 +277,32 @@ function drawCut(j){
   h('div',{},h('strong',{},`${s.kept_parts??'–'}/${s.parts??'–'}`),h('span',{},'parts kept')),s.whole?null:h('div',{},h('strong',{},String(s.jumps??'–')),h('span',{},'pieces joined')));
  $('#cut-summary').textContent=c.summary?('Claude: '+c.summary):(j.units.length?'':'No speech found, so the whole video is used.');
  $('#auto-cut').disabled=running()||!j.planner_available;$('#cut-ai-hint').textContent=j.planner_available?'Claude reads the transcript and unchecks retakes, repeats, tangents and dead air. You can change anything after.':'Add ANTHROPIC_API_KEY to .env to use this, or ask Claude Code: “cut shorts job '+jobId+'”.';
- $('#tighten').checked=c.tighten;
+ const tc=j.transcript_check;const lost=tc&&tc.speech>0&&tc.missing>Math.max(5,.1*tc.speech);$('#lang-warn').hidden=!lost;
+ if(lost){$('#lang-warn-msg').textContent=`About ${Math.round(tc.missing)} s of speech has no transcript (detected language: ${j.transcript.language||'unknown'}). Those words can’t be shown as captions or chosen in the cut. Pauses that contain speech are kept, but check the language and transcribe again.`;if(document.activeElement!==$('#language'))$('#language').value=j.language}
+ $('#tighten').checked=c.tighten;$('#noise').value=j.noise;$('#noise').querySelector('[value=strong]').disabled=!j.strong_noise_available&&j.noise!=='strong';
  const why=Object.fromEntries((c.removed||[]).map(r=>[r.id,r.why])),hook=c.keep.length>1&&c.keep[0]>c.keep[1]?c.keep[0]:null,keep=new Set(c.keep);
  const rows=j.units.filter(u=>cutFilter==='all'||(cutFilter==='kept')===keep.has(u.id));
  $('#parts').replaceChildren(...rows.map(u=>{const on=keep.has(u.id);return h('label',{class:'part'+(on?'':' off')},
   h('input',{type:'checkbox',checked:on,disabled:running(),onchange:e=>toggle(u.id,e.target.checked)}),h('time',{},clock(u.start)),
   h('span',{class:'text'},u.text,u.id===hook?h('span',{class:'hook'},'HOOK · plays first'):null,!on&&why[u.id]?h('div',{},h('span',{class:'why'},'Cut: '+why[u.id])):null))}));
  if(!rows.length)$('#parts').replaceChildren(h('div',{class:'empty-list',style:'padding:16px'},'Nothing here.'));
- const stale=j.files['source.mp4']&&j.cut_mtime>j.files['source.mp4'];$('#apply-cut').textContent=j.tracking?(stale?'Rebuild my edit →':'Rebuild my edit'):'Build my edit →';
- $('#cut-footer-hint').textContent=stale?'You changed the cut. Rebuild to update your edit (graphics will be reset).':j.tracking?'Your edit is built. Rebuilding resets the graphics plan.':'Next, your edit is built and tracked (about 2× its length). Nothing is uploaded.';
+ const stale=j.files['source.mp4']&&(j.cut_mtime>j.files['source.mp4']||(j.manifest&&(j.manifest.noise||'off')!==j.noise));$('#apply-cut').textContent=j.tracking?(stale?'Rebuild my edit →':'Rebuild my edit'):'Build my edit →';
+ $('#cut-footer-hint').textContent=stale?'You changed the cut or noise setting. Rebuild to update your edit (graphics will be reset).':j.tracking?'Your edit is built. Rebuilding resets the graphics plan.':'Next, your edit is built and tracked (about 2× its length). Nothing is uploaded.';
 }
 $$('#cut-filter button').forEach(b=>b.onclick=()=>{cutFilter=b.dataset.f;$$('#cut-filter button').forEach(x=>x.classList.toggle('on',x===b));drawCut(job)});
 async function saveCut(cut){try{show(await sendJSON(`/shorts/jobs/${jobId}/cut`,'PUT',cut))}catch(e){toast(e.message,true);refresh()}}
 function toggle(id,on){const c=structuredClone(job.cut),hook=c.keep.length>1&&c.keep[0]>c.keep[1]?c.keep[0]:null;let rest=c.keep.filter(k=>k!==id&&k!==hook);if(on)rest.push(id);rest.sort((a,b)=>a-b);c.keep=hook!==null&&hook!==id?[hook,...rest]:rest;saveCut(c)}
 $('#keep-all').onclick=()=>saveCut({...job.cut,keep:job.units.map(u=>u.id),removed:[]});
 $('#tighten').onchange=()=>saveCut({...job.cut,tighten:$('#tighten').checked});
+$('#retranscribe').onclick=async()=>{if(!confirm('Transcribe again? This replaces the transcript and your cut choices, and uses ElevenLabs credits.'))return;try{await sendJSON(`/shorts/jobs/${jobId}`,'PATCH',{language:$('#language').value});post('transcribe')}catch(e){toast(e.message,true)}};
+$('#noise').onchange=async()=>{try{show(await sendJSON(`/shorts/jobs/${jobId}`,'PATCH',{noise:$('#noise').value}))}catch(e){toast(e.message,true);refresh()}};
 $('#auto-cut').onclick=()=>{const d=new FormData();d.set('notes',$('#cut-notes').value);post('cut/auto',d)};
 $('#apply-cut').onclick=()=>{if(job.plan&&job.plan.events.length&&!confirm('Rebuilding resets your planned graphics. Continue?'))return;localStorage.removeItem('reviewed:'+jobId);reviewFile='source.mp4';post('cut/apply')};
 
 /* ---------- review ---------- */
 function setVideo(el,src){if(el.dataset.src!==src){el.src=src;el.dataset.src=src}}
 function drawReview(j){if(!j.tracking)return;const t=j.tracking,pct=n=>Math.round(100*n/t.frames)+'%';
- const stale=j.files['source.mp4']&&j.cut_mtime>j.files['source.mp4'];$('#review-stale').hidden=!stale;
+ const stale=j.files['source.mp4']&&(j.cut_mtime>j.files['source.mp4']||(j.manifest&&(j.manifest.noise||'off')!==j.noise));$('#review-stale').hidden=!stale;
  if(!j.files[reviewFile])reviewFile='tracking-preview.mp4';setVideo($('#review-video'),base()+reviewFile+'?'+j.files[reviewFile]);
  $('#view-cut').classList.toggle('on',reviewFile==='source.mp4');$('#view-tracking').classList.toggle('on',reviewFile!=='source.mp4');
  $('#facts').replaceChildren(...[['Length',clock(j.manifest.duration)],['Face found',pct(t.face)],['Left-side hand visible',pct(t.left)],['Right-side hand visible',pct(t.right)],['Scene changes',String(t.cuts)],['Language',j.transcript.language||'none']].map(([a,b])=>h('div',{class:'fact'},h('span',{},a),h('b',{},b))),
@@ -295,10 +316,14 @@ function describe(e){const t=`${e.start.toFixed(1)}s`;
  if(e.type==='text')return['Text',`“${e.text}”${e.behind_subject?' behind you':''}`];
  if(e.type==='sticker'){const what=e.asset||e.emoji;const where=e.anchor==='hand'?`on ${e.hand==='any'?'a':e.hand+'-side'} hand${e.trigger!=='time'?' when '+e.trigger.replace('_',' '):''}`:e.anchor==='face'?(e.point==='beside_face'?'beside your face':'above your head'):'on screen';return['Image',`${what} ${where}`]}
  if(e.type==='zoom')return['Zoom',`punch in ${e.scale}× on ${e.focus==='face'?'your face':'the center'}`];
+ if(e.type==='broll'){const lay={full:'full screen',split:'split with you below',bubble:`your face in a ${e.corner.replace('_',' ')} bubble`,front:'you in front'}[e.layout];return['Screen',`${e.asset} · ${lay} · from ${e.src_start.toFixed(1)}s${e.speed!==1?' at '+(+e.speed.toFixed(2))+'×':''}`]}
+ if(e.type==='card'){const name={steps:'Steps',slider:'Slider',stat:'Stat',icons:'Icons',list:'List',chips:'Chips',quote:'Quote',title:'Title'}[e.template]||'Card';const scene={overlay:'over you',dim:'background dimmed',dark:'dark full screen',light:'light full screen',split:'split with you below'}[e.scene]||'';const what=e.template==='stat'?e.value:e.template==='steps'?`${e.active} of ${e.items.length}: ${e.items[e.active-1]||''}`:(e.text||e.items.join(', ')).replace(/\*/g,'');return[name,`${what} · ${scene}`]}
  if(e.type==='shake')return['Shake','camera shake'];if(e.type==='flash')return['Flash','white flash'];if(e.type==='sfx')return['Sound',e.sound];return[e.type,'']}
 function drawGraphics(j){if(!j.plan)return;const p=j.plan;
- $('#caption-style').value=p.caption_preset;$('#highlight').value=p.highlight_color.length===7?p.highlight_color:'#ffe14d';$('#progress-bar').value=String(p.progress_bar);
- $('#thumbs').replaceChildren(...j.assets.map(name=>h('div',{class:'thumb'},h('img',{src:base()+'assets/'+name,alt:name}),h('span',{},name),h('button',{type:'button',class:'secondary',onclick:async()=>{try{show(await api(`/shorts/jobs/${jobId}/assets/${encodeURIComponent(name)}`,{method:'DELETE'}))}catch(e){toast(e.message,true)}}},'Remove'))));
+ $('#caption-style').value=p.caption_preset;$('#highlight').value=p.highlight_color.length===7?p.highlight_color:'#3d7bff';$('#progress-bar').value=String(p.progress_bar);$('#auto-sound').value=String(p.auto_sound!==false);
+ const removeAsset=name=>h('button',{type:'button',class:'secondary',onclick:async()=>{try{show(await api(`/shorts/jobs/${jobId}/assets/${encodeURIComponent(name)}`,{method:'DELETE'}))}catch(e){toast(e.message,true)}}},'Remove');
+ $('#thumbs').replaceChildren(...j.assets.map(name=>h('div',{class:'thumb'},h('img',{src:base()+'assets/'+name,alt:name}),h('span',{},name),removeAsset(name))),
+  ...(j.clips||[]).map(c=>h('div',{class:'thumb'},c.poster?h('img',{src:c.poster,alt:c.name,style:'object-fit:cover;background:#111'}):null,h('span',{},`▶ ${clock(c.duration)} · ${c.name}`),removeAsset(c.name))));
  $('#auto').disabled=running()||!j.planner_available;$('#plan-ai-hint').textContent=j.planner_available?'Claude looks at frames, the transcript, tracking and your images, then plans the effects.':'Add ANTHROPIC_API_KEY to .env to use this, or ask Claude Code to plan graphics for this job.';
  $('#event-count').textContent=p.events.length?`· ${p.events.length}`:'';$('#plan-notes').textContent=p.notes?('Claude: '+p.notes):'';
  $('#events').replaceChildren(...(p.events.length?p.events.map((e,i)=>{const[k,d]=describe(e);return h('div',{class:'ev'},h('time',{},`${clock(e.start)}${e.end-e.start>.5?'–'+clock(e.end):''}`),h('span',{},h('span',{class:'kind'},k),d),h('button',{type:'button',title:'Remove',class:'act',onclick:()=>{const q=structuredClone(job.plan);q.events.splice(i,1);savePlan(q)}},'×'))}):[h('div',{class:'empty-list'},'No graphics yet. Captions are always added. Use Auto-plan, or ask Claude Code.')]));
@@ -308,9 +333,14 @@ async function savePlan(plan){try{planDirty=false;show(await sendJSON(`/shorts/j
 $('#caption-style').onchange=()=>savePlan({...job.plan,caption_preset:$('#caption-style').value});
 $('#highlight').onchange=()=>savePlan({...job.plan,highlight_color:$('#highlight').value});
 $('#progress-bar').onchange=()=>savePlan({...job.plan,progress_bar:$('#progress-bar').value==='true'});
+$('#auto-sound').onchange=()=>savePlan({...job.plan,auto_sound:$('#auto-sound').value==='true'});
 $('#plan-json').oninput=()=>{planDirty=true};
 $('#save-plan').onclick=()=>{let p;try{p=JSON.parse($('#plan-json').value)}catch{toast('That JSON has a mistake.',true);return}savePlan(p).then(()=>toast('Plan saved.'))};
-$('#assets').onchange=async e=>{const d=new FormData();[...e.target.files].forEach(f=>d.append('images',f));try{show(await api(`/shorts/jobs/${jobId}/assets`,{method:'POST',body:d}))}catch(err){toast(err.message,true)}e.target.value=''};
+$('#assets').onchange=async e=>{const files=[...e.target.files];if(!files.length)return;const d=new FormData();files.forEach(f=>d.append('images',f));
+ const videos=files.some(f=>f.type.startsWith('video/')||/\.(mov|m4v|mp4|webm)$/i.test(f.name));$('#assets').disabled=true;
+ $('#asset-drop-title').textContent=videos?'Uploading and preparing your recording…':'Uploading…';$('#asset-drop-hint').textContent=videos?'Screen recordings are converted so they play in your edit. This takes a few seconds per minute.':'';
+ try{show(await api(`/shorts/jobs/${jobId}/assets`,{method:'POST',body:d}));toast(videos?'Screen recording added. Use Auto-plan, or ask Claude Code to place it.':'Images added.')}catch(err){toast(err.message,true)}
+ $('#assets').disabled=false;$('#asset-drop-title').textContent='＋ Add images or screen recordings';$('#asset-drop-hint').textContent='PNG, JPG, WebP, GIF · MP4 or MOV recordings';e.target.value=''};
 $('#auto').onclick=()=>{const d=new FormData();d.set('notes',$('#notes').value);planDirty=false;post('plan/auto',d)};
 $('#to-render').onclick=()=>{view='render';show(job)};
 

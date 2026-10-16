@@ -21,13 +21,17 @@ const defaultProps: ShortsProps = {
     face: [],
   },
   plan: {
-    caption_preset: "bold",
+    caption_preset: "editorial",
     caption_y: 0.72,
-    highlight_color: "#FFE14D",
+    highlight_color: "#3D7BFF",
     progress_bar: false,
+    emphasis: [],
+    auto_sound: true,
     events: [],
     notes: "",
   },
+  clips: {},
+  assets: [],
 };
 
 const calculateMetadata: CalculateMetadataFunction<ShortsProps> = ({

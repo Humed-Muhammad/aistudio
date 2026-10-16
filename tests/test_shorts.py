@@ -54,21 +54,27 @@ class ShortsPlanTests(unittest.TestCase):
    self.assertIn('logo.png',text);self.assertIn('[0.00]Hello',text);self.assertIn('Logo on my palm',text)
    self.assertEqual(images[-1]['source']['media_type'],'image/png')
 
- def test_auto_plan_uses_structured_output_and_keeps_chosen_preset(self):
+ def test_auto_plan_reads_json_and_keeps_chosen_preset(self):
   with tempfile.TemporaryDirectory() as d:
-   p=job(d);response=Mock(stop_reason='end_turn',parsed_output=shorts.PlannerPlan(caption_preset='minimal',caption_y=.7,highlight_color='#FFE14D',progress_bar=False,notes='',events=[shorts.PZoom(type='zoom',start=1,end=2,scale=1.2,focus='face')]))
-   client=Mock();client.beta.messages.parse.return_value=response
-   with patch('anthropic.Anthropic',return_value=client),patch('shorts.setting',lambda name,default='':default):plan,_=shorts.plan_auto(p,'notes')
-   kwargs=client.beta.messages.parse.call_args.kwargs
-   self.assertIs(kwargs['output_format'],shorts.PlannerPlan);self.assertEqual(kwargs['model'],'claude-opus-5-5');self.assertEqual(kwargs['fallbacks'],'default')
-   self.assertEqual(plan.caption_preset,'bold');self.assertEqual(len(plan.events),1)
+   p=job(d);block=lambda s:Mock(text=s)
+   bad=Mock(stop_reason='end_turn',content=[block('Here is the plan: {oops')])
+   good=Mock(stop_reason='end_turn',content=[block('```json\n'+json.dumps({'caption_preset':'minimal','caption_y':.7,'highlight_color':'#FFE14D','progress_bar':False,'emphasis':['Hello'],'notes':'n',
+    'events':[{'type':'zoom','start':1,'end':2,'scale':1.2,'focus':'face'},{'type':'card','start':.5,'end':2,'template':'blob','scene':'dark','text':'Hi','items':['a'],'value':'','label':'','active':1,'y':.5},{'type':'zoom','start':'soon'},{'type':'laser','start':1}]})+'\n```')])
+   client=Mock();client.beta.messages.create.side_effect=[bad,good]
+   with patch('anthropic.Anthropic',return_value=client),patch('shorts.setting',lambda name,default='':default):plan,warnings=shorts.plan_auto(p,'notes')
+   first,second=client.beta.messages.create.call_args_list
+   self.assertNotIn('output_format',first.kwargs);self.assertEqual(first.kwargs['model'],'claude-opus-5-5');self.assertEqual(first.kwargs['fallbacks'],'default')
+   self.assertIn('JSON schema',first.kwargs['system']);self.assertIn('not valid JSON',second.kwargs['messages'][-1]['content'])
+   self.assertEqual(plan.caption_preset,'bold');self.assertEqual(plan.emphasis,['Hello'])
+   self.assertEqual([(e.type,e.template) for e in plan.events],[('card','list'),('zoom','list')])
+   self.assertEqual(sum('left out' in w for w in warnings),2)
 
  def test_render_props_bundle_plan_tracks_and_captions(self):
   with tempfile.TemporaryDirectory() as d:
    p=job(d);shorts.save_plan(p,{'events':[{'type':'flash','start':1,'end':1.2}]})
    props,_=shorts.render_props(p)
    self.assertEqual((props['durationInFrames'],props['video'],props['foreground']),(90,'source.mp4',None))
-   self.assertEqual(props['plan']['events'][0]['type'],'flash');self.assertEqual(len(props['tracks']['face']),90)
+   self.assertEqual([e['type'] for e in props['plan']['events'] if e['type']!='sfx'],['flash']);self.assertEqual(len(props['tracks']['face']),90)
 
 class ShortsApiTests(unittest.TestCase):
  def test_rejects_unknown_jobs_bad_plans_and_bad_images(self):
@@ -182,7 +188,7 @@ class PlannerSchemaTests(unittest.TestCase):
    optional=sum(len(set(n['properties'])-set(n.get('required',[]))) for n in nodes if isinstance(n,dict) and 'properties' in n)
    self.assertEqual(optional,0,model.__name__)
  def test_compact_events_convert_to_full_plan(self):
-  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=True,notes='n',events=[
+  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=True,emphasis=['three'],notes='n',events=[
    shorts.PFlash(type='flash',start=2),shorts.PSfx(type='sfx',start=2,sound='pop',volume=.5),
    shorts.PSticker(type='sticker',start=1,end=3,asset='',emoji='🔥',anchor='hand',hand='left',point='palm',trigger='open_palm',animation='pop',idle='float',size=1,x=.5,y=.5)]).to_plan()
   self.assertEqual([(e.type,e.start,e.end) for e in plan.events],[('flash',2,2.3),('sfx',2,2.3),('sticker',1,3)])
@@ -209,3 +215,297 @@ class ShortsJobListTests(unittest.TestCase):
    self.assertEqual(client.patch(f'/shorts/jobs/{ident}',json={'title':'  '}).status_code,422)
    self.assertEqual(client.patch(f'/shorts/jobs/{ident}',json={'title':'Telegram pitch'}).json()['title'],'Telegram pitch')
    self.assertEqual(client.delete(f'/shorts/jobs/{ident}').status_code,200);self.assertEqual(client.get('/shorts/jobs').json(),[])
+
+ def test_several_recordings_are_saved_in_name_order_and_joined(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app
+  client=TestClient(app.app);seen={}
+  def fake_join(parts,dst,status):seen['parts']=[p.name for p in parts];Path(dst).write_bytes(b'x');return [{'name':p.name,'duration':1} for p in parts]
+  with tempfile.TemporaryDirectory() as d, patch.object(shorts_app,'RUNS',Path(d)), patch('shorts.join_recordings',fake_join), patch('shorts.prepare',lambda *a:None):
+   j=client.post('/shorts/jobs',files=[('video',('IMG_10.MOV',b'b')),('video',('IMG_9.MOV',b'a'))],data={'preset':'bold'}).json()
+   shorts_app.active[j['id']].join(2)
+   self.assertEqual(seen['parts'],['01-IMG_9.MOV','02-IMG_10.MOV']);self.assertEqual(j['title'],'IMG 9')
+   self.assertEqual([x['name'] for x in json.loads((Path(d)/j['id']/'job.json').read_text())['parts']],['01-IMG_9.MOV','02-IMG_10.MOV'])
+   self.assertEqual(client.get(f"/shorts/jobs/{j['id']}").json()['state'],'done')
+
+def tiny_video(path,seconds=2,size=(90,160),fps=30):
+ import av,numpy as np
+ from fractions import Fraction
+ with av.open(str(path),'w') as out:
+  v=out.add_stream('libx264',rate=fps);v.width,v.height,v.pix_fmt=size[0],size[1],'yuv420p'
+  for i in range(seconds*fps):
+   f=av.VideoFrame.from_ndarray(np.full((size[1],size[0],3),(i*4)%255,np.uint8),format='rgb24');f.pts=i;f.time_base=Fraction(1,fps)
+   for pk in v.encode(f):out.mux(pk)
+  for pk in v.encode():out.mux(pk)
+
+class ShortsBrollTests(unittest.TestCase):
+ def test_clip_import_makes_renderable_video_and_planner_frames(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d);src=Path(d)/'rec.mov';tiny_video(src,seconds=3,fps=60)
+   self.assertEqual(shorts.add_clip(src,p,'my-demo'),'my-demo.mp4')
+   self.assertEqual(shorts.load_clips(p)['my-demo.mp4'],{'duration':3.0,'width':90,'height':160})
+   self.assertEqual(len(list((p/'assets'/'.frames'/'my-demo').glob('*.jpg'))),6)
+   text,images=shorts.planner_context(p)
+   self.assertIn('Screen recordings for broll (exact filename as asset): my-demo.mp4 (3.0s, vertical)',text)
+   self.assertTrue(any(i.get('text','').startswith('Screen recording my-demo.mp4 at') for i in images))
+   shorts.remove_clip(p,'my-demo.mp4');self.assertEqual(shorts.load_clips(p),{});self.assertFalse((p/'assets'/'my-demo.mp4').exists())
+
+ def test_broll_is_fitted_to_the_recording_and_never_overlaps(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d);(p/'assets'/'clips.json').write_text(json.dumps({'demo.mp4':{'duration':4,'width':886,'height':1920}}))
+   plan,warnings=shorts.save_plan(p,{'events':[
+    {'type':'broll','start':0,'end':2,'asset':'demo.mp4','src_start':1,'speed':2,'layout':'front'},  # needs 4 s, only 3 left
+    {'type':'broll','start':1.5,'end':2.5,'asset':'demo.mp4'},                                        # overlaps
+    {'type':'broll','start':2.5,'end':3,'asset':'nope.mp4'}]})
+   e=plan.events[0]
+   self.assertEqual(len(plan.events),1);self.assertAlmostEqual(e.speed,1.5);self.assertEqual(e.end,2)
+   self.assertEqual(e.layout,'full')  # no person cutout in this job
+   self.assertTrue(any('plays at 1.50x' in w for w in warnings));self.assertTrue(any('overlaps' in w for w in warnings))
+   self.assertTrue(any('nope.mp4' in w for w in warnings));self.assertTrue(any('shown full screen' in w for w in warnings))
+
+ def test_planner_broll_converts(self):
+  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=False,emphasis=[],notes='',events=[
+   shorts.PBroll(type='broll',start=1,end=4,asset='demo.mp4',src_start=2,speed=1.5,layout='bubble',corner='top_left')]).to_plan()
+  e=plan.events[0];self.assertEqual((e.type,e.layout,e.corner,e.speed,e.src_start),('broll','bubble','top_left',1.5,2))
+
+ def test_upload_and_delete_recording_through_api(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app
+  client=TestClient(app.app);ident='c'*32
+  with tempfile.TemporaryDirectory() as d:
+   (Path(d)/ident).mkdir();p=job(Path(d)/ident);(p/'upload.mp4').write_bytes(b'x');rec=Path(d)/'Screen Recording 1.MOV';tiny_video(rec)
+   with patch.object(shorts_app,'RUNS',Path(d)):
+    j=client.post(f'/shorts/jobs/{ident}/assets',files={'images':(rec.name,rec.read_bytes())}).json()
+    self.assertEqual([(c['name'],c['duration']) for c in j['clips']],[('screen-recording-1.mp4',2.0)]);self.assertIn('/assets/.frames/screen-recording-1/',j['clips'][0]['poster'])
+    self.assertEqual(client.post(f'/shorts/jobs/{ident}/assets',files={'images':('x.txt',b'x')}).status_code,400)
+    self.assertEqual(client.delete(f'/shorts/jobs/{ident}/assets/screen-recording-1.mp4').json()['clips'],[])
+
+class AmharicTests(unittest.TestCase):
+ def w(self,t,s,e):return {'text':' '+t,'startMs':s,'endMs':e,'timestampMs':s,'confidence':1}
+ def test_ethiopic_punctuation_splits_parts_and_fillers_drop(self):
+  caps=[self.w('ሰላም',0,300),self.w('ነው።',300,600),self.w('እ',700,800),self.w('ቦቱ',820,1100),self.w('ይሰራል፣',1100,1400),self.w('easy',1800,2000)]
+  units=shorts.make_units(caps)
+  self.assertEqual([u['text'] for u in units],['ሰላም ነው።','እ ቦቱ ይሰራል፣','easy'])
+  self.assertTrue(shorts.is_filler(caps[2]));self.assertFalse(shorts.is_filler(caps[3]))
+
+ def test_scribe_words_become_captions(self):
+  data={'language_code':'amh','words':[{'text':'ሰላም','type':'word','start':.1,'end':.5,'logprob':0},{'text':' ','type':'spacing','start':.5,'end':.6},
+   {'text':'(laughs)','type':'audio_event','start':.6,'end':.9},{'text':'bot','type':'word','start':1.0,'end':1.0,'logprob':-.5}]}
+  caps=shorts.scribe_captions(data)
+  self.assertEqual([(c['text'],c['startMs'],c['endMs']) for c in caps],[(' ሰላም',100,500),(' bot',1000,1001)])
+  self.assertEqual(caps[0]['confidence'],1.0)
+  fixed=shorts.scribe_captions({'words':[{'text':'ബിዝነስ،','type':'word','start':0,'end':.5}]})
+  self.assertEqual(fixed[0]['text'],' ቢዝነስ፣')
+
+ def test_transcriber_choice(self):
+  with patch.object(shorts,'setting',side_effect=lambda k,d='':{'ELEVENLABS_API_KEY':'k'}.get(k,d)):self.assertEqual(shorts.transcriber(),'elevenlabs')
+  with patch.object(shorts,'setting',side_effect=lambda k,d='':d):self.assertEqual(shorts.transcriber(),'whisper')
+  with patch.object(shorts,'setting',side_effect=lambda k,d='':{'ELEVENLABS_API_KEY':'k','SHORTS_TRANSCRIBER':'whisper'}.get(k,d)):self.assertEqual(shorts.transcriber(),'whisper')
+
+ def test_scribe_request_sends_language_and_no_key_in_errors(self):
+  with tempfile.TemporaryDirectory() as d:
+   wav=Path(d)/'a.wav';wav.write_bytes(b'RIFF');out=Path(d)/'o.json'
+   ok=Mock(status_code=200,json=lambda:{'language_code':'amh','words':[{'text':'ሰላም','type':'word','start':0,'end':.4}]})
+   env={'ELEVENLABS_API_KEY':'secret','SHORTS_LANGUAGE':'am'}
+   with patch.object(shorts,'setting',side_effect=lambda k,d='':env.get(k,d)),patch.object(shorts,'credential',return_value='secret'),patch('httpx.post',return_value=ok) as post:
+    shorts.transcribe_scribe(wav,out,lambda *a:None)
+   self.assertEqual(post.call_args.kwargs['data']['language_code'],'amh')
+   self.assertEqual(json.loads(out.read_text())['captions'][0]['text'],' ሰላም')
+   bad=Mock(status_code=401,text='invalid api key')
+   with patch.object(shorts,'setting',side_effect=lambda k,d='':env.get(k,d)),patch.object(shorts,'credential',return_value='secret'),patch('httpx.post',return_value=bad):
+    with self.assertRaises(RuntimeError) as e:shorts.transcribe_scribe(wav,out,lambda *a:None)
+   self.assertNotIn('secret',str(e.exception))
+
+class JoinTests(unittest.TestCase):
+ def clip(self,path,seconds,grey,hz,size=(64,112),audio_seconds=None):
+  import av,numpy as np
+  from fractions import Fraction
+  with av.open(str(path),'w') as out:
+   v=out.add_stream('libx264',rate=30);v.width,v.height,v.pix_fmt=size[0],size[1],'yuv420p';a=out.add_stream('aac',rate=44100,layout='mono')
+   for i in range(round(seconds*30)):
+    f=av.VideoFrame.from_ndarray(np.full((size[1],size[0],3),grey,np.uint8),format='rgb24');f.pts=i;f.time_base=Fraction(1,30)
+    for pk in v.encode(f):out.mux(pk)
+   for pk in v.encode():out.mux(pk)
+   t=np.arange(int((audio_seconds or seconds)*44100))/44100;tone=(.5*np.sin(2*np.pi*hz*t)).astype(np.float32)
+   for k in range(0,len(t),1024):
+    f=av.AudioFrame.from_ndarray(tone[None,k:k+1024],format='flt',layout='mono');f.sample_rate=44100;f.pts=k;f.time_base=Fraction(1,44100)
+    for pk in a.encode(f):out.mux(pk)
+   for pk in a.encode():out.mux(pk)
+
+ def test_recordings_join_in_order_with_audio_in_sync(self):
+  import av,numpy as np
+  with tempfile.TemporaryDirectory() as d:
+   a,b,dst=Path(d)/'01.mp4',Path(d)/'02.mov',Path(d)/'upload.mp4'
+   self.clip(a,2,60,300,audio_seconds=1.6);self.clip(b,1,200,900,size=(72,128))  # short audio in part 1, other size in part 2
+   parts=shorts.join_recordings([a,b],dst,lambda *x:None)
+   self.assertEqual([p['name'] for p in parts],['01.mp4','02.mov'])
+   with av.open(str(dst)) as c:grey=[int(f.to_ndarray(format='gray').mean()) for f in c.decode(video=0)]
+   self.assertEqual(len(grey),90);self.assertTrue(all(abs(g-60)<6 for g in grey[:60]));self.assertTrue(all(abs(g-200)<6 for g in grey[60:]))
+   self.assertEqual(shorts.probe(dst)['width'],64)
+   pcm=shorts.decode_audio(dst)[0].astype(np.float32)
+   for s,e,hz in [(.2,1.4,300),(2.15,2.85,900)]:
+    seg=pcm[int(s*48000):int(e*48000)];self.assertAlmostEqual(np.argmax(np.abs(np.fft.rfft(seg)))*48000/len(seg),hz,delta=10)
+   self.assertLess(np.abs(pcm[int(1.7*48000):int(1.95*48000)]).max(),300)  # padded silence where part 1 had no audio
+
+ def test_landscape_part_is_refused(self):
+  with tempfile.TemporaryDirectory() as d:
+   a=Path(d)/'a.mp4';self.clip(a,1,90,300,size=(112,64))
+   with self.assertRaises(ValueError):shorts.join_recordings([a],Path(d)/'o.mp4',lambda *x:None)
+
+class NoiseTests(unittest.TestCase):
+ def speechy(self,seconds=3):
+  import numpy as np
+  rng=np.random.default_rng(1);t=np.arange(seconds*48000)/48000
+  burst=(np.sin(2*np.pi*3*t)>0)*np.sin(2*np.pi*220*t*(1+.3*np.sin(2*np.pi*.7*t)))  # on/off voiced tone
+  x=(9000*burst+300*rng.standard_normal(len(t))).astype(np.int16);return np.stack([x,x])
+
+ def test_align_undoes_processing_delay(self):
+  import numpy as np
+  ref=self.speechy();late=np.pad(ref,((0,0),(1300,0)))[:,:-200];early=ref[:,900:]
+  for x in (late,early):
+   out=shorts.align_to(x,ref);self.assertEqual(out.shape,ref.shape)
+   self.assertTrue(np.array_equal(out[:,48000:96000],ref[:,48000:96000]))
+
+ def test_filter_keeps_length_and_layout(self):
+  ref=self.speechy();out=shorts.filter_pcm(ref,[('highpass','f=70')])
+  self.assertEqual(out.shape,ref.shape);self.assertEqual(str(out.dtype),'int16')
+
+ def test_strong_uses_elevenlabs_and_is_cached_aligned(self):
+  import numpy as np
+  with tempfile.TemporaryDirectory() as d:
+   p=Path(d);ref=self.speechy()
+   (p/'workflow-mode.json').write_text('{"mode":"shorts","noise":"strong"}');(p/'upload.mp4').write_bytes(b'')
+   shifted=np.pad(ref,((0,0),(1200,0)));wav=p/'reply.wav';shorts.write_wav(shifted[:1],wav)
+   reply=Mock(status_code=200,content=wav.read_bytes())
+   with patch.object(shorts,'decode_audio',side_effect=lambda f:ref if Path(f).name=='upload.mp4' else shifted),patch.object(shorts,'credential',return_value='k'),patch('httpx.post',return_value=reply) as post:
+    path=shorts.job_audio(p,lambda *a:None);again=shorts.job_audio(p,lambda *a:None)
+   self.assertEqual(post.call_count,1);self.assertEqual((path,again),(p/'clean-strong.wav',p/'clean-strong.wav'))
+   import wave
+   with wave.open(str(path)) as w:got=np.frombuffer(w.readframes(w.getnframes()),np.int16).reshape(-1,2).T
+   self.assertEqual(got.shape,ref.shape);self.assertTrue(np.array_equal(got[:,48000:96000],ref[:,48000:96000]))
+   self.assertFalse((p/'isolate-in.wav').exists())
+
+ def test_off_means_original_audio(self):
+  with tempfile.TemporaryDirectory() as d:
+   self.assertIsNone(shorts.job_audio(Path(d)))
+
+ def test_noise_setting_via_api(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app
+  client=TestClient(app.app);ident='c'*32
+  with tempfile.TemporaryDirectory() as d, patch.object(shorts_app,'RUNS',Path(d)):
+   p=Path(d)/ident;p.mkdir();(p/'upload.mp4').write_bytes(b'x');(p/'job.json').write_text('{"title":"T","created":1,"parts":[{"name":"a"}]}')
+   (p/'workflow-mode.json').write_text('{"mode":"shorts","preset":"bold"}')
+   self.assertEqual(client.patch(f'/shorts/jobs/{ident}',json={'noise':'loud'}).status_code,422)
+   self.assertEqual(client.patch(f'/shorts/jobs/{ident}',json={'noise':'light'}).json()['noise'],'light')
+   self.assertEqual(json.loads((p/'workflow-mode.json').read_text())['preset'],'bold')
+   client.patch(f'/shorts/jobs/{ident}',json={'title':'New'})
+   self.assertEqual(json.loads((p/'job.json').read_text())['parts'],[{'name':'a'}])
+
+class CancelTests(unittest.TestCase):
+ def status(self):
+  import threading
+  s=lambda *a:None;s.cancelled=threading.Event();return s
+
+ def test_cancel_endpoint_stops_a_running_step(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app,time
+  client=TestClient(app.app)
+  def slow_prepare(src,folder,preset,status):
+   for i in range(400):status('Transcribing',i/400);time.sleep(.01)
+  with tempfile.TemporaryDirectory() as d, patch.object(shorts_app,'RUNS',Path(d)), patch('shorts.prepare',slow_prepare):
+   j=client.post('/shorts/jobs',files={'video':('a.mov',b'x')},data={'preset':'bold'}).json()
+   time.sleep(.1);s=client.post(f"/shorts/jobs/{j['id']}/cancel").json()
+   self.assertEqual(s['state'],'cancelled');self.assertEqual(client.get('/shorts/jobs').json()[0]['state'],'cancelled')
+   self.assertEqual(client.post(f"/shorts/jobs/{j['id']}/cancel").status_code,409)
+
+ def test_cancel_kills_helper_process_and_abandons_web_request(self):
+  import time,threading
+  st=self.status();proc=shorts.spawn(['sleep','30'],st);threading.Timer(.2,st.cancelled.set).start()
+  t=time.time()
+  with self.assertRaises(shorts.Cancelled):shorts.finished(proc,st)
+  self.assertLess(time.time()-t,2)
+  st=self.status();threading.Timer(.2,st.cancelled.set).start();t=time.time()
+  with self.assertRaises(shorts.Cancelled):shorts.interruptible(lambda:time.sleep(30),st)
+  self.assertLess(time.time()-t,2)
+  self.assertEqual(shorts.interruptible(lambda:7,self.status()),7)
+
+ def test_voiced_gaps_are_not_cut_as_pauses(self):
+  import numpy as np
+  caps=[{'text':' one','startMs':0,'endMs':300},{'text':' two','startMs':2300,'endMs':2600}]
+  units=[{'id':0,'first':0,'last':1}];cut=shorts.CutPlan(keep=[0])
+  self.assertEqual(len(shorts.cut_ranges(cut,caps,units,3,np.zeros(300,bool))),2)  # silent gap removed
+  speech=np.zeros(300,bool);speech[50:220]=True
+  self.assertEqual(len(shorts.cut_ranges(cut,caps,units,3,speech)),1)  # untranscribed speech kept
+
+class CardAndSoundTests(unittest.TestCase):
+ def test_cards_are_checked(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d,frames=900)
+   plan,warnings=shorts.save_plan(p,{'events':[
+    {'type':'card','template':'steps','start':1,'end':3,'items':['A','B','C'],'active':9},
+    {'type':'card','template':'stat','start':4,'end':6,'value':''},
+    {'type':'card','template':'list','start':7,'end':9,'scene':'dark','items':['x']},
+    {'type':'card','template':'title','start':8,'end':10,'scene':'light','text':'Hi'},
+    {'type':'card','template':'icons','start':12,'end':14,'items':['🤖 Bot','logo.png']}]})
+   self.assertEqual([(e.template,e.active) for e in plan.events],[('steps',3),('list',1),('icons',1)])
+   self.assertTrue(any('needs a value' in w for w in warnings));self.assertTrue(any('overlaps' in w for w in warnings))
+   self.assertTrue(any('logo.png' in w for w in warnings))
+   self.assertEqual(plan.caption_preset,'editorial')
+
+ def test_auto_sound_is_sparse_and_under_the_voice(self):
+  E=shorts.Event
+  kit={'whoosh-soft':(.07,.1,.15),'pop':(.2,.1,.4),'ui-click':(.2,.1,.4),'camera-click':(.24,.1,.5),'impact':(.01,.2,.7),'riser-bass':(1.9,.2,2.0),'riser-metal':(1.9,.2,2.0),'hit':(.01,.2,1.0)}
+  plan=shorts.Plan(events=[E(type='zoom',start=1,end=2,scale=1.2),E(type='zoom',start=1.6,end=2,scale=1.3),E(type='zoom',start=5,end=6,scale=1.08),
+   E(type='text',start=3,end=4,text='Hi'),E(type='sfx',start=3.05,end=3.3,sound='ding'),
+   E(type='card',template='list',scene='dark',start=8,end=12,items=['a','b','c'],timeline=[(8,1),(9,2),(10,3)]),
+   E(type='card',template='title',scene='light',start=20,end=22,text='Next'),E(type='card',template='steps',scene='split',start=34,end=36,items=['a','b'])])
+  got=shorts.auto_sounds(plan,kit,voice=.04);s=[(round(e.start,3),e.sound) for e in got]
+  self.assertIn((round(1+2/30-.07,3),'whoosh-soft'),s)  # loudest moment on the fastest zoom frame
+  self.assertEqual(sum(1 for t,n in s if n=='whoosh-soft' and t<3),1)  # second zoom 0.6 s later: no pile-up
+  self.assertFalse(any(abs(t-(5+2/30-.07))<.01 for t,n in s))  # gentle zoom: silent
+  self.assertFalse(any(n=='pop' for t,n in s))  # the plan's ding wins
+  self.assertEqual([n for t,n in s if 8<=t<=11 and n=='ui-click'],['ui-click','ui-click'])  # one per new row
+  self.assertIn((6.0,'riser-bass'),s);self.assertIn((7.99,'hit'),s)  # riser ends on the scene change
+  self.assertFalse(any(n.startswith('riser') and 15<t<30 for t,n in s))  # at most one every 25 s
+  self.assertIn((34-2.0,'riser-metal'),s)
+  for e in got:self.assertLess(e.volume*kit[e.sound][1],.04)  # every effect below the voice
+  self.assertEqual(shorts.auto_sounds(plan,{'whoosh-soft':kit['whoosh-soft']},voice=.04)[0].sound,'whoosh-soft')  # missing sounds are skipped
+
+ def test_own_sound_pack_wins_and_risers_need_it(self):
+  with tempfile.TemporaryDirectory() as d:
+   lib=Path(d)/'lib';(lib/'whoosh').mkdir(parents=True);(lib/'whoosh'/'Airy 01.wav').write_bytes(b'x');(lib/'riser-big.wav').write_bytes(b'x')
+   with patch.object(shorts,'SFX_LIBRARY',lib),patch.object(shorts,'hosted_sound',lambda n:Path(f'/cache/{n}.wav')):
+    self.assertEqual(shorts.sound_source('whoosh-soft').name,'Airy 01.wav');self.assertEqual(shorts.sound_source('riser-metal').name,'riser-big.wav')
+    self.assertEqual(shorts.sound_source('pop'),Path('/cache/mouse-click.wav'));self.assertIsNone(shorts.sound_source('impact'));self.assertIsNone(shorts.sound_source('hit'))
+
+ def test_back_to_back_cards_merge_and_rows_follow_speech(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d,frames=600)
+   (p/'captions.json').write_text(json.dumps({'captions':[{'text':' record','startMs':1500,'endMs':1800},{'text':' then','startMs':2000,'endMs':2200},{'text':' upload','startMs':3200,'endMs':3500}]}))
+   steps=[{'type':'card','template':'steps','scene':'split','start':a,'end':b,'items':['A','B','C'],'active':n} for a,b,n in [(10,11,1),(11.05,12,2),(12.1,14,3)]]
+   plan,_=shorts.save_plan(p,{'events':steps+[{'type':'card','template':'list','scene':'dim','start':1,'end':5,'items':['Record it','Upload it']}]})
+   cards=[e for e in plan.events if e.type=='card']
+   self.assertEqual([(c.template,c.start,c.end) for c in cards],[('list',1,5),('steps',10,14)])
+   self.assertEqual([list(x) for x in cards[1].timeline],[[10,1],[11.05,2],[12.1,3]])
+   self.assertEqual([list(x) for x in cards[0].timeline],[[1.4,1],[3.1,2]])  # each row when its word is spoken
+
+ def test_hand_sticker_stays_while_the_hand_is_up(self):
+  with tempfile.TemporaryDirectory() as d:
+   hand=[.5,.6,.5,.5,.08,'open_palm'];left=[None]*30+[hand]*120+[None]*5+[hand]*40+[None]*105  # up 1-5 s, 5-frame dropout, up to 6.5 s
+   p=job(d,frames=300,left=left)
+   plan,_=shorts.save_plan(p,{'events':[{'type':'sticker','start':1.5,'end':3,'emoji':'🔥','anchor':'hand','hand':'left'}]})
+   self.assertAlmostEqual(plan.events[0].end,6.5,places=2)
+
+ def test_planner_gets_the_style_guide(self):
+  self.assertIn('Card templates',shorts.planner_system());self.assertIn('Sound design is automatic',shorts.planner_system())
+
+class PlannerGrammarTests(unittest.TestCase):
+ def test_only_event_types_are_enums_and_bad_choices_fall_back(self):
+  from anthropic.lib._parse._transform import transform_schema
+  schema=json.dumps(transform_schema(shorts.PlannerPlan))
+  self.assertLessEqual(schema.count('"enum"')+schema.count('"const"'),8)  # one marker per event type
+  plan=shorts.PlannerPlan(caption_preset='fancy',caption_y=.7,highlight_color='#3D7BFF',progress_bar=False,emphasis=['ሰላም'],notes='',events=[
+   shorts.PCard(type='card',start=1,end=3,template='hexagon',scene='dark',text='Hi',items=[],value='',label='',active=1,y=.5),
+   shorts.PSfx(type='sfx',start=2,sound='laser',volume=.4)]).to_plan()
+  self.assertEqual((plan.caption_preset,plan.events[0].template,plan.events[0].scene,plan.events[1].sound),('editorial','list','dark','whoosh'))

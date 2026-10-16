@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import {
+  Easing,
   Img,
   interpolate,
   spring,
@@ -7,11 +8,12 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { HEADLINE_FONT } from "./Captions";
+import { ACCENT_FONT, BODY_FONT } from "./fonts";
 import { faceAt, findTrigger, follow } from "./tracking";
 import type { ShortEvent, Tracks } from "./types";
 
 const EXIT = 6;
+const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
 const exitScale = (frame: number, duration: number) =>
   interpolate(frame, [duration - EXIT, duration], [1, 0], {
@@ -19,34 +21,40 @@ const exitScale = (frame: number, duration: number) =>
     extrapolateRight: "clamp",
   });
 
-/** Headline pop. Rendered inside a Sequence, so frame 0 is the event start. */
-export const TextPop: React.FC<{ event: ShortEvent; duration: number }> = ({
-  event,
-  duration,
-}) => {
+/**
+ * Text pop in the editorial style: clean sans words, *starred* words in the italic serif accent,
+ * a soft halo instead of an outline. Rendered inside a Sequence, so frame 0 is the event start.
+ */
+export const TextPop: React.FC<{
+  event: ShortEvent;
+  duration: number;
+  accent: string;
+}> = ({ event, duration, accent }) => {
   const frame = useCurrentFrame();
-  const { fps, width } = useVideoConfig();
+  const { width } = useVideoConfig();
   const k = width / 1080;
-  const enter = spring({
-    frame,
-    fps,
-    config: { damping: 11, stiffness: 180 },
-    durationInFrames: 12,
+  const enter = interpolate(frame, [0, 9], [0, 1], {
+    ...clamp,
+    easing: Easing.out(Easing.cubic),
   });
-  const shown =
+  const leave = interpolate(frame, [duration - EXIT, duration], [1, 0], clamp);
+  const typed =
     event.style === "type"
-      ? event.text.slice(
-          0,
-          Math.ceil(
-            interpolate(
-              frame,
-              [0, Math.max(6, event.text.length * 1.5)],
-              [0, event.text.length],
-              { extrapolateRight: "clamp" },
-            ),
+      ? Math.ceil(
+          interpolate(
+            frame,
+            [0, Math.max(6, event.text.length * 1.5)],
+            [0, event.text.length],
+            clamp,
           ),
         )
-      : event.text;
+      : event.text.length;
+  const size = 80 * event.size * k * (event.behind_subject ? 1.6 : 1);
+  const colour = event.color.toUpperCase() === "#FFFFFF" ? accent : event.color;
+  const halo = `0 0 ${20 * k}px rgba(0,0,0,.65), 0 ${3 * k}px ${8 * k}px rgba(0,0,0,.5)`;
+  let shown = 0;
+  const parts = event.text.split(/(\*[^*]+\*)/).filter(Boolean);
+  const plain = parts.length === 1 && !parts[0].startsWith("*");
   return (
     <div
       style={{
@@ -55,29 +63,50 @@ export const TextPop: React.FC<{ event: ShortEvent; duration: number }> = ({
         top: `${event.y * 100}%`,
         translate:
           event.style === "slide"
-            ? `calc(-50% + ${interpolate(enter, [0, 1], [-700 * k, 0])}px) -50%`
-            : "-50% -50%",
-        scale: (event.style === "pop" ? enter : 1) * exitScale(frame, duration),
+            ? `calc(-50% + ${(1 - enter) * -120 * k}px) -50%`
+            : `-50% calc(-50% + ${(1 - enter) * 18 * k}px)`,
+        opacity: enter * leave,
+        filter: enter < 1 ? `blur(${(1 - enter) * 10 * k}px)` : undefined,
         maxWidth: 920 * k,
         width: "max-content",
         textAlign: "center",
-        fontFamily: HEADLINE_FONT,
-        fontWeight: 900,
-        fontSize: 96 * event.size * k,
         lineHeight: 1.05,
-        textTransform: "uppercase",
-        color: event.color,
-        padding: event.background === "pill" ? `${14 * k}px ${34 * k}px` : 0,
-        borderRadius: 999,
+        padding: event.background === "pill" ? `${22 * k}px ${40 * k}px` : 0,
+        borderRadius: 36 * k,
         background:
-          event.background === "pill" ? "rgba(10,10,14,.82)" : "transparent",
-        WebkitTextStroke:
-          event.background === "pill" ? 0 : `${12 * k * event.size}px black`,
-        paintOrder: "stroke fill",
-        textShadow: `0 ${8 * k}px ${26 * k}px rgba(0,0,0,.5)`,
+          event.background === "pill" ? "rgba(10,12,26,.55)" : "transparent",
+        backdropFilter:
+          event.background === "pill" ? `blur(${16 * k}px)` : undefined,
+        border:
+          event.background === "pill"
+            ? `${1.5 * k}px solid rgba(255,255,255,.14)`
+            : undefined,
       }}
     >
-      {shown}
+      {parts.map((p, i) => {
+        const star = p.startsWith("*");
+        const word = star ? p.slice(1, -1) : p;
+        const visible = word.slice(0, Math.max(0, typed - shown));
+        shown += p.length;
+        const accented = star;
+        return (
+          <span
+            key={i}
+            style={{
+              fontFamily: accented ? ACCENT_FONT : BODY_FONT,
+              fontStyle: accented ? "italic" : "normal",
+              fontWeight: accented ? 400 : 700,
+              fontSize: accented ? size * 1.3 : size * (plain ? 1 : 0.72),
+              color: accented ? colour : "white",
+              textShadow: accented
+                ? `0 0 ${30 * k}px ${colour}55, ${halo}`
+                : halo,
+            }}
+          >
+            {visible}
+          </span>
+        );
+      })}
     </div>
   );
 };
@@ -108,7 +137,7 @@ export const Sticker: React.FC<{
     if (!trigger || abs < trigger.frame) return null;
     start = trigger.frame - from;
     const track = tracks.hands[trigger.side];
-    const now = follow(track, abs);
+    const now = follow(track, abs, 12); // bridge 0.4 s of lost tracking
     if (!now) return null;
     const [px, py, tx, ty, s] = now.sample;
     visible = now.visible;

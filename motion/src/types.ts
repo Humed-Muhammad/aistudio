@@ -2,7 +2,15 @@ import type { Caption } from "@remotion/captions";
 
 // Mirrors Event / Plan in shorts.py.
 export type ShortEvent = {
-  type: "text" | "sticker" | "zoom" | "shake" | "flash" | "sfx";
+  type:
+    | "text"
+    | "sticker"
+    | "zoom"
+    | "shake"
+    | "flash"
+    | "sfx"
+    | "broll"
+    | "card";
   start: number;
   end: number;
   text: string;
@@ -34,13 +42,36 @@ export type ShortEvent = {
   intensity: number;
   sound: string;
   volume: number;
+  src_start: number;
+  speed: number;
+  layout: "full" | "split" | "bubble" | "front";
+  corner: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  template:
+    | "steps"
+    | "slider"
+    | "stat"
+    | "icons"
+    | "list"
+    | "chips"
+    | "quote"
+    | "title";
+  items: string[];
+  value: string;
+  label: string;
+  active: number;
+  scene: "overlay" | "dim" | "dark" | "light" | "split";
+  timeline: [number, number][];
 };
 
+export type ClipInfo = { duration: number; width: number; height: number };
+
 export type Plan = {
-  caption_preset: "bold" | "minimal" | "boxed" | "none";
+  caption_preset: "editorial" | "bold" | "minimal" | "boxed" | "none";
   caption_y: number;
   highlight_color: string;
   progress_bar: boolean;
+  emphasis: string[];
+  auto_sound: boolean;
   events: ShortEvent[];
   notes: string;
 };
@@ -69,4 +100,6 @@ export type ShortsProps = {
   captions: Caption[];
   tracks: Tracks;
   plan: Plan;
+  clips: Record<string, ClipInfo>;
+  assets: string[];
 };

@@ -150,9 +150,14 @@ Open **Shorts editor** (`/shorts`) to turn a raw vertical recording (up to 10 mi
 
 - **Cut to what matters**: the full recording is transcribed and split into parts. Auto-cut removes retakes, repeated points, tangents and dead air, with a reason shown for each removed part. You can toggle any part, and filler words and long pauses are trimmed automatically. The length follows the content.
 
-- **Captions** from local whisper.cpp word timings, in Bold (1–3 big words with the spoken word highlighted), Boxed, or Minimal style
+- **Motion templates**: step trackers, sliders, counting stat cards with glowing charts, app-icon tiles, lists, chips, quotes and titles, over the video, on a dimmed background, full screen (dark glow or light grid) or split; Editorial captions with serif accent words; automatic sound design (whooshes, clicks, risers, hits) generated locally. See `docs/shorts-style.md`
+- **Background noise**: per video, Off, Light (free, local RNNoise for fans, hum and hiss) or Strong (ElevenLabs Voice Isolator, paid); the original upload is kept
+- **Several recordings**: select them together on upload; they are joined in file-name order (the phone's recording order) before transcription
+- **Amharic + English**: set `ELEVENLABS_API_KEY` to transcribe with ElevenLabs Scribe (cloud, paid per minute), which supports Amharic; captions and text use Noto Sans Ethiopic. Without it, local whisper.cpp is used (English and other major languages only)
+- **Captions** from word timings, in Bold (1–3 big words with the spoken word highlighted), Boxed, or Minimal style
 - **Motion graphics**: hook titles, text pops, typewriter and pill labels, zoom punch-ins on your face, shakes, flashes, a progress bar and sound effects
 - **Text behind you**, using a local person cutout
+- **Screen recordings (B-roll)**: upload a phone screen recording and it cuts in while you keep talking. Layouts: full screen, split (recording on top, you below), your face in a bubble, or you cut out in front of it.
 - **Images that follow your hands**: upload a PNG (logo, product, icon) and it can sit above your palm, follow your fingertip, or pop in when you open your palm, pinch or point. It can also sit above your head or stay fixed on screen.
 
 Steps: upload → cut (auto or by hand) → review the cut and its tracking → add images and describe what you want → **Auto-plan with Claude** (needs `ANTHROPIC_API_KEY`), or ask Claude Code to write the plan, or edit the JSON → render a draft → render the final. Install once with `make shorts` (Node.js 18+ required). CLI: `python shorts.py prepare|cut|plan|render`.
@@ -168,7 +173,7 @@ Steps: upload → cut (auto or by hand) → review the cut and its tracking → 
 | Colored depth | Replicate `lucataco/depth-anything-video`; optional Hugging Face Video Depth Anything or `chenxwh/depth-any-video` |
 | Segmentation | Replicate `lucataco/sam3-video`; raw per-frame masks and mandatory visual review |
 | Face mesh | Local Google MediaPipe Face Landmarker; saved landmarks and overlay, isolated Python 3.12 worker environment |
-| Shorts editor | Local MediaPipe gesture/face tracking and selfie segmentation, whisper.cpp captions, Remotion (React) rendering; optional Claude planner |
+| Shorts editor | Local MediaPipe gesture/face tracking and selfie segmentation, whisper.cpp or ElevenLabs Scribe captions, Remotion (React) rendering; optional Claude planner |
 | Generation | Enhancor Seedance; Edit for image references, Omni for video references; draft first, approved 1080p upgrade |
 | Media hosting | Tmpfiles primary; configurable Catbox fallback; direct-link checks before generation |
 | Completion | Persisted job files and polling; callback-only Cloudflare Quick Tunnel for the provider callback requirement |

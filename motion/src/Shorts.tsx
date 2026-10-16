@@ -11,7 +11,9 @@ import {
   useVideoConfig,
 } from "remotion";
 import { Audio, Video } from "@remotion/media";
+import { Broll } from "./Broll";
 import { Captions } from "./Captions";
+import { Card } from "./Cards";
 import { Sticker, TextPop } from "./Graphics";
 import { faceAt } from "./tracking";
 import type { ShortEvent, ShortsProps } from "./types";
@@ -65,10 +67,8 @@ const useCamera = (events: ShortEvent[], tracks: ShortsProps["tracks"]) => {
   return { scale, origin, dx, dy };
 };
 
-const SOUND = (name: string) =>
-  name === "pop"
-    ? staticFile("sfx-pop.wav")
-    : `https://remotion.media/${name}.wav`;
+// Every sound is copied into the job's sfx/ folder by shorts.py (the creator's pack or cached recordings).
+const SOUND = (name: string) => staticFile(`sfx/${name}.wav`);
 
 export const Shorts: React.FC<ShortsProps> = ({
   video,
@@ -76,6 +76,8 @@ export const Shorts: React.FC<ShortsProps> = ({
   captions,
   tracks,
   plan,
+  clips = {},
+  assets = [],
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames, width } = useVideoConfig();
@@ -107,7 +109,11 @@ export const Shorts: React.FC<ShortsProps> = ({
               durationInFrames={duration}
               layout="none"
             >
-              <TextPop event={e} duration={duration} />
+              <TextPop
+                event={e}
+                duration={duration}
+                accent={plan.highlight_color}
+              />
             </Sequence>
           );
         })}
@@ -147,6 +153,50 @@ export const Shorts: React.FC<ShortsProps> = ({
         })}
       </AbsoluteFill>
 
+      {video
+        ? plan.events
+            .filter((e) => e.type === "broll" && clips[e.asset])
+            .map((e, i) => {
+              const { from, duration } = frames(e, fps);
+              return (
+                <Sequence
+                  key={`br${i}`}
+                  from={from}
+                  durationInFrames={duration}
+                >
+                  <Broll
+                    event={e}
+                    clip={clips[e.asset]}
+                    from={from}
+                    duration={duration}
+                    video={video}
+                    foreground={foreground}
+                    tracks={tracks}
+                  />
+                </Sequence>
+              );
+            })
+        : null}
+
+      {plan.events
+        .filter((e) => e.type === "card")
+        .map((e, i) => {
+          const { from, duration } = frames(e, fps);
+          return (
+            <Sequence key={`c${i}`} from={from} durationInFrames={duration}>
+              <Card
+                event={e}
+                duration={duration}
+                accent={plan.highlight_color}
+                from={from}
+                video={video}
+                tracks={tracks}
+                assets={assets}
+              />
+            </Sequence>
+          );
+        })}
+
       <Captions captions={captions} plan={plan} />
 
       {front.map((e, i) => {
@@ -158,7 +208,11 @@ export const Shorts: React.FC<ShortsProps> = ({
             durationInFrames={duration}
             layout="none"
           >
-            <TextPop event={e} duration={duration} />
+            <TextPop
+              event={e}
+              duration={duration}
+              accent={plan.highlight_color}
+            />
           </Sequence>
         );
       })}

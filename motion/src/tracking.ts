@@ -31,18 +31,23 @@ export const findTrigger = (
   return null;
 };
 
-/** Sample at frame, holding the last seen value and reporting visibility 0-1 for fades. */
+/**
+ * Sample at frame, holding the last seen value through short tracking drops (motion blur) and
+ * reporting visibility 0-1: fully visible for the first `hold` lost frames, then a FADE-frame fade.
+ */
 export const follow = <T extends HandSample | FaceSample>(
   track: (T | null)[],
   frame: number,
+  hold = 0,
 ): { sample: T; visible: number } | null => {
-  for (let back = 0; back <= FADE; back++) {
+  for (let back = 0; back <= hold + FADE; back++) {
     const sample = track[frame - back];
     if (!sample) continue;
     let run = 0;
     while (run < FADE && track[frame - back - run - 1]) run++;
     const fadeIn = Math.min(1, (run + 1) / FADE);
-    return { sample, visible: Math.min(fadeIn, 1 - back / (FADE + 1)) };
+    const fadeOut = back <= hold ? 1 : 1 - (back - hold) / (FADE + 1);
+    return { sample, visible: Math.min(fadeIn, fadeOut) };
   }
   return null;
 };

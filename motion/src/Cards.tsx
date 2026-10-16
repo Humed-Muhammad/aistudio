@@ -10,8 +10,8 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { Video } from "@remotion/media";
 import { ACCENT_FONT, BODY_FONT, HEADLINE_FONT } from "./fonts";
+import { Push } from "./Push";
 import type { ShortEvent, Tracks } from "./types";
 
 // Card items appear one after another; shorts.py uses the same numbers to time the sounds.
@@ -854,10 +854,127 @@ const Title: React.FC<{
   );
 };
 
-const Backdrop: React.FC<{ scene: ShortEvent["scene"]; accent: string }> = ({
-  scene,
-  accent,
-}) => {
+/**
+ * Progress that almost finishes, then stalls: the bar climbs to `value`%, slows, drains a little and
+ * turns grey while the status (`label`, *stars* for the accent) fades in. For "I never finish" moments.
+ */
+const Progress: React.FC<{
+  e: ShortEvent;
+  accent: string;
+  theme: Theme;
+  k: number;
+  duration: number;
+}> = ({ e, accent, theme, k, duration }) => {
+  const frame = useCurrentFrame();
+  const target = Math.min(100, Math.max(1, parseFloat(e.value) || 92));
+  const stallAt = Math.round(duration * 0.55);
+  const climb = interpolate(frame, [6, stallAt], [0, 1], {
+    ...clamp,
+    easing: Easing.out(Easing.quad),
+  });
+  const stall = interpolate(frame, [stallAt, stallAt + 18], [0, 1], {
+    ...clamp,
+    easing: Easing.inOut(Easing.cubic),
+  });
+  const pct = target * climb - target * 0.08 * stall;
+  const w = 760 * k;
+  const fill = `color-mix(in srgb, ${accent} ${Math.round((1 - stall) * 100)}%, #6b7080)`;
+  const status = interpolate(frame, [stallAt + 8, stallAt + 20], [0, 1], clamp);
+  return (
+    <div
+      style={{
+        width: w + 100 * k,
+        padding: `${44 * k}px ${50 * k}px`,
+        borderRadius: 44 * k,
+        background: theme.card,
+        border: `${1.5 * k}px solid ${theme.border}`,
+        boxShadow: theme.shadow,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          fontFamily: BODY_FONT,
+          color: theme.text,
+        }}
+      >
+        <span style={{ fontWeight: 600, fontSize: 34 * k, color: theme.sub }}>
+          {e.text.replace(/\*/g, "")}
+        </span>
+        <span
+          style={{
+            fontFamily: HEADLINE_FONT,
+            fontWeight: 800,
+            fontSize: 76 * k,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {Math.round(pct)}%
+        </span>
+      </div>
+      <div
+        style={{
+          position: "relative",
+          height: 22 * k,
+          marginTop: 26 * k,
+          borderRadius: 99,
+          background: "rgba(130,140,170,.22)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: (pct / 100) * w,
+            borderRadius: 99,
+            background: fill,
+            boxShadow: `0 0 ${24 * k * (1 - stall)}px ${accent}`,
+          }}
+        />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 22 * k,
+          marginTop: 30 * k,
+          opacity: status,
+          translate: `0 ${(1 - status) * 12 * k}px`,
+        }}
+      >
+        <div style={{ display: "flex", gap: 8 * k }}>
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              style={{
+                width: 12 * k,
+                height: 40 * k,
+                borderRadius: 4 * k,
+                background: theme.sub,
+              }}
+            />
+          ))}
+        </div>
+        {e.label ? (
+          <Headline
+            text={e.label}
+            accent={accent}
+            theme={theme}
+            size={58 * k}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
+// The dark scene keeps a fixed blue/violet glow: a warm accent (yellow) would muddy the navy.
+const Backdrop: React.FC<{ scene: ShortEvent["scene"] }> = ({ scene }) => {
   const frame = useCurrentFrame();
   const { width } = useVideoConfig();
   const k = width / 1080;
@@ -876,7 +993,7 @@ const Backdrop: React.FC<{ scene: ShortEvent["scene"]; accent: string }> = ({
   return (
     <AbsoluteFill
       style={{
-        background: `radial-gradient(70% 45% at ${50 + drift / 20}% 18%, ${accent}55, transparent 70%), radial-gradient(60% 40% at 80% 95%, #7c3aed44, transparent 70%), linear-gradient(180deg, #070b22 0%, #04050d 100%)`,
+        background: `radial-gradient(70% 45% at ${50 + drift / 20}% 18%, #2f55ff55, transparent 70%), radial-gradient(60% 40% at 80% 95%, #7c3aed44, transparent 70%), linear-gradient(180deg, #070b22 0%, #04050d 100%)`,
       }}
     />
   );
@@ -903,7 +1020,7 @@ export const Card: React.FC<Props> = ({
   assets,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps, width } = useVideoConfig();
   const k = width / 1080;
   const enter = spring({
     frame,
@@ -950,6 +1067,9 @@ export const Card: React.FC<Props> = ({
     chips: <Chips e={e} beat={beat} accent={accent} theme={theme} k={k} />,
     quote: <Quote e={e} accent={accent} k={k} />,
     title: <Title e={e} accent={accent} theme={theme} k={k} />,
+    progress: (
+      <Progress e={e} accent={accent} theme={theme} k={k} duration={duration} />
+    ),
   }[e.template];
 
   const centred = (top: string) => (
@@ -986,64 +1106,31 @@ export const Card: React.FC<Props> = ({
       </AbsoluteFill>
     );
 
-  if (e.scene === "split") {
-    // Graphic on top, the speaker below, framed on the face.
-    const s = tracks.face[from + frame] ?? tracks.face[from];
-    const fy = s ? s[1] : 0.38;
-    return (
-      <AbsoluteFill style={{ opacity: fade }}>
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: 0,
-            height: "52%",
-            overflow: "hidden",
-            translate: `0 ${interpolate(enter, [0, 1], [-height * 0.52, 0])}px`,
-          }}
-        >
-          <Backdrop scene="dark" accent={accent} />
-          {centred("50%")}
-        </div>
-        {video ? (
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: "48%",
-              overflow: "hidden",
-              borderTop: `${3 * k}px solid ${accent}`,
-            }}
-          >
-            <Video
-              src={staticFile(video)}
-              muted
-              trimBefore={from}
-              objectFit="cover"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectPosition: `50% ${Math.round(fy * 100)}%`,
-              }}
-            />
-          </div>
-        ) : null}
-      </AbsoluteFill>
-    );
-  }
-
+  // Split and full-screen scenes push the speaker video out of the way, animated in and out.
+  const share = e.scene === "split" ? 0.52 : 1;
+  const across = e.side === "left" || e.side === "right";
   return (
-    <AbsoluteFill
-      style={{
-        opacity: fade * enter,
-        scale: interpolate(enter, [0, 1], [1.05, 1]),
-      }}
+    <Push
+      side={e.side}
+      share={share}
+      duration={duration}
+      from={from}
+      video={video}
+      tracks={tracks}
+      accent={accent}
     >
-      <Backdrop scene={e.scene} accent={accent} />
-      {centred("44%")}
-    </AbsoluteFill>
+      <Backdrop scene={e.scene === "light" ? "light" : "dark"} />
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: share < 1 && !across ? "50%" : "44%",
+          translate: "-50% -50%",
+          scale: share < 1 && across ? 0.6 : 1,
+        }}
+      >
+        {body}
+      </div>
+    </Push>
   );
 };

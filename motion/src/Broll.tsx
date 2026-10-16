@@ -8,6 +8,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { Video } from "@remotion/media";
+import { Push } from "./Push";
 import type { ClipInfo, ShortEvent, Tracks } from "./types";
 
 const EXIT = 6;
@@ -82,41 +83,22 @@ export const Broll: React.FC<Props> = ({
     />
   );
 
-  if (event.layout === "split") {
-    const [, fy] = faceBox(tracks, from + frame);
+  if (event.layout === "split" || event.layout === "full") {
+    // The recording pushes the speaker out of the way (split: to the other half; full: off screen).
     return (
-      <AbsoluteFill style={{ backgroundColor: "#0d0e12", opacity: fade }}>
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: 0,
-            height: "55%",
-            overflow: "hidden",
-            translate: `0 ${interpolate(enter, [0, 1], [-height * 0.55, 0])}px`,
-          }}
-        >
+      <Push
+        side={event.side}
+        share={event.layout === "split" ? 0.55 : 1}
+        duration={duration}
+        from={from}
+        video={video}
+        tracks={tracks}
+        accent="#ffffff"
+      >
+        <AbsoluteFill style={{ backgroundColor: "#0d0e12" }}>
           {screen(vertical ? "cover" : "contain")}
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: "45%",
-            overflow: "hidden",
-            borderTop: `${6 * k}px solid white`,
-          }}
-        >
-          {speaker({
-            width: "100%",
-            height: "100%",
-            objectPosition: `50% ${Math.round(fy * 100)}%`,
-          })}
-        </div>
-      </AbsoluteFill>
+        </AbsoluteFill>
+      </Push>
     );
   }
 

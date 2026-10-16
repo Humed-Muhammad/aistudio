@@ -10,6 +10,7 @@ import {
 } from "remotion";
 import { createTikTokStyleCaptions } from "@remotion/captions";
 import type { Caption, TikTokPage } from "@remotion/captions";
+import { onAccent } from "./colors";
 import { ACCENT_FONT, BODY_FONT, HEADLINE_FONT } from "./fonts";
 import type { Plan } from "./types";
 
@@ -17,6 +18,7 @@ import type { Plan } from "./types";
 // A page never lingers longer than this after it starts (whisper stretches words over silence).
 const MAX_PAGE_MS = 4000;
 const PAGE_MS = {
+  clean: 900,
   editorial: 1100,
   bold: 450,
   boxed: 800,
@@ -60,6 +62,72 @@ const Page: React.FC<{
     rowGap: "0.08em",
     lineHeight: 1.12,
   };
+
+  if (preset === "clean") {
+    // Bold white phrase on a dark rounded box; the word being said turns accent-coloured with a small pop.
+    const ink = onAccent(plan.highlight_color);
+    const current = page.tokens.reduce(
+      (at, t, i) => (t.fromMs <= now ? i : at),
+      -1,
+    );
+    return (
+      <div
+        style={{
+          ...container,
+          fontSize: 54 * k, // gaps below are measured in this size
+          opacity: interpolate(enter, [0, 1], [0, 1]),
+          scale: interpolate(enter, [0, 1], [0.9, 1]),
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "center",
+            columnGap: "0.18em",
+            rowGap: "0.12em",
+            maxWidth: 900 * k,
+            padding: `${14 * k}px ${22 * k}px`,
+            borderRadius: 24 * k,
+            background: "rgba(13,15,24,.86)",
+            boxShadow: `0 ${12 * k}px ${32 * k}px rgba(0,0,0,.35)`,
+            fontFamily: BODY_FONT,
+            fontWeight: 800,
+            lineHeight: 1.18,
+            color: "white",
+          }}
+        >
+          {page.tokens.map((t, i) => {
+            const on = i === current;
+            const hit = spring({
+              frame: Math.round(
+                frame - ((t.fromMs - page.startMs) / 1000) * fps,
+              ),
+              fps,
+              config: { damping: 14, stiffness: 300 },
+              durationInFrames: 7,
+            });
+            return (
+              <span
+                key={i}
+                style={{
+                  display: "inline-block",
+                  padding: `0 ${8 * k}px`,
+                  borderRadius: 12 * k,
+                  background: on ? plan.highlight_color : "transparent",
+                  color: on ? ink : "white",
+                  scale: on ? interpolate(hit, [0, 1], [0.92, 1.04]) : 1,
+                }}
+              >
+                {t.text.trim()}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   if (preset === "editorial") {
     // The whole phrase is on screen at once; words light up as they are spoken. Stressed words use the

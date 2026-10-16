@@ -1,4 +1,5 @@
 import type { Caption } from "@remotion/captions";
+import type { LottieAnimationData } from "@remotion/lottie";
 
 // Mirrors Event / Plan in shorts.py.
 export type ShortEvent = {
@@ -54,19 +55,21 @@ export type ShortEvent = {
     | "list"
     | "chips"
     | "quote"
-    | "title";
+    | "title"
+    | "progress";
   items: string[];
   value: string;
   label: string;
   active: number;
   scene: "overlay" | "dim" | "dark" | "light" | "split";
+  side: "top" | "bottom" | "left" | "right";
   timeline: [number, number][];
 };
 
 export type ClipInfo = { duration: number; width: number; height: number };
 
 export type Plan = {
-  caption_preset: "editorial" | "bold" | "minimal" | "boxed" | "none";
+  caption_preset: "clean" | "editorial" | "bold" | "minimal" | "boxed" | "none";
   caption_y: number;
   highlight_color: string;
   progress_bar: boolean;
@@ -102,4 +105,5 @@ export type ShortsProps = {
   plan: Plan;
   clips: Record<string, ClipInfo>;
   assets: string[];
+  lottie: Record<string, LottieAnimationData>;
 };

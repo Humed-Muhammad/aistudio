@@ -15,13 +15,14 @@ import av,numpy as np
 from pydantic import BaseModel,Field,ValidationError
 from config import ROOT,setting,credential
 FPS=30;MOTION=ROOT/'motion'
-PRESETS=['editorial','bold','minimal','boxed','none']
+PRESETS=['clean','editorial','bold','minimal','boxed','none']
 # Hosted Remotion sounds, then family names resolved by sound_source() (the creator's sfx-library/ first).
 SOUNDS=['whoosh','whip','pop','ding','switch','mouse-click','shutter-modern','vine-boom','record-scratch','page-turn','anime-wow','yippee',
         'whoosh-soft','whoosh-deep','whoosh-long','riser-bass','riser-metal','hit','impact','ui-click','scifi-click','gears','camera-click','success']
 Sound=Literal[tuple(SOUNDS)]
-ACCENT_BLUE='#3D7BFF'  # editorial accent, as in the creator's reference edit
-TEMPLATES=['steps','slider','stat','icons','list','chips','quote','title']
+ACCENT='#FFD60A'  # the creator's accent: warm yellow, readable on bright footage
+ACCENT_BLUE='#3D7BFF'
+TEMPLATES=['steps','slider','stat','icons','list','chips','quote','title','progress']
 SCENES=['overlay','dim','dark','light','split']
 GESTURES=['open_palm','fist','point','pinch','peace','thumbs_up','rock']
 
@@ -60,13 +61,14 @@ class Event(BaseModel):
     value:str=Field('',description='card: stat number with unit (400%, $70,318); slider end position 0-100')
     label:str=Field('',description='card: stat caption, slider ends "Beginner|Pro", quote author, title subtitle')
     active:int=Field(1,description='card: 1-based current step / highlighted item')
+    side:Literal['top','bottom','left','right']=Field('top',description='card split / broll split: edge the graphic comes from; it pushes the video the other way')
     timeline:list[tuple[float,int]]=Field([],description='card: (seconds, active item) changes inside one continuous card; filled when back-to-back cards are merged')
     scene:Literal[tuple(SCENES)]=Field('overlay',description='card: overlay on video, dim (darken+blur video behind), dark (full-screen glow), light (full-screen grid paper), split (graphic top, speaker bottom)')
 
 class Plan(BaseModel):
-    caption_preset:Literal[tuple(PRESETS)]='editorial'
+    caption_preset:Literal[tuple(PRESETS)]='clean'
     caption_y:float=Field(0.72,description='vertical centre of captions 0-1; keep clear of face and hand graphics')
-    highlight_color:str='#FFE14D'
+    highlight_color:str=ACCENT
     progress_bar:bool=False
     emphasis:list[str]=Field([],description='editorial captions: words to stress in the italic serif accent (key nouns, numbers, punchlines), as spoken')
     auto_sound:bool=Field(True,description='add whooshes, textures, risers and hits automatically from the graphics')
@@ -137,6 +139,7 @@ class PCard(BaseModel):
     value:str=Field(description='stat: number with unit e.g. 400% or $70,318; slider: end position 0-100; else empty')
     label:str=Field(description='stat caption; slider end labels "Beginner|Pro"; quote author; title subtitle; else empty')
     active:int=Field(description='steps/list/icons: 1-based current item, else 1');y:Num=Field(description='overlay/dim: vertical centre 0-1')
+    side:str=choice(['top','bottom','left','right'],'split and full-screen scenes: edge the graphic pushes in from')
 class PlannerPlan(BaseModel):
     caption_preset:str=choice(PRESETS);caption_y:Num=Field(description='captions vertical centre 0-1, clear of face and stickers')
     highlight_color:str;progress_bar:bool
@@ -708,8 +711,8 @@ def apply_cut(folder,status=say):
     status('Step 2 of 2 · Tracking face, hands and you (for graphics)',0)
     run_with_progress([str(ROOT/'.venv-face/bin/python'),str(ROOT/'shorts_worker.py'),str(folder)],status,'Step 2 of 2 · Tracking face, hands and you (for graphics)')
     preset=json.loads((folder/'workflow-mode.json').read_text()).get('preset','bold')
-    preset=preset if preset in PRESETS else 'editorial'
-    save_plan(folder,Plan(caption_preset=preset,highlight_color=ACCENT_BLUE if preset=='editorial' else '#FFE14D'))
+    preset=preset if preset in PRESETS else 'clean'
+    save_plan(folder,Plan(caption_preset=preset,highlight_color=ACCENT))
     status(f"Your {meta['duration']:.0f}s edit is ready to review")
 
 CUT_SYSTEM="""You are a senior editor turning a raw talking recording into a tight short-form video.
@@ -882,7 +885,7 @@ Style goals: retention-focused like top YouTube Shorts/TikTok creators, but neve
 - Put text behind_subject only when a large headline sits where the person overlaps it, for a premium look.
 - Stickers anchored to a hand only where that hand is visible in the tracking data; prefer a gesture trigger matching what the hand does (e.g. open_palm to reveal an object on the palm). Hand left/right means screen side. Use uploaded images when they fit the words; use emoji stickers sparingly.
 - Screen recordings (broll): cut to them when the speaker talks about what is on screen ("open the app", "look at this", "here's the dashboard"), usually 2-8 s each, never overlapping. Pick src_start from the recording frames so the screen shows what is being said; raise speed (up to 3) to fit a longer action. Layouts: split for demos where the speaker keeps explaining, bubble when the screen needs the whole frame but the speaker's face matters, full for quick cutaways, front for a premium intro of the app. No hand stickers or text behind the subject during broll; captions stay on top.
-- Motion-graphic cards (type card) carry structure: steps for numbered points, stat for numbers, icons for tools/apps, list/chips for examples, slider for before/after, quote and title for key lines. About one card per 6-12 s; full-screen scenes (dark/light/split) 2-4 s, never overlapping a screen recording. Fill emphasis for editorial captions.
+- Motion-graphic cards (type card) carry structure: steps for numbered points, stat for numbers, icons for tools/apps, list/chips for examples, slider for before/after, progress for 'almost finished, then stopped' moments, quote and title for key lines. Split and full-screen scenes push the speaker video out of the way from `side`. Do not use emoji (stickers or card items): they look unprofessional to this creator; use words, uploaded images or cards. About one card per 6-12 s; full-screen scenes (dark/light/split) 2-4 s, never overlapping a screen recording. Fill emphasis for editorial captions.
 - Sound design is automatic (auto_sound): only add sfx for a special moment the rules would miss, such as a ding on a big number.
 - The speaker may talk in Amharic, English or both. Write text events in the language being spoken at that moment (Amharic in Ethiopic script); keep them short.
 - Use only times inside the clip, aligned to the word timestamps. Do not invent speech."""
@@ -897,13 +900,15 @@ def planner_system():
 def plan_from_json(data):
     """Plan from the planner's JSON. Unknown choices fall back to defaults; events that still do not fit are dropped."""
     events,dropped=[],[]
+    defaults={k:f.default for k,f in Event.model_fields.items() if not f.is_required()}
     for raw in data.get('events') or []:
-        try:events.append(PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.7,'highlight_color':ACCENT_BLUE,'progress_bar':False,'emphasis':[],'notes':'','events':[raw]}).events[0])
+        if isinstance(raw,dict):raw={**defaults,**raw}  # a field the planner left out takes its default
+        try:events.append(PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.7,'highlight_color':ACCENT,'progress_bar':False,'emphasis':[],'notes':'','events':[raw]}).events[0])
         except ValidationError:dropped.append(f"{raw.get('type','?')} at {raw.get('start','?')}s" if isinstance(raw,dict) else str(raw)[:40])
-    top={'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT_BLUE,'progress_bar':False,'emphasis':[],'notes':'',
+    top={'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT,'progress_bar':False,'emphasis':[],'notes':'',
          **{k:v for k,v in data.items() if k!='events'}}
     try:plan=PlannerPlan.model_validate({**top,'events':events})
-    except ValidationError:plan=PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT_BLUE,'progress_bar':False,'emphasis':[],'notes':str(top.get('notes',''))[:500],'events':events})
+    except ValidationError:plan=PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT,'progress_bar':False,'emphasis':[],'notes':str(top.get('notes',''))[:500],'events':events})
     return plan.to_plan(),dropped
 
 def json_from_text(text):
@@ -983,6 +988,26 @@ def auto_sounds(plan,kit,cuts=(),voice=.05):
         if at>=2.5 and add(kinds[sum(o.sound.startswith('riser') for o in out)%2],at,'end'):add('hit',at)
     return sorted(out,key=lambda e:e.start)
 
+EMOJI_CACHE=ROOT/'models'/'emoji-cache'
+EMOJI=re.compile('[\U0001F000-\U0001FAFF\u2600-\u27BF][\uFE0F\u200D\U0001F3FB-\U0001F3FF\U0001F000-\U0001FAFF\u2600-\u27BF]*')
+
+def animated_emoji(emoji):
+    """Google's Noto animated emoji (Lottie JSON) for an emoji, cached; None when there is no animation."""
+    code='_'.join(f'{ord(c):x}' for c in emoji if ord(c)!=0xfe0f);path=EMOJI_CACHE/f'{code}.json'
+    if path.exists():return json.loads(path.read_text()) if path.stat().st_size>2 else None
+    try:
+        import httpx
+        r=httpx.get(f'https://fonts.gstatic.com/s/e/notoemoji/latest/{code}/lottie.json',timeout=20)
+        data=r.json() if r.status_code==200 else None
+    except Exception:return None  # offline: the plain emoji is drawn instead
+    EMOJI_CACHE.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(data) if data else '{}')
+    return data
+
+def emoji_animations(plan):
+    """Animated versions of every emoji the plan shows (stickers and card items)."""
+    found={m.group() for e in plan.events for text in [e.emoji,*e.items] for m in EMOJI.finditer(text or '')}
+    return {k:v for k in sorted(found) if (v:=animated_emoji(k))}
+
 def render_props(folder):
     folder=Path(folder);plan,warnings=check_plan(load_plan(folder),folder)
     meta=json.loads((folder/'manifest.json').read_text())
@@ -999,6 +1024,7 @@ def render_props(folder):
      'video':'source.mp4','foreground':'foreground.webm' if (folder/'foreground.webm').exists() else None,
      'captions':json.loads((folder/'captions.json').read_text())['captions'],
      'tracks':json.loads((folder/'tracks.json').read_text()),'plan':plan.model_dump(),'clips':load_clips(folder),
+     'lottie':emoji_animations(plan),
      'assets':sorted(p.name for p in (folder/'assets').iterdir() if p.suffix.lower() in ('.png','.jpg','.jpeg','.webp','.gif')) if (folder/'assets').exists() else []},warnings
 
 # Sound library. Real recordings only: the creator's own pack in sfx-library/<family>/ wins, then Remotion's

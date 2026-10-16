@@ -451,7 +451,7 @@ class CardAndSoundTests(unittest.TestCase):
    self.assertEqual([(e.template,e.active) for e in plan.events],[('steps',3),('list',1),('icons',1)])
    self.assertTrue(any('needs a value' in w for w in warnings));self.assertTrue(any('overlaps' in w for w in warnings))
    self.assertTrue(any('logo.png' in w for w in warnings))
-   self.assertEqual(plan.caption_preset,'editorial')
+   self.assertEqual(plan.caption_preset,'clean')
 
  def test_auto_sound_is_sparse_and_under_the_voice(self):
   E=shorts.Event
@@ -506,6 +506,6 @@ class PlannerGrammarTests(unittest.TestCase):
   schema=json.dumps(transform_schema(shorts.PlannerPlan))
   self.assertLessEqual(schema.count('"enum"')+schema.count('"const"'),8)  # one marker per event type
   plan=shorts.PlannerPlan(caption_preset='fancy',caption_y=.7,highlight_color='#3D7BFF',progress_bar=False,emphasis=['ሰላም'],notes='',events=[
-   shorts.PCard(type='card',start=1,end=3,template='hexagon',scene='dark',text='Hi',items=[],value='',label='',active=1,y=.5),
+   shorts.PCard(type='card',start=1,end=3,template='hexagon',scene='dark',text='Hi',items=[],value='',label='',active=1,y=.5,side='diagonal'),
    shorts.PSfx(type='sfx',start=2,sound='laser',volume=.4)]).to_plan()
-  self.assertEqual((plan.caption_preset,plan.events[0].template,plan.events[0].scene,plan.events[1].sound),('editorial','list','dark','whoosh'))
+  self.assertEqual((plan.caption_preset,plan.events[0].template,plan.events[0].scene,plan.events[0].side,plan.events[1].sound),('clean','list','dark','top','whoosh'))

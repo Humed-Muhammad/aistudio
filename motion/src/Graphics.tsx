@@ -8,6 +8,8 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { onAccent } from "./colors";
+import { Emoji } from "./Emoji";
 import { ACCENT_FONT, BODY_FONT } from "./fonts";
 import { faceAt, findTrigger, follow } from "./tracking";
 import type { ShortEvent, Tracks } from "./types";
@@ -55,6 +57,10 @@ export const TextPop: React.FC<{
   let shown = 0;
   const parts = event.text.split(/(\*[^*]+\*)/).filter(Boolean);
   const plain = parts.length === 1 && !parts[0].startsWith("*");
+  // A pill is a solid accent badge with dark text and one light sweep as it lands.
+  const badge = event.background === "pill";
+  const ink = badge ? onAccent(accent) : "white";
+  const sweep = interpolate(frame, [6, 22], [-30, 130], clamp);
   return (
     <div
       style={{
@@ -71,16 +77,15 @@ export const TextPop: React.FC<{
         width: "max-content",
         textAlign: "center",
         lineHeight: 1.05,
-        padding: event.background === "pill" ? `${22 * k}px ${40 * k}px` : 0,
-        borderRadius: 36 * k,
-        background:
-          event.background === "pill" ? "rgba(10,12,26,.55)" : "transparent",
-        backdropFilter:
-          event.background === "pill" ? `blur(${16 * k}px)` : undefined,
-        border:
-          event.background === "pill"
-            ? `${1.5 * k}px solid rgba(255,255,255,.14)`
-            : undefined,
+        padding: badge ? `${18 * k}px ${38 * k}px` : 0,
+        borderRadius: 22 * k,
+        overflow: badge ? "hidden" : undefined,
+        background: badge
+          ? `linear-gradient(105deg, transparent ${sweep - 18}%, rgba(255,255,255,.55) ${sweep}%, transparent ${sweep + 18}%), ${accent}`
+          : "transparent",
+        boxShadow: badge
+          ? `0 ${14 * k}px ${34 * k}px rgba(0,0,0,.35), inset 0 ${-4 * k}px 0 rgba(0,0,0,.12)`
+          : undefined,
       }}
     >
       {parts.map((p, i) => {
@@ -97,10 +102,12 @@ export const TextPop: React.FC<{
               fontStyle: accented ? "italic" : "normal",
               fontWeight: accented ? 400 : 700,
               fontSize: accented ? size * 1.3 : size * (plain ? 1 : 0.72),
-              color: accented ? colour : "white",
-              textShadow: accented
-                ? `0 0 ${30 * k}px ${colour}55, ${halo}`
-                : halo,
+              color: badge ? ink : accented ? colour : "white",
+              textShadow: badge
+                ? "none"
+                : accented
+                  ? `0 0 ${30 * k}px ${colour}55, ${halo}`
+                  : halo,
             }}
           >
             {visible}
@@ -223,10 +230,8 @@ export const Sticker: React.FC<{
             style={{ width: "100%", display: "block" }}
           />
         ) : (
-          <div
-            style={{ fontSize: w * 0.82, lineHeight: 1, textAlign: "center" }}
-          >
-            {event.emoji}
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <Emoji emoji={event.emoji} size={w} />
           </div>
         )}
       </div>

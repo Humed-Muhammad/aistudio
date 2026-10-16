@@ -4,8 +4,10 @@ How the Shorts editor should look and sound. The auto-planner follows this, and 
 
 ## Look
 
-- **Captions (default: Editorial).** Small white sans-serif words appear as they are spoken. About one word per sentence switches to a large italic serif in the accent colour: the key noun, number or punchline. Put those words in the plan's `emphasis` list exactly as spoken (Amharic in Ge'ez script). Keep captions at chest height (`caption_y` about 0.6–0.75), never over the face.
-- **Accent colour.** Electric blue `#3D7BFF` by default. Warm gold `#F5B342` is the alternative. Use one accent per video.
+- **Captions (default: Clean).** Bold white phrase on a dark rounded box; the word being said turns accent-coloured with a small pop. Readable on bright, busy phone footage. Editorial (below) is the elegant alternative for calm, dark footage.
+- **Editorial captions.** Small white sans-serif words appear as they are spoken. About one word per sentence switches to a large italic serif in the accent colour: the key noun, number or punchline. Put those words in the plan's `emphasis` list exactly as spoken (Amharic in Ge'ez script). Keep captions at chest height (`caption_y` about 0.6–0.75), never over the face.
+- **Accent colour.** Warm yellow `#FFD60A` by default (text on yellow is near-black). Use one accent per video.
+- **Text pops.** Plain words with a soft halo, or with `background: pill` a solid accent badge with dark text and one light sweep. No emoji anywhere.
 - **Scenes.** Two worlds:
   - *Dark glow:* deep navy to black, soft blue and purple light, frosted-glass cards.
   - *Light grid:* warm paper with a fine grid, white cards with soft shadows.
@@ -26,12 +28,15 @@ How the Shorts editor should look and sound. The auto-planner follows this, and 
 | `chips` | lists many examples around one idea | `text`, `items` (4–6) |
 | `quote` | says a line worth reading | `text`, `label` (author) |
 | `title` | starts a new section or makes the hook | `text`, `label` (kicker) |
+| `progress` | says they almost finished and then stopped | `text` (what), `value` (how far, e.g. 92), `label` (why it stopped) |
 
 Scenes:
 - `overlay`: on top of the speaker.
 - `dim`: speaker darkened and blurred behind the card.
 - `dark` or `light`: full-screen cutaway, 2–4 s.
-- `split`: graphic on top, speaker below.
+- `split`: graphic on one side, speaker on the other.
+
+In split and full-screen scenes the graphic slides in from `side` (top, bottom, left or right) and pushes the speaker video the other way, then pulls back out.
 
 Full-screen cards and screen recordings never overlap.
 

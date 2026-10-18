@@ -27,6 +27,14 @@ class ShortsPlanTests(unittest.TestCase):
    self.assertTrue(any('missing.png' in w for w in warnings));self.assertTrue(any('no left hand' in w for w in warnings))
    self.assertEqual(json.loads((p/'plan-warnings.json').read_text()),warnings)
 
+ def test_no_captions_window_is_kept_and_clamped(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d)
+   plan,warnings=shorts.save_plan(p,{'events':[{'type':'no_captions','start':1,'end':99}]})
+   self.assertEqual([(e.type,e.start,e.end) for e in plan.events],[('no_captions',1,3.0)]);self.assertEqual(warnings,[])
+   plan,_=shorts.plan_from_json({'events':[{'type':'no_captions','start':.5,'end':2}]})
+   self.assertEqual([(e.type,e.start,e.end) for e in plan.events],[('no_captions',.5,2)])
+
  def test_behind_subject_text_warns_when_person_fills_frame(self):
   with tempfile.TemporaryDirectory() as d:
    p=job(d);tracks=json.loads((p/'tracks.json').read_text());tracks['person']=[.9]*90;(p/'tracks.json').write_text(json.dumps(tracks))
@@ -179,6 +187,48 @@ class ShortsCutApiTests(unittest.TestCase):
     self.assertEqual(client.put(f'/shorts/jobs/{ident}/cut',json={'keep':[7]}).status_code,422)
     j=client.put(f'/shorts/jobs/{ident}/cut',json={'keep':[0,2]}).json()
     self.assertEqual(j['cut']['keep'],[0,2]);self.assertLess(j['cut_summary']['kept'],1.5)
+
+class TranscriptEditTests(unittest.TestCase):
+ def setUp(self):
+  self.d=tempfile.TemporaryDirectory();self.p=p=Path(self.d.name)
+  caps=words(('So',0,.2),('this',.6,.8),('wroks.',.85,1.2),('This',3,3.2),('works.',3.3,3.6))
+  (p/'full-captions.json').write_text(json.dumps({'language':'en','captions':caps}));(p/'source-info.json').write_text('{"duration":5}')
+  (p/'units.json').write_text(json.dumps(shorts.make_units(caps)));shorts.save_cut(p,{'keep':[0,1]})
+ def tearDown(self):self.d.cleanup()
+ def caps(self):return json.loads((self.p/'full-captions.json').read_text())['captions']
+ def test_same_word_count_keeps_each_timing(self):
+  shorts.edit_part(self.p,0,'So this works.')
+  c=self.caps();self.assertEqual([x['text'] for x in c[:3]],[' So',' this',' works.']);self.assertEqual((c[2]['startMs'],c[2]['endMs']),(850,1200))
+  u=json.loads((self.p/'units.json').read_text())[0];self.assertEqual((u['text'],u['edited']),('So this works.',True))
+ def test_new_word_count_spreads_over_spoken_time_and_shifts_later_parts(self):
+  shorts.edit_part(self.p,0,'ሰላም so this really works.')
+  c=self.caps();units=json.loads((self.p/'units.json').read_text())
+  self.assertEqual((units[0]['first'],units[0]['last'],units[1]['first'],units[1]['last']),(0,4,5,6))
+  self.assertEqual((c[0]['startMs'],c[4]['endMs']),(0,1200));self.assertEqual(c[5]['text'],' This')
+  self.assertTrue(all(a['endMs']<=b['startMs'] and a['startMs']<a['endMs'] for a,b in zip(c[:5],c[1:5])))
+  self.assertFalse(any(200<x['startMs']<600 for x in c[:5]))  # no word starts in the silent gap
+  self.assertEqual(shorts.cut_summary(self.p)['parts'],2)
+ def test_rejects_empty_and_unknown_parts(self):
+  with self.assertRaises(ValueError):shorts.edit_part(self.p,0,'  ')
+  with self.assertRaises(ValueError):shorts.edit_part(self.p,5,'hi')
+ def test_built_edit_captions_update_in_place_unless_the_cut_moves(self):
+  p=self.p;caps=self.caps();units=json.loads((p/'units.json').read_text())
+  ranges=shorts.layout(shorts.cut_ranges(shorts.load_cut(p),caps,units,5))
+  (p/'cut-map.json').write_text(json.dumps([{k:r[k] for k in ['start','end','out','frames']} for r in ranges]));(p/'captions.json').write_text('{}')
+  self.assertTrue(shorts.edit_part(p,0,'So this works.'))
+  self.assertEqual([c['text'] for c in json.loads((p/'captions.json').read_text())['captions']][:3],[' So',' this',' works.'])
+  self.assertFalse(shorts.edit_part(p,1,'um works.'))  # a filler now gets cut out: the edit must be rebuilt
+ def test_api_route(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app
+  ident='c'*32;p=Path(self.d.name)/ident;p.mkdir()
+  for f in Path(self.d.name).iterdir():
+   if f.is_file():f.rename(p/f.name)
+  (p/'upload.mp4').write_bytes(b'x');client=TestClient(app.app)
+  with patch.object(shorts_app,'RUNS',Path(self.d.name)):
+   j=client.put(f'/shorts/jobs/{ident}/units/0',json={'text':'So this works.'}).json()
+   self.assertEqual((j['units'][0]['text'],j['units'][0]['edited'],j['units'][1]['edited']),('So this works.',True,False))
+   self.assertEqual(client.put(f'/shorts/jobs/{ident}/units/0',json={'text':''}).status_code,422)
 
 class PlannerSchemaTests(unittest.TestCase):
  def test_schemas_sent_to_claude_have_no_optional_fields(self):

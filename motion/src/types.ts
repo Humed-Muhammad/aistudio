@@ -11,7 +11,8 @@ export type ShortEvent = {
     | "flash"
     | "sfx"
     | "broll"
-    | "card";
+    | "card"
+    | "no_captions";
   start: number;
   end: number;
   text: string;
@@ -69,7 +70,7 @@ export type ShortEvent = {
 export type ClipInfo = { duration: number; width: number; height: number };
 
 export type Plan = {
-  caption_preset: "clean" | "editorial" | "bold" | "minimal" | "boxed" | "none";
+  caption_preset: "clean" | "editorial" | "rise" | "bold" | "minimal" | "boxed" | "none";
   caption_y: number;
   highlight_color: string;
   progress_bar: boolean;

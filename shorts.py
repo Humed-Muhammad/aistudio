@@ -15,7 +15,7 @@ import av,numpy as np
 from pydantic import BaseModel,Field,ValidationError
 from config import ROOT,setting,credential
 FPS=30;MOTION=ROOT/'motion'
-PRESETS=['clean','editorial','bold','minimal','boxed','none']
+PRESETS=['clean','editorial','rise','bold','minimal','boxed','none']
 # Hosted Remotion sounds, then family names resolved by sound_source() (the creator's sfx-library/ first).
 SOUNDS=['whoosh','whip','pop','ding','switch','mouse-click','shutter-modern','vine-boom','record-scratch','page-turn','anime-wow','yippee',
         'whoosh-soft','whoosh-deep','whoosh-long','riser-bass','riser-metal','hit','impact','ui-click','scifi-click','gears','camera-click','success']
@@ -28,7 +28,7 @@ GESTURES=['open_palm','fist','point','pinch','peace','thumbs_up','rock']
 
 class Event(BaseModel):
     """One timeline item. Fields that do not apply to a type are ignored."""
-    type:Literal['text','sticker','zoom','shake','flash','sfx','broll','card']
+    type:Literal['text','sticker','zoom','shake','flash','sfx','broll','card','no_captions']=Field(description='no_captions: hide captions for words spoken between start and end')
     start:float=Field(description='seconds')
     end:float=Field(description='seconds; for flash/sfx use start+0.3')
     text:str=Field('',description='text: words to show; keep to 1-5 words. card: headline; wrap words in *stars* for the italic serif accent')
@@ -140,11 +140,13 @@ class PCard(BaseModel):
     label:str=Field(description='stat caption; slider end labels "Beginner|Pro"; quote author; title subtitle; else empty')
     active:int=Field(description='steps/list/icons: 1-based current item, else 1');y:Num=Field(description='overlay/dim: vertical centre 0-1')
     side:str=choice(['top','bottom','left','right'],'split and full-screen scenes: edge the graphic pushes in from')
+class PNoCaptions(BaseModel):
+    type:Literal['no_captions'];start:Num;end:Num
 class PlannerPlan(BaseModel):
     caption_preset:str=choice(PRESETS);caption_y:Num=Field(description='captions vertical centre 0-1, clear of face and stickers')
     highlight_color:str;progress_bar:bool
     emphasis:list[str]=Field(description='editorial captions: words to stress, as spoken (key nouns, numbers, punchlines), about one per sentence')
-    events:list[PText|PSticker|PZoom|PShake|PFlash|PSfx|PBroll|PCard]
+    events:list[PText|PSticker|PZoom|PShake|PFlash|PSfx|PBroll|PCard|PNoCaptions]
     notes:str=Field(description='one short paragraph explaining the edit choices to the creator')
     def to_plan(self):
         def fix(model,data):
@@ -437,6 +439,51 @@ def make_units(captions):
             units.append(cur);cur=[]
     return [{'id':k,'first':u[0],'last':u[-1],'start':captions[u[0]]['startMs']/1000,'end':captions[u[-1]]['endMs']/1000,
              'text':''.join(captions[i]['text'] for i in u).strip()} for k,u in enumerate(units)]
+
+def retime_words(old,words):
+    """Timings for corrected words: the same word count keeps each word's timing; otherwise the new words
+    are spread over the time the old ones were spoken (gaps between them stay silent), by length."""
+    if len(words)==len(old):return [(c['startMs'],c['endMs']) for c in old]
+    spans=[(c['startMs'],max(c['endMs'],c['startMs']+1)) for c in old];total=sum(b-a for a,b in spans)
+    def at(t,start):  # speaking-time offset -> recording time; a boundary on a gap snaps into the word on its side
+        for a,b in spans:
+            if t<b-a or (not start and t<=b-a):return a+t
+            t-=b-a
+        return spans[-1][1]
+    sizes=[max(len(w),1) for w in words];chars=sum(sizes);out=[];pos=0
+    for n in sizes:
+        s,e=round(at(total*pos/chars,True)),round(at(total*(pos+n)/chars,False));pos+=n;out.append((s,max(e,s+1)))
+    return out
+
+def edit_part(folder,ident,text):
+    """Replace the words of one transcript part (fixing recognition errors). Part ids, the cut and the audio stay.
+    Returns True when captions of an already built edit were updated in place, False when a rebuild is needed."""
+    folder=Path(folder);data=json.loads((folder/'full-captions.json').read_text());captions=data['captions']
+    units=json.loads((folder/'units.json').read_text())
+    if not 0<=ident<len(units):raise ValueError(f'Unknown transcript part: {ident}')
+    words=text.split()
+    if not words:raise ValueError('A part needs at least one word. To drop it, uncheck it instead.')
+    u=units[ident];old=captions[u['first']:u['last']+1]
+    new=[{'text':' '+w,'startMs':s,'endMs':e,'timestampMs':(s+e)//2,'confidence':1} for w,(s,e) in zip(words,retime_words(old,words))]
+    captions[u['first']:u['last']+1]=new;shift=len(new)-len(old)
+    u.update(last=u['first']+len(new)-1,text=' '.join(words),edited=True)
+    for later in units[ident+1:]:later['first']+=shift;later['last']+=shift
+    (folder/'full-captions.json').write_text(json.dumps(data,indent=1));(folder/'units.json').write_text(json.dumps(units,indent=1))
+    (folder/'transcript-check.json').unlink(missing_ok=True)
+    if not (folder/'captions.json').exists():return True
+    return refresh_edit_captions(folder)
+
+def refresh_edit_captions(folder):
+    """Rewrite captions.json of the built edit from the corrected transcript, if the cut it was built from is unchanged."""
+    folder=Path(folder);data=json.loads((folder/'full-captions.json').read_text());captions=data['captions']
+    units=json.loads((folder/'units.json').read_text());cut=load_cut(folder);info=json.loads((folder/'source-info.json').read_text())
+    built=json.loads((folder/'cut-map.json').read_text()) if (folder/'cut-map.json').exists() else []
+    whole=not captions or (not cut.tighten and cut.keep==list(range(len(units))))
+    ranges=[] if whole else layout(cut_ranges(cut,captions,units,info['duration'],voice_or_none(folder)))
+    if [{k:r[k] for k in ['start','end','out','frames']} for r in ranges]!=built:
+        save_cut(folder,cut);return False  # the edit's audio no longer matches these words: newer cut.json marks it for rebuilding
+    kept=[c for c in captions if not is_filler(c)] if whole else remap_captions(captions,ranges)
+    (folder/'captions.json').write_text(json.dumps({'language':data.get('language'),'captions':kept},indent=1));return True
 
 def load_cut(folder):return CutPlan.model_validate_json((Path(folder)/'cut.json').read_text())
 
@@ -791,7 +838,7 @@ def check_plan(plan,folder):
     except (OSError,ValueError,KeyError):captions=[]
     for e in merge_cards(sorted(plan.events,key=lambda e:e.start)):
         e.start=max(0,min(e.start,duration));e.end=max(e.start+1/FPS,min(e.end,duration))
-        where=f"{'screen recording' if e.type=='broll' else e.type} at {e.start:.2f}s"
+        where=f"{'screen recording' if e.type=='broll' else 'no captions' if e.type=='no_captions' else e.type} at {e.start:.2f}s"
         if e.type=='sticker':
             if e.asset and not (folder/'assets'/e.asset).exists():warnings.append(f'{where}: image "{e.asset}" is not uploaded; skipped');continue
             if not e.asset and not e.emoji:warnings.append(f'{where}: needs an image or emoji; skipped');continue
@@ -879,13 +926,13 @@ def planner_context(folder,notes=''):
 
 PLANNER_SYSTEM="""You are a senior short-form video editor. You plan motion graphics for a vertical talking video that is rendered with Remotion from your JSON plan.
 Style goals: retention-focused like top YouTube Shorts/TikTok creators, but never cluttered. One focal element at a time.
-- Captions run automatically for every word; do not duplicate them as text events. Pick caption_preset unless the creator chose one, and place caption_y away from the face and from hand stickers.
+- Captions run automatically for every word; do not duplicate them as text events. Add a no_captions event (start, end) only where the creator asks for no captions. Pick caption_preset unless the creator chose one, and place caption_y away from the face and from hand stickers.
 - Hook: a short bold text or a title card in the first 1-2 s that teases the payoff.
 - Emphasize key numbers, claims and punchlines with text pops (1-5 words), zoom punch-ins (1.1-1.3, 0.4-1.5 s) and the occasional flash or shake. Space emphasis 2-5 s apart.
 - Put text behind_subject only when a large headline sits where the person overlaps it, for a premium look.
 - Stickers anchored to a hand only where that hand is visible in the tracking data; prefer a gesture trigger matching what the hand does (e.g. open_palm to reveal an object on the palm). Hand left/right means screen side. Use uploaded images when they fit the words; use emoji stickers sparingly.
 - Screen recordings (broll): cut to them when the speaker talks about what is on screen ("open the app", "look at this", "here's the dashboard"), usually 2-8 s each, never overlapping. Pick src_start from the recording frames so the screen shows what is being said; raise speed (up to 3) to fit a longer action. Layouts: split for demos where the speaker keeps explaining, bubble when the screen needs the whole frame but the speaker's face matters, full for quick cutaways, front for a premium intro of the app. No hand stickers or text behind the subject during broll; captions stay on top.
-- Motion-graphic cards (type card) carry structure: steps for numbered points, stat for numbers, icons for tools/apps, list/chips for examples, slider for before/after, progress for 'almost finished, then stopped' moments, quote and title for key lines. Split and full-screen scenes push the speaker video out of the way from `side`. Do not use emoji (stickers or card items): they look unprofessional to this creator; use words, uploaded images or cards. About one card per 6-12 s; full-screen scenes (dark/light/split) 2-4 s, never overlapping a screen recording. Fill emphasis for editorial captions.
+- Motion-graphic cards (type card) carry structure: steps for numbered points, stat for numbers, icons for tools/apps, list/chips for examples, slider for before/after, progress for 'almost finished, then stopped' moments, quote and title for key lines. Split and full-screen scenes push the speaker video out of the way from `side`. Do not use emoji (stickers or card items): they look unprofessional to this creator; use words, uploaded images or cards. About one card per 6-12 s; full-screen scenes (dark/light/split) 2-4 s, never overlapping a screen recording. Fill emphasis for editorial and rise captions.
 - Sound design is automatic (auto_sound): only add sfx for a special moment the rules would miss, such as a ding on a big number.
 - The speaker may talk in Amharic, English or both. Write text events in the language being spoken at that moment (Amharic in Ethiopic script); keep them short.
 - Use only times inside the clip, aligned to the word timestamps. Do not invent speech."""

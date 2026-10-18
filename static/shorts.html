@@ -62,6 +62,9 @@ main{max-width:1320px}
 .part{display:grid;grid-template-columns:auto 52px 1fr;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);align-items:start;font-size:14px;line-height:1.5;cursor:pointer}
 .part:last-child{border-bottom:0}.part:hover{background:#fafafb}.part input{width:auto;margin-top:4px}
 .part time{font:12px/1.9 'IBM Plex Mono',monospace;color:var(--muted)}.part.off{background:#fcfcfd}.part.off .text{text-decoration:line-through;color:#a3a6b2}
+.part .fix{float:right;margin-left:8px;padding:2px 8px!important;font-size:12px!important;background:#fff;color:#4a4e5c;border:1px solid var(--line);opacity:.55}.part:hover .fix{opacity:1}
+.part textarea{width:100%;font:inherit;line-height:1.5;padding:6px 8px;border-radius:8px}.part .edit-row{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+.edited{margin-left:6px;padding:1px 6px;border-radius:4px;background:#eefaf1;color:#1d7a3c;font-size:11px}
 .why{display:inline-block;margin-top:2px;font-size:12px;color:#a0581b;text-decoration:none}.hook{margin-left:6px;padding:1px 6px;border-radius:4px;background:#eef0fb;color:#1f18c0;font-size:11px}
 .footer{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
 .footer .hint{max-width:520px}
@@ -100,7 +103,7 @@ code{font-size:12px;background:#f1f2f6;padding:1px 5px;border-radius:4px}
   <label class="dropzone" id="drop"><span class="icon">↑</span><strong id="drop-title">Drop your video here, or click to choose</strong><span class="hint" id="drop-hint">MP4 or MOV · vertical 9:16 · select several recordings to join them</span><input type="file" name="video" accept="video/*" multiple required aria-label="Video files"></label>
   <div class="controls" style="margin-top:18px">
    <label class="field">Title<input name="title" id="new-title" placeholder="e.g. Telegram bot pitch" maxlength="80"></label>
-   <label class="field">Caption style<select name="preset"><option value="clean">Clean · white on dark box, spoken word highlighted</option><option value="editorial">Editorial · clean words, key words in serif accent</option><option value="bold">Bold · big words, spoken word highlighted</option><option value="boxed">Boxed · highlight box on the spoken word</option><option value="minimal">Minimal · clean phrases</option><option value="auto">Let Claude choose</option><option value="none">No captions</option></select></label>
+   <label class="field">Caption style<select name="preset"><option value="clean">Clean · white on dark box, spoken word highlighted</option><option value="editorial">Editorial · clean words, key words in serif accent</option><option value="rise">Editorial · rise: words slide up as spoken</option><option value="bold">Bold · big words, spoken word highlighted</option><option value="boxed">Boxed · highlight box on the spoken word</option><option value="minimal">Minimal · clean phrases</option><option value="auto">Let Claude choose</option><option value="none">No captions</option></select></label>
    <label class="field">Spoken language<select name="language"><option value="am">Amharic (with English words)</option><option value="en">English only</option><option value="auto">Detect automatically</option></select></label>
    <label class="field">Background noise<select name="noise"><option value="off">Keep original audio</option><option value="light">Light · remove fan, hum, hiss (free, on this Mac)</option><option value="strong">Strong · studio voice (ElevenLabs, ~1,000 credits per minute)</option></select></label>
   </div>
@@ -155,7 +158,7 @@ code{font-size:12px;background:#f1f2f6;padding:1px 5px;border-radius:4px}
  <section class="card step" data-step="graphics" hidden>
   <h2>Captions & graphics</h2><p class="lead">Pick a caption style, add images and screen recordings, then let Claude plan zooms, text pops, stickers and screen cut-ins, or ask Claude Code to do it.</p>
   <div class="controls">
-   <label class="field">Caption style<select id="caption-style" class="act"><option value="clean">Clean · white on dark box, spoken word highlighted</option><option value="editorial">Editorial · serif accent words</option><option value="bold">Bold · big words</option><option value="boxed">Boxed highlight</option><option value="minimal">Minimal</option><option value="none">No captions</option></select></label>
+   <label class="field">Caption style<select id="caption-style" class="act"><option value="clean">Clean · white on dark box, spoken word highlighted</option><option value="editorial">Editorial · serif accent words</option><option value="rise">Editorial · rise (smooth slide up)</option><option value="bold">Bold · big words</option><option value="boxed">Boxed highlight</option><option value="minimal">Minimal</option><option value="none">No captions</option></select></label>
    <label class="field">Highlight color<input id="highlight" type="color" class="act" style="height:44px;padding:4px"></label>
    <label class="field">Progress bar<select id="progress-bar" class="act"><option value="false">Off</option><option value="true">On (top of video)</option></select></label>
    <label class="field">Sound design<select id="auto-sound" class="act"><option value="true">Automatic (whooshes, clicks, risers)</option><option value="false">Only sounds in the plan</option></select></label>
@@ -170,6 +173,7 @@ code{font-size:12px;background:#f1f2f6;padding:1px 5px;border-radius:4px}
   <h3 style="margin-top:20px">Planned graphics <span class="hint" id="event-count"></span></h3>
   <p id="plan-notes" class="hint"></p>
   <div class="events" id="events"></div>
+  <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px"><span class="hint">Hide captions from</span><input id="nocap-start" class="act" placeholder="0:12" aria-label="Hide captions from (m:ss or seconds)" style="width:80px"><span class="hint">to</span><input id="nocap-end" class="act" placeholder="0:18" aria-label="Hide captions until (m:ss or seconds)" style="width:80px"><button id="nocap-add" type="button" class="secondary small act">Hide captions here</button></div>
   <ul id="warnings" class="warnings"></ul>
   <details style="margin-top:14px"><summary>Advanced · edit the plan as JSON</summary><textarea id="plan-json" class="code" spellcheck="false" style="min-height:240px;font:12px/1.5 'IBM Plex Mono',monospace"></textarea><div class="row" style="margin-top:8px"><button id="save-plan" type="button" class="secondary small act">Save JSON</button><span class="hint">Times are seconds in your edit. Hand left/right = screen side.</span></div></details>
   <div class="footer"><span class="hint">Ask Claude Code: “plan graphics for shorts job <code id="job-id"></code>”.</span><button id="to-render" type="button">Next · export →</button></div>
@@ -190,7 +194,7 @@ code{font-size:12px;background:#f1f2f6;padding:1px 5px;border-radius:4px}
 <script>
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const params=new URLSearchParams(location.search);
-let jobId=params.get('job'),job=null,jobs=[],view=null,lastCurrent=null,poll,listPoll,planDirty=false,cutFilter='all',reviewFile='source.mp4',resultFile=null;
+let jobId=params.get('job'),job=null,jobs=[],view=null,lastCurrent=null,poll,listPoll,planDirty=false,cutFilter='all',editing=null,reviewFile='source.mp4',resultFile=null;
 const base=()=>'/runs/'+jobId+'/';
 const clock=t=>t==null?'–':`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
 const ago=s=>{const m=Math.round((Date.now()/1000-s)/60);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':new Date(s*1000).toLocaleDateString()};
@@ -212,7 +216,7 @@ function drawJobs(){
    j.thumb?h('img',{src:j.thumb,alt:''}):h('span',{class:'ph'}),
    h('span',{},h('b',{},j.title),h('small',{},h('span',{class:'dot '+dot}),`${j.duration?clock(j.duration)+' · ':''}${st}`)))}))
 }
-function openJob(id,step=null){jobId=id;view=step;lastCurrent=null;planDirty=false;resultFile=null;history.pushState(null,'','?job='+id);$('#start').hidden=true;$('#job').hidden=false;$('#notice').hidden=true;drawJobs();refresh()}
+function openJob(id,step=null){jobId=id;view=step;lastCurrent=null;planDirty=false;editing=null;resultFile=null;history.pushState(null,'','?job='+id);$('#start').hidden=true;$('#job').hidden=false;$('#notice').hidden=true;drawJobs();refresh()}
 function newVideo(){jobId=null;job=null;history.pushState(null,'','/shorts');$('#job').hidden=true;$('#start').hidden=false;drawJobs()}
 $('#new').onclick=newVideo;window.onpopstate=()=>{const id=new URLSearchParams(location.search).get('job');id?openJob(id):newVideo()};
 
@@ -284,11 +288,18 @@ function drawCut(j){
  const rows=j.units.filter(u=>cutFilter==='all'||(cutFilter==='kept')===keep.has(u.id));
  $('#parts').replaceChildren(...rows.map(u=>{const on=keep.has(u.id);return h('label',{class:'part'+(on?'':' off')},
   h('input',{type:'checkbox',checked:on,disabled:running(),onchange:e=>toggle(u.id,e.target.checked)}),h('time',{},clock(u.start)),
-  h('span',{class:'text'},u.text,u.id===hook?h('span',{class:'hook'},'HOOK · plays first'):null,!on&&why[u.id]?h('div',{},h('span',{class:'why'},'Cut: '+why[u.id])):null))}));
+  editing&&editing.id===u.id?editor(u):h('span',{class:'text'},running()?null:h('button',{type:'button',class:'fix secondary',title:'Fix wrong words in this part',onclick:e=>{e.preventDefault();editing={id:u.id,text:u.text};drawCut(job);const t=$('#parts textarea');t.focus();t.setSelectionRange(t.value.length,t.value.length)}},'✎ Edit'),u.text,u.edited?h('span',{class:'edited'},'corrected'):null,u.id===hook?h('span',{class:'hook'},'HOOK · plays first'):null,!on&&why[u.id]?h('div',{},h('span',{class:'why'},'Cut: '+why[u.id])):null))}));
  if(!rows.length)$('#parts').replaceChildren(h('div',{class:'empty-list',style:'padding:16px'},'Nothing here.'));
  const stale=j.files['source.mp4']&&(j.cut_mtime>j.files['source.mp4']||(j.manifest&&(j.manifest.noise||'off')!==j.noise));$('#apply-cut').textContent=j.tracking?(stale?'Rebuild my edit →':'Rebuild my edit'):'Build my edit →';
  $('#cut-footer-hint').textContent=stale?'You changed the cut or noise setting. Rebuild to update your edit (graphics will be reset).':j.tracking?'Your edit is built. Rebuilding resets the graphics plan.':'Next, your edit is built and tracked (about 2× its length). Nothing is uploaded.';
 }
+function editor(u){const save=()=>saveText(u.id,editing.text),cancel=()=>{editing=null;drawCut(job)};
+ return h('div',{onclick:e=>e.preventDefault()},h('textarea',{rows:Math.min(6,Math.max(2,Math.ceil(editing.text.length/70))),dir:'auto',
+  oninput:e=>{editing.text=e.target.value},onkeydown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();save()}else if(e.key==='Escape')cancel()}},editing.text),
+  h('div',{class:'edit-row'},h('span',{class:'hint',style:'margin-right:auto'},'Fix the words only. The timing and audio stay the same.'),h('button',{type:'button',class:'secondary small',onclick:cancel},'Cancel'),h('button',{type:'button',class:'small',onclick:save},'Save')))}
+async function saveText(id,text){if(!text.trim()){toast('A part needs at least one word. To drop it, uncheck it instead.',true);return}
+ try{const j=await sendJSON(`/shorts/jobs/${jobId}/units/${id}`,'PUT',{text});editing=null;show(j);
+  if(j.tracking)toast(j.captions_updated?'Saved. The captions in your edit now use the corrected words. Render again to see them.':'Saved. This correction changes where the edit cuts, so rebuild your edit to use it.')}catch(e){toast(e.message,true)}}
 $$('#cut-filter button').forEach(b=>b.onclick=()=>{cutFilter=b.dataset.f;$$('#cut-filter button').forEach(x=>x.classList.toggle('on',x===b));drawCut(job)});
 async function saveCut(cut){try{show(await sendJSON(`/shorts/jobs/${jobId}/cut`,'PUT',cut))}catch(e){toast(e.message,true);refresh()}}
 function toggle(id,on){const c=structuredClone(job.cut),hook=c.keep.length>1&&c.keep[0]>c.keep[1]?c.keep[0]:null;let rest=c.keep.filter(k=>k!==id&&k!==hook);if(on)rest.push(id);rest.sort((a,b)=>a-b);c.keep=hook!==null&&hook!==id?[hook,...rest]:rest;saveCut(c)}
@@ -318,7 +329,7 @@ function describe(e){const t=`${e.start.toFixed(1)}s`;
  if(e.type==='zoom')return['Zoom',`punch in ${e.scale}× on ${e.focus==='face'?'your face':'the center'}`];
  if(e.type==='broll'){const lay={full:'full screen',split:'split with you below',bubble:`your face in a ${e.corner.replace('_',' ')} bubble`,front:'you in front'}[e.layout];return['Screen',`${e.asset} · ${lay} · from ${e.src_start.toFixed(1)}s${e.speed!==1?' at '+(+e.speed.toFixed(2))+'×':''}`]}
  if(e.type==='card'){const name={steps:'Steps',slider:'Slider',stat:'Stat',icons:'Icons',list:'List',chips:'Chips',quote:'Quote',title:'Title'}[e.template]||'Card';const scene={overlay:'over you',dim:'background dimmed',dark:'dark full screen',light:'light full screen',split:'split with you below'}[e.scene]||'';const what=e.template==='stat'?e.value:e.template==='steps'?`${e.active} of ${e.items.length}: ${e.items[e.active-1]||''}`:(e.text||e.items.join(', ')).replace(/\*/g,'');return[name,`${what} · ${scene}`]}
- if(e.type==='shake')return['Shake','camera shake'];if(e.type==='flash')return['Flash','white flash'];if(e.type==='sfx')return['Sound',e.sound];return[e.type,'']}
+ if(e.type==='no_captions')return['No captions','captions hidden for these words'];if(e.type==='shake')return['Shake','camera shake'];if(e.type==='flash')return['Flash','white flash'];if(e.type==='sfx')return['Sound',e.sound];return[e.type,'']}
 function drawGraphics(j){if(!j.plan)return;const p=j.plan;
  $('#caption-style').value=p.caption_preset;$('#highlight').value=p.highlight_color.length===7?p.highlight_color:'#3d7bff';$('#progress-bar').value=String(p.progress_bar);$('#auto-sound').value=String(p.auto_sound!==false);
  const removeAsset=name=>h('button',{type:'button',class:'secondary',onclick:async()=>{try{show(await api(`/shorts/jobs/${jobId}/assets/${encodeURIComponent(name)}`,{method:'DELETE'}))}catch(e){toast(e.message,true)}}},'Remove');
@@ -335,6 +346,10 @@ $('#highlight').onchange=()=>savePlan({...job.plan,highlight_color:$('#highlight
 $('#progress-bar').onchange=()=>savePlan({...job.plan,progress_bar:$('#progress-bar').value==='true'});
 $('#auto-sound').onchange=()=>savePlan({...job.plan,auto_sound:$('#auto-sound').value==='true'});
 $('#plan-json').oninput=()=>{planDirty=true};
+const seconds=v=>{v=v.trim();if(!v)return NaN;const [m,s]=v.includes(':')?v.split(':'):['0',v];return Number(m)*60+Number(s)};
+$('#nocap-add').onclick=()=>{const start=seconds($('#nocap-start').value),end=seconds($('#nocap-end').value);
+ if(!(start>=0&&end>start)){toast('Enter a start and a later end, like 0:12 and 0:18.',true);return}
+ savePlan({...job.plan,events:[...job.plan.events,{type:'no_captions',start,end}]}).then(()=>{$('#nocap-start').value=$('#nocap-end').value=''})};
 $('#save-plan').onclick=()=>{let p;try{p=JSON.parse($('#plan-json').value)}catch{toast('That JSON has a mistake.',true);return}savePlan(p).then(()=>toast('Plan saved.'))};
 $('#assets').onchange=async e=>{const files=[...e.target.files];if(!files.length)return;const d=new FormData();files.forEach(f=>d.append('images',f));
  const videos=files.some(f=>f.type.startsWith('video/')||/\.(mov|m4v|mp4|webm)$/i.test(f.name));$('#assets').disabled=true;

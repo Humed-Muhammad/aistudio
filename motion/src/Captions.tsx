@@ -20,10 +20,17 @@ const MAX_PAGE_MS = 4000;
 const PAGE_MS = {
   clean: 900,
   editorial: 1100,
+  rise: 1100,
   bold: 450,
   boxed: 800,
   minimal: 1400,
 } as const;
+
+// Rise: each word slides up from behind its own baseline as it is spoken (expo-out, no blur).
+const RISE = Easing.bezier(0.16, 1, 0.3, 1);
+const RISE_MS = 520; // one word's travel
+const RISE_LEAD_MS = 90; // starts just before the word is heard, so it lands on the voice
+const RISE_EXIT = 7; // frames: the line lifts away at the end of its page
 
 /** Lowercase word without punctuation, so "mistakes," matches "mistakes". */
 const norm = (word: string) =>
@@ -38,7 +45,7 @@ const Page: React.FC<{
   y: number;
 }> = ({ page, preset, plan, y }) => {
   const frame = useCurrentFrame();
-  const { fps, width } = useVideoConfig();
+  const { fps, width, durationInFrames } = useVideoConfig();
   const k = width / 1080;
   const now = page.startMs + (frame / fps) * 1000;
   const enter = spring({
@@ -125,6 +132,85 @@ const Page: React.FC<{
             );
           })}
         </div>
+      </div>
+    );
+  }
+
+  if (preset === "rise") {
+    // Same look as editorial, but each word rises into place from behind an invisible line as it is
+    // spoken; the space is reserved from the start so the line never shifts. At the end the line lifts off.
+    const stress = new Set(
+      plan.emphasis
+        .flatMap((p) => p.split(/\s+/))
+        .map(norm)
+        .filter(Boolean),
+    );
+    const exit = interpolate(
+      frame,
+      [durationInFrames - RISE_EXIT, durationInFrames],
+      [0, 1],
+      {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+        easing: Easing.in(Easing.cubic),
+      },
+    );
+    const halo = `0 0 ${20 * k}px rgba(0,0,0,.6), 0 ${3 * k}px ${8 * k}px rgba(0,0,0,.5)`;
+    return (
+      <div
+        style={{
+          ...container,
+          fontSize: 60 * k, // the gap below is measured in this size
+          columnGap: "0.28em",
+          rowGap: "0.12em",
+          alignItems: "baseline",
+          lineHeight: 1.05,
+          opacity: 1 - exit,
+          translate: `0 calc(-50% - ${exit * 22 * k}px)`,
+        }}
+      >
+        {page.tokens.map((t, i) => {
+          const word = t.text.trim();
+          const accent = stress.size ? stress.has(norm(word)) : /\d/.test(word);
+          const p = interpolate(
+            now - t.fromMs + RISE_LEAD_MS,
+            [0, RISE_MS],
+            [0, 1],
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: RISE },
+          );
+          return (
+            // The mask: clips only below the line (with room for descenders), never the glow above or beside.
+            <span
+              key={i}
+              style={{
+                display: "inline-block",
+                clipPath: p < 1 ? "inset(-60% -30% -0.22em -30%)" : undefined,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-block",
+                  fontFamily: accent ? ACCENT_FONT : BODY_FONT,
+                  fontStyle: accent ? "italic" : "normal",
+                  fontWeight: accent ? 400 : 700,
+                  fontSize: (accent ? 104 : 60) * k,
+                  color: accent ? plan.highlight_color : "white",
+                  opacity: interpolate(p, [0, 0.35], [0, 1], {
+                    extrapolateRight: "clamp",
+                  }),
+                  translate: `0 ${(1 - p) * 118}%`,
+                  rotate: `${(1 - p) * 4}deg`,
+                  transformOrigin: "0% 100%",
+                  textShadow: accent
+                    ? `0 0 ${28 * k}px ${plan.highlight_color}55, ${halo}`
+                    : halo,
+                }}
+              >
+                {word}
+              </span>
+            </span>
+          );
+        })}
       </div>
     );
   }
@@ -283,15 +369,21 @@ export const Captions: React.FC<{ captions: Caption[]; plan: Plan }> = ({
     );
   const { fps } = useVideoConfig();
   const preset = plan.caption_preset;
+  // Words spoken inside a no_captions window are left out, so pages form from the remaining words.
+  const hidden = plan.events
+    .filter((e) => e.type === "no_captions")
+    .map((e) => [e.start * 1000, e.end * 1000]);
   const pages = useMemo(
     () =>
       preset === "none"
         ? []
         : createTikTokStyleCaptions({
-            captions,
+            captions: captions.filter(
+              (c) => !hidden.some(([s, e]) => s <= c.startMs && c.startMs < e),
+            ),
             combineTokensWithinMilliseconds: PAGE_MS[preset],
           }).pages,
-    [captions, preset],
+    [captions, preset, plan.events],
   );
   if (preset === "none") return null;
   return (
@@ -303,6 +395,7 @@ export const Captions: React.FC<{ captions: Caption[]; plan: Plan }> = ({
           next ? next.startMs : Infinity,
           page.startMs + page.durationMs + 600,
           page.startMs + MAX_PAGE_MS,
+          ...hidden.map(([s]) => s).filter((s) => s > page.startMs),
         );
         const until = Math.round((endMs / 1000) * fps);
         if (until <= from) return null;

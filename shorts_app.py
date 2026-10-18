@@ -156,7 +156,7 @@ def state(ident:str):
      'assets':sorted(p.name for p in (path/'assets').iterdir() if p.suffix.lower() in IMAGES) if (path/'assets').exists() else [],
      'clips':[{'name':n,**c,'poster':next((f'/runs/{ident}/assets/.frames/{Path(n).stem}/{f.name}' for f in sorted((path/'assets'/'.frames'/Path(n).stem).glob('*.jpg'))),None)} for n,c in shorts.load_clips(path).items()],
      'files':{n:(path/n).stat().st_mtime for n in files},
-     'units':[{k:u[k] for k in ['id','start','end','text']} for u in read(path,'units.json',[])],'cut':cut,'cut_summary':cut_summary,
+     'units':[{**{k:u[k] for k in ['id','start','end','text']},'edited':bool(u.get('edited'))} for u in read(path,'units.json',[])],'cut':cut,'cut_summary':cut_summary,
      'tracking':{'frames':tracks['frames'],'cuts':len(tracks['cuts']),'face':sum(map(bool,tracks['face'])),
        'left':sum(map(bool,tracks['hands']['left'])),'right':sum(map(bool,tracks['hands']['right']))} if tracks else None,
      'transcript':{'language':captions.get('language'),'text':''.join(c['text'] for c in captions.get('captions',[])).strip()},
@@ -227,6 +227,16 @@ def put_cut(ident:str,cut:dict=Body(...)):
     try:shorts.save_cut(path,cut)
     except (ValidationError,ValueError) as e:raise invalid(e)
     return state(ident)
+
+@router.put('/shorts/jobs/{ident}/units/{unit}')
+def put_unit(ident:str,unit:int,body:dict=Body(...)):
+    """Correct the words of one transcript part."""
+    path=folder(ident)
+    if not (path/'units.json').exists():raise HTTPException(409,'Wait for the transcript first.')
+    if busy(ident):raise HTTPException(409,'This video is still busy. Wait for the current step to finish.')
+    try:updated=shorts.edit_part(path,unit,str(body.get('text','')))
+    except ValueError as e:raise invalid(e)
+    return {**state(ident),'captions_updated':updated}
 
 @router.post('/shorts/jobs/{ident}/cut/auto')
 def auto_cut(ident:str,notes:str=Form('')):

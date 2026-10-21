@@ -35,8 +35,14 @@ the API. It finds the CLI on PATH, in the VS Code/Cursor extension, or at `CLAUD
 `--permission-mode dontAsk` and absolute-path rules: it may read the project, this guide, AGENTS.md, the kit, the template and
 the skills; write only inside the project; and run only `graphics.py check|snapshot|content|render` (draft) for that project.
 `.env` and shell readers (`cat`, `head`, `grep` …) are denied. The previous `index.html` is copied to `history/` first and
-**Undo** restores it; the run's log is `build.log` and its notes `build.json`. A build that leaves `index.html` unchanged fails
+**Undo** restores it; the run's log is `build.log` and every build or change is recorded in `claude-runs.json` (Undo steps back one at a time). A build that leaves `index.html` unchanged fails
 with Claude's explanation instead of rendering the starter. Time limit: `GRAPHICS_BUILD_MINUTES` (default 30).
+
+**Ask Claude for a change** (`python graphics.py change JOB "make the price bigger"`) is for design changes to an existing
+animation: size, speed, motion, layout, scene order. Claude reads `index.html`, makes only that change with small edits, keeps
+the content block and everything else as it is, checks, snapshots only the 2-4 moments it touched, and renders a draft. It uses
+the same permissions and backup as a build and usually takes under a few minutes (`GRAPHICS_CHANGE_MINUTES`, default 15).
+Words, prices, colors and pictures do not need Claude: change them in Content and re-render (seconds).
 
 ## 2. Project layout
 

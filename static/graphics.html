@@ -62,6 +62,8 @@ textarea{min-height:84px;resize:vertical;line-height:1.5}
 .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}.thumbs figure{margin:0;display:grid;gap:4px}
 .thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px;border:1px solid var(--line)}
 .thumbs figcaption{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chip{background:var(--bg);color:var(--text);border:1px solid var(--line);padding:5px 10px;border-radius:99px;font-size:12px;font-weight:500}.chip:hover{border-color:var(--accent);color:var(--accent);filter:none}
+.run summary{cursor:pointer;font-size:13px;color:var(--ink)}
 .transcript{white-space:pre-wrap;line-height:1.65;font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 16px;max-height:360px;overflow:auto;overflow-wrap:anywhere}
 .prompt{white-space:pre-wrap;font:13px/1.6 'IBM Plex Mono',monospace;background:#0f1117;color:#e7e7ee;border-radius:12px;padding:16px 18px;max-height:320px;overflow:auto;overflow-wrap:anywhere}
 .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 4px;padding:0;list-style:none;counter-reset:s}
@@ -118,6 +120,15 @@ textarea{min-height:84px;resize:vertical;line-height:1.5}
    <div class="row"><button type="button" id="render-draft">Render draft</button><button type="button" class="secondary" id="render-final">Render final</button><button type="button" class="secondary" id="studio" title="HyperFrames Studio opens in your browser so you can scrub second by second">Open Studio ↗</button></div>
    <div id="dl-box" hidden><h3 style="margin-top:22px">Downloads</h3><div class="downloads" id="downloads" style="margin-top:10px"></div></div>
    <p class="hint" style="margin-top:18px" id="path-hint"></p>
+   <div id="change-box" style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line)">
+    <h3>Ask Claude for a change</h3>
+    <p style="margin:4px 0 10px">For design changes: size, speed, motion, layout, order of scenes. Words, prices, colors and pictures are quicker in <b>Content</b> below, with no Claude needed.</p>
+    <textarea id="change-text" placeholder="e.g. Make the price bigger and let it bounce in · Slow down the second scene · Put the logo in the top corner"></textarea>
+    <div class="chips" id="change-ideas"></div>
+    <div class="row" style="justify-content:space-between;margin-top:10px"><select id="change-model" style="width:auto" aria-label="Model"></select><button type="button" id="change-go">Make this change</button></div>
+    <p class="hint" style="margin:8px 0 0">Usually 1–3 minutes. Claude edits only that part and checks the moments it touched. Uses your Claude plan; you can undo.</p>
+    <div id="build-result" hidden style="margin-top:18px"><div class="row" style="justify-content:space-between;margin-bottom:8px"><span class="label" style="margin:0">Claude’s builds and changes</span><button type="button" class="ghost" id="undo">Undo the last one</button></div><div id="runs" class="stack" style="gap:8px"></div></div>
+   </div>
   </div>
  </div></div>
 
@@ -140,7 +151,6 @@ textarea{min-height:84px;resize:vertical;line-height:1.5}
    <div class="choices" id="models"></div>
    <div class="actions" style="margin-top:14px"><span class="hint">Takes a few minutes and uses a good share of your plan’s usage. The current version is saved first, so you can undo.</span><button type="button" id="build">Build with Claude Code</button></div>
   </div>
-  <div id="build-result" hidden style="margin-top:18px"><div class="row" style="justify-content:space-between;margin-bottom:8px"><span class="label" style="margin:0" id="build-title">Claude’s notes</span><button type="button" class="ghost" id="undo">Undo this build</button></div><div class="transcript" id="build-summary"></div></div>
   <details id="prompt-box" hidden style="margin-top:18px"><summary class="hint" style="cursor:pointer">Or copy the prompt and run it in Claude Code yourself</summary>
    <div class="row" style="justify-content:flex-end;margin:8px 0"><button type="button" class="secondary small" id="copy">Copy prompt</button></div>
    <div class="prompt" id="prompt"></div>
@@ -238,11 +248,16 @@ function briefStatus(){if(!job)return;const b=job.brief,gaps=gapsIn(),run=job.st
  $('#build').disabled=run||!setup.claude||!b||briefDirty||gaps.length>0||contentGaps>0;
  $('#build').title=!b?'Save the brief first':briefDirty?'Save your changes first':gaps.length?'Fill in the [placeholders] first':contentGaps?'Fill in the highlighted Content fields first':'';
  $('#claude-note').textContent=setup.claude?'':'Claude Code not found: install the VS Code extension or set CLAUDE_BIN'}
-function drawBuild(j){const b=j.build;$('#build-result').hidden=!b;if(!b)return;
- $('#build-title').textContent='Claude’s notes · '+(setup.models[b.model]||b.model).split(' ·')[0]+' · '+ago(b.finished);$('#build-summary').textContent=b.summary||'(no notes)';$('#undo').disabled=j.state==='running'}
+// Newest first; the newest is open. Undo always steps back from the newest.
+function drawBuild(j){const runs=j.runs||[],run=j.state==='running';$('#build-result').hidden=!runs.length;$('#undo').disabled=run;
+ $('#change-go').disabled=run||!setup.claude;
+ const key=runs.map(r=>r.finished).join();if($('#runs').dataset.key===key)return;$('#runs').dataset.key=key;
+ $('#runs').replaceChildren(...runs.slice().reverse().map((r,i)=>h('details',{class:'run',open:i===0},
+  h('summary',{},h('b',{},r.kind==='change'?'Change':'Build'),' · '+(setup.models[r.model]||r.model||'').split(' ·')[0]+' · '+ago(r.finished),r.request?h('span',{class:'hint'},' — “'+r.request+'”'):null),
+  h('div',{class:'transcript',style:'margin-top:8px;max-height:260px'},r.summary||'(no notes)'))))}
 function drawAssets(j){$('#thumbs').replaceChildren(...(j.images.length?j.images.map(p=>h('figure',{},h('img',{src:asset(p),alt:''}),h('figcaption',{},p.replace('assets/','')))):[h('span',{class:'hint'},'No images yet: the starter shows placeholders.')]));
  $('#music-box').hidden=!j.music;$('#music-btn').firstChild.textContent=j.music?'Replace music':'+ Add music';if(j.music)$('#music-player').src=asset(j.music,Math.round(j.edited))}
-const USUAL={build:' · Claude Code builds usually take 5–15 minutes; you can leave this page open or come back later',brief:' · drafting usually takes about a minute'};
+const USUAL={build:' · Claude Code builds usually take 5–15 minutes; you can leave this page open or come back later',change:' · changes usually take 1–3 minutes',brief:' · drafting usually takes about a minute'};
 function tick(){if(job?.state!=='running')return;$('#act-time').textContent=clock(Date.now()/1000-(job.started||Date.now()/1000))+' elapsed'+(USUAL[job.action]||'')}
 setInterval(tick,1000);
 
@@ -262,7 +277,11 @@ $('#draft').onclick=async()=>{const request=$('#b-request').value.trim();if(requ
  try{briefDirty=false;briefShown='';show(await api(`/graphics/jobs/${jobId}/draft-brief`,json('POST',{request})));refresh();loadJobs()}catch(e){toast(e.message)}};
 $('#build').onclick=async()=>{const model=document.querySelector('[name=model]:checked')?.value||'sonnet';toast('');
  try{show(await api(`/graphics/jobs/${jobId}/build`,json('POST',{model})));refresh();loadJobs()}catch(e){toast(e.message)}};
-$('#undo').onclick=async()=>{if(!confirm('Go back to the version from before this build? Claude’s version stays saved in the project’s history folder.'))return;
+const IDEAS=['Make the headline bigger','Slow everything down a little','Use a different reveal for the first picture','Make the price bounce in','Hold the last scene longer'];
+$('#change-ideas').replaceChildren(...IDEAS.map(t=>h('button',{type:'button',class:'chip',onclick:()=>{$('#change-text').value=t;$('#change-text').focus()}},t)));
+$('#change-go').onclick=async()=>{const request=$('#change-text').value.trim();if(request.length<4){toast('Describe the change in a few words first.');return}toast('');
+ try{show(await api(`/graphics/jobs/${jobId}/change`,json('POST',{request,model:$('#change-model').value})));$('#change-text').value='';refresh();loadJobs()}catch(e){toast(e.message)}};
+$('#undo').onclick=async()=>{if(!confirm('Undo Claude’s last build or change? That version stays saved in the project’s history folder.'))return;
  try{show(await api(`/graphics/jobs/${jobId}/undo-build`,{method:'POST'}));render(false)}catch(e){toast(e.message)}};
 $('#copy').onclick=async()=>{await navigator.clipboard.writeText(job.prompt||'');$('#copy').textContent='Copied';setTimeout(()=>$('#copy').textContent='Copy prompt',1500)};
 async function upload(url,field,files){if(!files.length)return;const d=new FormData();[...files].forEach(f=>d.append(field,f));toast('');try{show(await api(url,{method:'POST',body:d}))}catch(e){toast(e.message)}}
@@ -279,6 +298,7 @@ $('#start').onsubmit=async e=>{e.preventDefault();const d=new FormData();d.set('
  try{const j=await api('/graphics/jobs',{method:'POST',body:d});$('#start').reset();$('#images-name').textContent='Choose or drop images';$('#music-name').textContent='Choose or drop an audio file';await loadJobs();openJob(j.id)}catch(err){toast(err.message)}finally{$('#go').disabled=false;$('#go').textContent='Create project'}};
 let setup={claude:true,models:{sonnet:'Sonnet · balanced'}};
 api('/graphics/setup').then(s=>{setup=s;$('#setup-note').hidden=s.ready;$('#go').disabled=!s.ready;
+ $('#change-model').replaceChildren(...Object.entries(s.models).map(([v,l])=>h('option',{value:v,selected:v==='sonnet'},l.replace(' · ',' — '))));
  $('#models').replaceChildren(...Object.entries(s.models).map(([v,l],i)=>h('label',{class:'choice'},h('input',{type:'radio',name:'model',value:v,checked:v==='sonnet'}),h('b',{},l.split(' · ')[0]),h('small',{},l.split(' · ')[1]||''))));briefStatus()}).catch(()=>{});
 window.onpopstate=()=>{const id=new URLSearchParams(location.search).get('job');id?openJob(id):newJob()};
 loadJobs();{const id=new URLSearchParams(location.search).get('job');if(id)openJob(id)}

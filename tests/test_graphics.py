@@ -183,7 +183,26 @@ class ClaudeCodeTests(unittest.TestCase):
         self.assertTrue(any('.env' in r for r in argv[argv.index('--disallowedTools')+1:]))
         self.assertIn('Claude is writing index.html · step 1',lines);self.assertEqual(info['summary'],'Four scenes. Edit price and cta.')
         self.assertEqual((self.f/info['backup']).read_text(),before);self.assertTrue((self.f/'index.html').read_text().endswith('<!-- built -->'))
-        graphics.undo_build(self.f);self.assertEqual((self.f/'index.html').read_text(),before);self.assertIsNone(graphics.read(self.f,'build.json'))
+        graphics.undo_build(self.f);self.assertEqual((self.f/'index.html').read_text(),before);self.assertEqual(graphics.claude_runs(self.f),[])
+
+    def test_changes_stack_and_undo_steps_back_one_at_a_time(self):
+        graphics.save_brief(self.f,self.BRIEF);original=(self.f/'index.html').read_text()
+        with patch.dict(os.environ,{'FAKE_EDIT':str(self.f/'index.html')}),patch.object(graphics,'render'):
+            graphics.build(self.f,'haiku',lambda m,p=None:None);built=(self.f/'index.html').read_text()
+            info=graphics.revise(self.f,'make the price bigger','haiku',lambda m,p=None:None)
+        ask=self.calls()['argv'][1]  # after -p
+        self.assertIn('make the price bigger',ask);self.assertIn('Make only this change',ask);self.assertIn('2-4 moments',ask)
+        self.assertEqual([r['kind'] for r in graphics.claude_runs(self.f)],['build','change']);self.assertEqual(info['request'],'make the price bigger')
+        graphics.undo_build(self.f);self.assertEqual((self.f/'index.html').read_text(),built)
+        graphics.undo_build(self.f);self.assertEqual((self.f/'index.html').read_text(),original)
+        with self.assertRaises(ValueError):graphics.undo_build(self.f)
+        with self.assertRaises(ValueError):graphics.revise(self.f,'',)
+
+    def test_projects_built_before_changes_existed_can_still_undo(self):
+        (self.f/'history').mkdir();(self.f/'history/index-old.html').write_text('<old/>')
+        graphics.write(self.f,'build.json',{'model':'sonnet','summary':'x','backup':'history/index-old.html','finished':1})
+        self.assertEqual(graphics.claude_runs(self.f)[0]['kind'],'build')
+        graphics.undo_build(self.f);self.assertEqual((self.f/'index.html').read_text(),'<old/>');self.assertFalse((self.f/'build.json').exists())
 
     def test_build_that_changes_nothing_fails_instead_of_rendering_the_starter(self):
         graphics.save_brief(self.f,self.BRIEF)

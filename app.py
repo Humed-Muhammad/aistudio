@@ -9,6 +9,10 @@ RUNS=ROOT/'runs';RUNS.mkdir(exist_ok=True)
 app=FastAPI();jobs={}
 from shorts_app import router as shorts_router
 app.include_router(shorts_router)
+from cleaner_app import router as cleaner_router
+app.include_router(cleaner_router)
+from graphics_app import router as graphics_router
+app.include_router(graphics_router)
 @app.get('/')
 def index():return FileResponse(ROOT/'static/index.html')
 @app.post('/jobs')

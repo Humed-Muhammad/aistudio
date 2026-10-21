@@ -1,0 +1,10 @@
+/* Local fonts (no network at render time). "Display" = Anton for Latin headlines; Ethiopic falls back to Noto Sans Ethiopic.
+   Use: font-family: var(--font-display) for headlines, var(--font-body) for everything else. */
+@font-face{font-family:"Inter";font-weight:400;src:url(fonts/inter-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Inter";font-weight:700;src:url(fonts/inter-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Inter";font-weight:800;src:url(fonts/inter-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"Anton";font-weight:400;src:url(fonts/anton-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Noto Sans Ethiopic";font-weight:400;src:url(fonts/noto-sans-ethiopic-ethiopic-400-normal.woff2) format("woff2");unicode-range:U+1200-139F,U+2D80-2DDF,U+AB00-AB2F}
+@font-face{font-family:"Noto Sans Ethiopic";font-weight:700;src:url(fonts/noto-sans-ethiopic-ethiopic-700-normal.woff2) format("woff2");unicode-range:U+1200-139F,U+2D80-2DDF,U+AB00-AB2F}
+@font-face{font-family:"Noto Sans Ethiopic";font-weight:800;src:url(fonts/noto-sans-ethiopic-ethiopic-800-normal.woff2) format("woff2");unicode-range:U+1200-139F,U+2D80-2DDF,U+AB00-AB2F}
+:root{--font-body:"Inter","Noto Sans Ethiopic","Kefa",sans-serif;--font-display:"Anton","Noto Sans Ethiopic","Kefa",sans-serif}

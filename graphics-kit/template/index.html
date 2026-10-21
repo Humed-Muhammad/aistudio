@@ -1,0 +1,151 @@
+<!doctype html>
+<!-- CONTENT BLOCK: every word, price, color and image of this video lives in the list below.
+     Change a value here (or in the app's Content form) and re-render: timing and motion stay identical. -->
+<html lang="en" data-resolution="portrait" data-composition-variables='[
+  {"id":"brand","type":"string","label":"Brand","default":"FADE HOUSE"},
+  {"id":"headline","type":"string","label":"Headline","default":"Sharp cuts. Zero wait."},
+  {"id":"subline","type":"string","label":"Subline","default":"Barbershop · Bole, Addis Ababa"},
+  {"id":"product","type":"string","label":"Product or service","default":"Signature Fade"},
+  {"id":"price","type":"string","label":"Price","default":"$25"},
+  {"id":"offer","type":"string","label":"Offer badge","default":"First visit −20%"},
+  {"id":"feature","type":"string","label":"Feature line","default":"Hot towel · Beard line-up · Styling"},
+  {"id":"cta","type":"string","label":"Call to action","default":"Book today"},
+  {"id":"handle","type":"string","label":"Handle or phone","default":"@fadehouse"},
+  {"id":"accent","type":"color","label":"Accent color","default":"#FFD60A"},
+  {"id":"bg","type":"color","label":"Background color","default":"#0B0D12"},
+  {"id":"ink","type":"color","label":"Text color","default":"#F5F5F2"},
+  {"id":"image1","type":"string","label":"Image 1 (hero)","default":"assets/placeholder-1.svg"},
+  {"id":"image2","type":"string","label":"Image 2 (product)","default":"assets/placeholder-2.svg"},
+  {"id":"productFit","type":"enum","label":"Product image","default":"photo","options":[{"value":"photo","label":"Photo in a card"},{"value":"cutout","label":"Cut-out floating (transparent PNG)"}]},
+  {"id":"image3","type":"string","label":"Image 3 (detail)","default":"assets/placeholder-3.svg"}
+]'>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <link rel="stylesheet" href="kit/fonts.css" />
+    <script src="kit/gsap.min.js"></script>
+    <script src="kit/motion-kit.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0b0d12; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; container-type: size;
+        background: var(--bg); color: var(--ink); font-family: var(--font-body); }
+      .scene { position: absolute; inset: 0; overflow: hidden; }
+      .frame { position: absolute; overflow: hidden; }
+      .frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .shade { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, color-mix(in srgb, var(--bg) 92%, transparent) 88%); }
+      .tag { display: inline-block; background: var(--accent); color: var(--bg); font: 800 3.4cqmin/1 var(--font-body); letter-spacing: .14em; padding: 1.4cqmin 2.4cqmin; border-radius: 1cqmin; }
+      .display { font: 400 11cqmin/1.02 var(--font-display); text-transform: uppercase; letter-spacing: .005em; }
+      .body { font: 600 4.2cqmin/1.35 var(--font-body); }
+      .accent { color: var(--accent); }
+
+      /* 1 · hero */
+      #s1 .frame { inset: 0; }
+      #s1 .copy { position: absolute; left: 7cqw; right: 7cqw; bottom: 9cqh; display: grid; gap: 3cqmin; justify-items: start; }
+
+      /* 2 · product */
+      #s2 { background: radial-gradient(80cqmax 60cqmax at 50% 38%, color-mix(in srgb, var(--accent) 22%, var(--bg)), var(--bg)); }
+      #s2 .frame { left: 14cqw; right: 14cqw; top: 9cqh; height: 52cqh; border-radius: 4cqmin; box-shadow: 0 4cqmin 10cqmin #0008; }
+      #s2 .copy { position: absolute; left: 7cqw; right: 7cqw; top: 66cqh; display: grid; gap: 2.4cqmin; justify-items: center; text-align: center; }
+      #s2 .price { font: 400 16cqmin/1 var(--font-display); color: var(--accent); }
+      #s2 .frame.cutout { background: none; box-shadow: none; overflow: visible; }
+      #s2 .frame.cutout img { object-fit: contain; filter: drop-shadow(0 4cqmin 5cqmin #000a); }
+      #s2 .badge { position: absolute; right: 9cqw; top: 6cqh; width: 25cqmin; height: 25cqmin; border-radius: 50%; display: grid; place-items: center; text-align: center;
+        background: var(--accent); color: var(--bg); font: 800 3.6cqmin/1.1 var(--font-body); padding: 2cqmin; transform: rotate(-8deg); }
+
+      /* 3 · detail */
+      #s3 .frame { left: 7cqw; right: 7cqw; top: 8cqh; height: 58cqh; border-radius: 3cqmin; }
+      #s3 .copy { position: absolute; left: 7cqw; right: 7cqw; top: 71cqh; display: grid; gap: 2.4cqmin; }
+      #s3 .rule { height: .7cqmin; width: 22cqw; background: var(--accent); transform-origin: left center; }
+
+      /* 4 · call to action */
+      #s4 { background: var(--accent); color: var(--bg); display: grid; place-content: center; justify-items: center; gap: 4cqmin; text-align: center; padding: 0 7cqw; }
+      #s4 .thumbs { display: flex; gap: 2.4cqmin; }
+      #s4 .thumbs div { width: 20cqmin; height: 20cqmin; border-radius: 2cqmin; overflow: hidden; }
+      #s4 .thumbs img { width: 100%; height: 100%; object-fit: cover; }
+      #s4 .brand { font: 800 4cqmin/1 var(--font-body); letter-spacing: .3em; }
+      #s4 .handle { font: 700 4.4cqmin/1 var(--font-body); background: var(--bg); color: var(--accent); padding: 1.8cqmin 3.4cqmin; border-radius: 99px; min-height: 8cqmin; }
+
+      /* Landscape: put copy beside the picture instead of under it. */
+      @container (min-aspect-ratio: 4/3) {
+        #s2 .frame, #s3 .frame { left: 6cqw; right: auto; width: 46cqw; top: 10cqh; height: 80cqh; }
+        #s2 .copy, #s3 .copy { left: 56cqw; right: 6cqw; top: 26cqh; justify-items: start; text-align: left; }
+        #s2 .badge { right: 6cqw; top: 8cqh; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="12" data-width="1080" data-height="1920">
+      <section id="s1" class="scene clip" data-start="0" data-duration="3.6" data-track-index="0">
+        <div class="frame" id="hero"><img id="img1" data-var-src="image1" src="assets/placeholder-1.svg" alt="" /></div>
+        <div class="shade"></div>
+        <div class="copy"><span class="tag" id="brand1"></span><h1 class="display" id="headline"></h1><p class="body" id="subline"></p></div>
+      </section>
+
+      <section id="s2" class="scene clip" data-start="3.4" data-duration="3.8" data-track-index="1">
+        <div class="frame" id="productCard"><img id="img2" data-var-src="image2" src="assets/placeholder-2.svg" alt="" /></div>
+        <div class="badge" id="offer"></div>
+        <div class="copy"><h2 class="display" id="product" style="font-size:7.5cqmin"></h2><div class="price" id="price"></div></div>
+      </section>
+
+      <section id="s3" class="scene clip" data-start="7" data-duration="2.8" data-track-index="2">
+        <div class="frame" id="detail"><img id="img3" data-var-src="image3" src="assets/placeholder-3.svg" alt="" /></div>
+        <div class="copy"><div class="rule" id="rule"></div><p class="display" id="feature" style="font-size:6.4cqmin"></p></div>
+      </section>
+
+      <section id="s4" class="scene clip" data-start="9.6" data-duration="2.4" data-track-index="3">
+        <div class="thumbs"><div><img id="t1" data-var-src="image1" src="assets/placeholder-1.svg" alt="" /></div><div><img id="t2" data-var-src="image2" src="assets/placeholder-2.svg" alt="" /></div><div><img id="t3" data-var-src="image3" src="assets/placeholder-3.svg" alt="" /></div></div>
+        <h2 class="display" id="cta" style="font-size:13cqmin"></h2>
+        <div class="handle" id="handle"></div>
+        <div class="brand" id="brand2"></div>
+      </section>
+      <!-- music -->
+    </div>
+    <script>
+      // Fill the text from the content block once, before it is split for animation (images bind through data-var-src).
+      const v = window.__hyperframes.getVariables();
+      const text = (id, value) => (document.getElementById(id).textContent = value || "");
+      text("brand1", v.brand); text("brand2", v.brand); text("headline", v.headline); text("subline", v.subline);
+      text("product", v.product); text("price", v.price); text("offer", v.offer); text("feature", v.feature);
+      text("cta", v.cta); text("handle", v.handle);
+      document.getElementById("offer").hidden = !v.offer;
+      document.getElementById("productCard").classList.toggle("cutout", v.productFit === "cutout");
+
+      const K = window.MotionKit, tl = gsap.timeline({ paused: true });
+      // 1 · hero (0 – 3.6 s): image wipes up and slowly pushes in, copy rises word by word, then the camera flies through.
+      K.reveal(tl, "#hero", { at: 0, dur: 0.9, style: "wipe-up" });
+      K.kenBurns(tl, "#img1", { at: 0, dur: 3.6, from: { scale: 1.22, y: 40 }, to: { scale: 1.02, y: -20 } });
+      K.popIn(tl, "#brand1", { at: 0.5 });
+      K.words(tl, "#headline", { at: 0.75, stagger: 0.09 });
+      tl.fromTo("#subline", { opacity: 0, y: 24 }, { opacity: 0.9, y: 0, duration: 0.5, ease: "power2.out" }, 1.5);
+      K.zoomThrough(tl, "#s1", { at: 3.15, dur: 0.45 });
+
+      // 2 · product (3.4 – 7.2 s): card swings in, hovers, catches a light sweep; price counts up, badge pops.
+      K.tilt(tl, "#productCard", { at: 3.4, dur: 1.1, from: { rotationY: -35, rotationX: 10, opacity: 0, scale: 0.85 }, to: { rotationY: 0, rotationX: 0, opacity: 1, scale: 1 } });
+      K.float(tl, "#productCard", { at: 4.5, dur: 2.7, amp: 22, rotate: 1.6, cycles: 2 });
+      K.shine(tl, "#productCard", { at: 4.6, dur: 0.9 });
+      K.words(tl, "#product", { at: 3.8 });
+      K.countUp(tl, "#price", { at: 4.3, dur: 1.0 });
+      K.popIn(tl, "#offer", { at: 5.1, rotate: -20 });
+      K.exit(tl, "#s2", { at: 6.85, dur: 0.35, style: "up" });
+
+      // 3 · detail (7 – 9.8 s): the image assembles from tiles, then a focus line and feature text.
+      K.tiles(tl, "#detail", { at: 7.0, dur: 1.2, rows: 4, cols: 3 });
+      K.kenBurns(tl, "#detail", { at: 7.0, dur: 2.8, from: { scale: 1 }, to: { scale: 1.06 } });
+      tl.fromTo("#rule", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power3.out" }, 7.9);
+      K.words(tl, "#feature", { at: 8.0, stagger: 0.07 });
+      K.reveal(tl, "#s3", { at: 9.4, dur: 0.4, style: "wipe-left", out: true });
+
+      // 4 · call to action (9.6 – 12 s): accent field irises open, thumbnails pop in a row, CTA and handle land.
+      K.reveal(tl, "#s4", { at: 9.6, dur: 0.6, style: "circle" });
+      ["#t1", "#t2", "#t3"].forEach((t, i) => K.popIn(tl, document.querySelector(t).parentNode, { at: 9.9 + i * 0.12 }));
+      K.words(tl, "#cta", { at: 10.1 });
+      K.popIn(tl, "#handle", { at: 10.5, rotate: 0 });
+      K.typeOn(tl, "#handle", { at: 10.65, cps: 26 });
+      tl.fromTo("#brand2", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 11.0);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

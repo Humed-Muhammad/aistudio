@@ -16,3 +16,6 @@ runs/
 .venv-face/
 models/
 sfx-library/
+graphics-kit/node_modules
+# HyperFrames skills for Claude Code (third-party, restored by make graphics)
+.claude/skills/

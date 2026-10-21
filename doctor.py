@@ -3,7 +3,7 @@ import argparse,importlib,shutil,sys
 from config import setting
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--require-keys',action='store_true');parser.add_argument('--mesh',action='store_true');parser.add_argument('--shorts',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--require-keys',action='store_true');parser.add_argument('--mesh',action='store_true');parser.add_argument('--shorts',action='store_true');parser.add_argument('--graphics',action='store_true');args=parser.parse_args()
     failed=sys.version_info<(3,12)
     print('Python:',sys.version.split()[0], '(3.12+ required)')
     for name in ['av','numpy','PIL','requests','fastapi','uvicorn','multipart','gradio_client','scipy']:
@@ -30,6 +30,16 @@ def main():
         print('Shorts planner: '+('Claude API key configured' if setting('ANTHROPIC_API_KEY') else 'no ANTHROPIC_API_KEY — plan with Claude Code or edit the plan JSON'))
         if not all(checks.values()):print('SHORTS EDITOR NOT READY');return 1
         print('SHORTS EDITOR READY (local; no paid calls needed)');return 0
+    if args.graphics:
+        from pathlib import Path
+        import graphics
+        root=Path(__file__).resolve().parent
+        checks={'Node.js 22+':bool(shutil.which('node')) and graphics.subprocess.run(['node','-e','process.exit(+process.versions.node.split(".")[0]>=22?0:1)']).returncode==0,
+         'HyperFrames':graphics.HF.exists(),'FFmpeg (local)':graphics.FFMPEG.exists(),'FFprobe (local)':graphics.FFPROBE.exists(),
+         'Google Chrome':Path('/Applications/Google Chrome.app').exists(),'Claude Code skills':(root/'.claude/skills/hyperframes/SKILL.md').exists()}
+        for name,ok in checks.items():print(name+': '+('OK' if ok else 'MISSING — run make graphics'))
+        if not all(checks.values()):print('MOTION GRAPHICS NOT READY');return 1
+        print('MOTION GRAPHICS READY (local; renders on this Mac, no paid calls)');return 0
     missing=[]
     from seedance_bridge import provider
     try:generator=provider()

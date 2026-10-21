@@ -162,6 +162,29 @@ Open **Shorts editor** (`/shorts`) to turn a raw vertical recording (up to 10 mi
 
 Steps: upload → cut (auto or by hand) → review the cut and its tracking → add images and describe what you want → **Auto-plan with Claude** (needs `ANTHROPIC_API_KEY`), or ask Claude Code to write the plan, or edit the JSON → render a draft → render the final. Install once with `make shorts` (Node.js 18+ required). CLI: `python shorts.py prepare|cut|plan|render`.
 
+## Audio cleaner and transcriber
+
+Open **Audio cleaner** (`/cleaner`) to remove background noise from any audio or video file and/or get its transcript. Your original file is never changed.
+
+- **Light** noise removal runs on your computer (free): fans, hum, hiss and room noise. **Strong** uses ElevenLabs Voice Isolator (cloud, paid per minute) and also removes music, background voices and echo.
+- Download the cleaned audio as MP3 or lossless WAV; a video comes back with its picture unchanged and the cleaned sound.
+- Transcripts come as plain text, SRT subtitles and timed words (JSON). Amharic and Afaan Oromoo need `ELEVENLABS_API_KEY` (Scribe); without it, local whisper.cpp handles English. Oromo is best effort (ElevenLabs doesn't officially list it) and **Detect** recognises it from the transcript words.
+
+CLI: `python cleaner.py recording.m4a --noise light --language am` (`om` for Oromo, `auto` to detect) (add `--no-transcript` to only clean).
+
+## Motion graphics: promos, explainers and ads as code
+
+Open **Motion graphics** (`/graphics`) to make short promos, explainers and ads that Claude writes as code (HTML + GSAP) and [HyperFrames](https://github.com/heygen-com/hyperframes) renders to MP4 on your computer. There is no video model and no cloud render.
+
+- **Your images, animated:** slow push-ins, wipes and iris reveals, floating 3D product shots, light sweeps, tiles that assemble, slideshows, parallax. A PNG with a transparent background floats as a cut-out. Make photoreal images with any image tool first, then animate them here.
+- **Edit without regenerating:** every word, price, color and picture sits in one content block. Change "$25" to "$30" in the Content form, render again, and everything else stays identical.
+- **Plan with the 4-part brief:** who/where/how long, the look (hex colors, fonts, mood), scene by scene with seconds, and rules (what it must never do). Type what you want in your own words and press **Draft the brief** (Claude looks at your images and leaves `[placeholders]` for prices or numbers you didn't give), or write the four parts yourself. Edit, save, then **Build with Claude Code**: it writes the animation, checks it, reviews its frames and renders a draft, using your Claude plan (the API key is not used), working only inside the project folder. **Undo** brings back the previous version.
+- Starts from a 12-second template (hero → product → detail → call to action) in 9:16, 1:1 or 16:9, so you can render with your own images and words before writing a brief. Amharic text uses bundled Noto Sans Ethiopic.
+
+Install once with `make graphics` (Node.js 22+; about 200 MB inside `graphics-kit/`, including its own FFmpeg; uses your installed Google Chrome; HyperFrames telemetry turned off; adds the HyperFrames skills for Claude Code in `.claude/skills/`). Check with `python doctor.py --graphics`.
+
+CLI: `python graphics.py new "Fade House promo" --image hero.jpg --image product.png`, then `content JOB --set price='$30'`, `check`, `snapshot`, `render [--final]`. Authoring guide: [docs/motion-graphics.md](docs/motion-graphics.md).
+
 ## Tech stack
 
 | Layer | Technology and purpose |
@@ -173,6 +196,7 @@ Steps: upload → cut (auto or by hand) → review the cut and its tracking → 
 | Colored depth | Replicate `lucataco/depth-anything-video`; optional Hugging Face Video Depth Anything or `chenxwh/depth-any-video` |
 | Segmentation | Replicate `lucataco/sam3-video`; raw per-frame masks and mandatory visual review |
 | Face mesh | Local Google MediaPipe Face Landmarker; saved landmarks and overlay, isolated Python 3.12 worker environment |
+| Motion graphics | HyperFrames (HTML + GSAP compositions, headless Chrome capture, project-local FFmpeg); motion kit for image animation; HyperFrames skills for Claude Code |
 | Shorts editor | Local MediaPipe gesture/face tracking and selfie segmentation, whisper.cpp or ElevenLabs Scribe captions, Remotion (React) rendering; optional Claude planner |
 | Generation | Enhancor Seedance; Edit for image references, Omni for video references; draft first, approved 1080p upgrade |
 | Media hosting | Tmpfiles primary; configurable Catbox fallback; direct-link checks before generation |

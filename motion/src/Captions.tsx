@@ -10,14 +10,31 @@ import {
 } from "remotion";
 import { createTikTokStyleCaptions } from "@remotion/captions";
 import type { Caption, TikTokPage } from "@remotion/captions";
-import { onAccent } from "./colors";
+import { captionFace, letterCase } from "./captionFonts";
+import {
+  Float,
+  Karaoke,
+  Pill,
+  Quiet,
+  Stack,
+  Typewriter,
+} from "./CaptionStyles";
+import { chrome, glass, mix, onAccent } from "./colors";
 import { ACCENT_FONT, BODY_FONT, HEADLINE_FONT } from "./fonts";
-import type { Plan } from "./types";
+import { type Reframe, reframeY } from "./tracking";
+import type { Plan, Tracks } from "./types";
 
 // How long a page may combine words: bold shows 1-3 words, minimal shows phrases.
 // A page never lingers longer than this after it starts (whisper stretches words over silence).
 const MAX_PAGE_MS = 4000;
 const PAGE_MS = {
+  duo: 1300,
+  karaoke: 800,
+  pill: 700,
+  typewriter: 1100,
+  quiet: 1600,
+  float: 900,
+  stack: 600,
   clean: 900,
   editorial: 1100,
   rise: 1100,
@@ -37,6 +54,198 @@ const norm = (word: string) =>
   word.toLowerCase().replace(/[^\p{L}\p{N}%$]/gu, "");
 
 type Preset = keyof typeof PAGE_MS;
+const STYLES = {
+  karaoke: Karaoke,
+  pill: Pill,
+  typewriter: Typewriter,
+  quiet: Quiet,
+  float: Float,
+  stack: Stack,
+};
+
+/** Split a page into two lines of similar length (line 1 a little shorter, like a headline). */
+const twoLines = (tokens: TikTokPage["tokens"]) => {
+  if (tokens.length < 2) return [tokens, []];
+  const len = tokens.map((t) => t.text.trim().length);
+  const total = len.reduce((a, b) => a + b, 0);
+  let best = 1;
+  let score = Infinity;
+  for (let i = 1, left = len[0]; i < tokens.length; left += len[i], i++) {
+    const s = Math.abs(left - (total - left)) + (left > total - left ? 1 : 0);
+    if (s < score) [best, score] = [i, s];
+  }
+  return [tokens.slice(0, best), tokens.slice(best)];
+};
+
+/**
+ * Duo: two short lines in a heavy face, line 1 white and line 2 in the accent, with a dark outline and drop
+ * shadow so they read on any footage. Motion: pop (the phrase pops in), word (words appear as spoken) or
+ * rise (words slide up from their baseline as spoken).
+ */
+const Duo: React.FC<{
+  page: TikTokPage;
+  plan: Plan;
+  style: React.CSSProperties;
+}> = ({ page, plan, style }) => {
+  const frame = useCurrentFrame();
+  const { fps, width, durationInFrames } = useVideoConfig();
+  const k = width / 1080;
+  const face = captionFace(plan.caption_font ?? "noto_black") ?? {
+    family: HEADLINE_FONT,
+    weight: 900,
+    scale: 1,
+  };
+  const motion = plan.caption_motion ?? "pop";
+  const now = page.startMs + (frame / fps) * 1000;
+  const size = 86 * k * face.scale;
+  const lines = twoLines(page.tokens);
+  const pop = spring({
+    frame,
+    fps,
+    config: { damping: 11, stiffness: 240 },
+    durationInFrames: 10,
+  });
+  const exit = interpolate(
+    frame,
+    [durationInFrames - 4, durationInFrames],
+    [0, 1],
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    },
+  );
+  const word = (t: TikTokPage["tokens"][number], color: string, i: number) => {
+    const local = Math.round(
+      frame - ((t.fromMs - 60 - page.startMs) / 1000) * fps,
+    );
+    const p =
+      motion === "rise"
+        ? interpolate(now - t.fromMs + RISE_LEAD_MS, [0, RISE_MS], [0, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+            easing: RISE,
+          })
+        : motion === "word"
+          ? local < 0
+            ? 0
+            : spring({
+                frame: local,
+                fps,
+                config: { damping: 12, stiffness: 300 },
+                durationInFrames: 7,
+              })
+          : 1;
+    // Glass: gradient fill clipped to the letters, a thin light rim, and a shine band that sweeps across
+    // once as the word lands. Depth comes from soft shadows, never a hard black outline.
+    const shine = interpolate(local, [4, 22], [130, -30], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: Easing.inOut(Easing.cubic),
+    });
+    const kind = plan.caption_fill ?? "glass";
+    const fill: React.CSSProperties =
+      kind === "solid"
+        ? { color }
+        : kind === "glow"
+          ? {
+              color: mix(color, "#ffffff", 0.35),
+              textShadow: `0 0 ${size * 0.12}px ${color}, 0 0 ${size * 0.4}px ${color}aa`,
+            }
+          : {
+              backgroundImage: `linear-gradient(105deg, transparent 40%, rgba(255,255,255,.75) 50%, transparent 60%), ${kind === "chrome" ? chrome(color) : glass(color)}`,
+              backgroundSize: "300% 100%, 100% 100%",
+              backgroundPosition: `${shine}% 0, 0 0`,
+              backgroundRepeat: "no-repeat",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
+              WebkitTextStroke: `${Math.max(1, size * 0.018)}px rgba(255,255,255,.45)`,
+            };
+    const inner = (
+      <span
+        style={{
+          display: "inline-block",
+          ...fill,
+          opacity:
+            motion === "pop"
+              ? 1
+              : interpolate(p, [0, 0.3], [0, 1], { extrapolateRight: "clamp" }),
+          scale: motion === "word" ? interpolate(p, [0, 1], [0.55, 1]) : 1,
+          translate: motion === "rise" ? `0 ${(1 - p) * 110}%` : undefined,
+        }}
+      >
+        {t.text.trim()}
+      </span>
+    );
+    // Rise is masked just below the baseline so words come up from behind it; the outline stays visible above.
+    return motion === "rise" ? (
+      <span
+        key={i}
+        style={{
+          display: "inline-block",
+          clipPath: p < 1 ? "inset(-60% -20% -0.18em -20%)" : undefined,
+        }}
+      >
+        {inner}
+      </span>
+    ) : (
+      <span key={i} style={{ display: "inline-block" }}>
+        {inner}
+      </span>
+    );
+  };
+  return (
+    <div
+      style={{
+        ...style,
+        flexDirection: "column",
+        flexWrap: "nowrap",
+        rowGap: 0,
+        fontFamily: face.family,
+        fontWeight: face.weight,
+        fontStretch: face.stretch,
+        fontSize: size,
+        lineHeight: 1.1,
+        textAlign: "center",
+        textTransform: letterCase(plan),
+        // Readability on bright footage from soft depth: a tight contact shadow and a wide soft one.
+        filter: `drop-shadow(0 ${size * 0.04}px ${size * 0.05}px rgba(0,0,0,.55)) drop-shadow(0 ${size * 0.1}px ${size * 0.3}px rgba(0,0,0,.4))`,
+        opacity:
+          (motion === "pop"
+            ? interpolate(pop, [0, 0.4], [0, 1], { extrapolateRight: "clamp" })
+            : 1) *
+          (1 - exit),
+        scale:
+          (motion === "pop" ? interpolate(pop, [0, 1], [0.7, 1]) : 1) *
+          (1 - exit * 0.06),
+      }}
+    >
+      {lines
+        .filter((l) => l.length)
+        .map((line, n) => (
+          <div
+            key={n}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              columnGap: "0.28em",
+              maxWidth: 940 * k,
+              // The accent line blooms softly in its own colour, as if lit from inside.
+              filter:
+                n === 1 && plan.caption_fill !== "solid"
+                  ? `drop-shadow(0 0 ${size * 0.22}px ${plan.highlight_color}66)`
+                  : undefined,
+            }}
+          >
+            {line.map((t, i) =>
+              word(t, n === 1 ? plan.highlight_color : "white", i),
+            )}
+          </div>
+        ))}
+    </div>
+  );
+};
 
 const Page: React.FC<{
   page: TikTokPage;
@@ -48,6 +257,10 @@ const Page: React.FC<{
   const { fps, width, durationInFrames } = useVideoConfig();
   const k = width / 1080;
   const now = page.startMs + (frame / fps) * 1000;
+  // The chosen caption face replaces each preset's own sans; the italic serif accent stays.
+  const face = captionFace(plan.caption_font);
+  const BODY = face?.family ?? BODY_FONT;
+  const HEADLINE = face?.family ?? HEADLINE_FONT;
   const enter = spring({
     frame,
     fps,
@@ -69,6 +282,20 @@ const Page: React.FC<{
     rowGap: "0.08em",
     lineHeight: 1.12,
   };
+
+  if (preset === "duo")
+    return <Duo page={page} plan={plan} style={container} />;
+  if (preset in STYLES) {
+    const Style = STYLES[preset as keyof typeof STYLES];
+    return (
+      <Style
+        page={page}
+        plan={plan}
+        style={container}
+        face={captionFace(plan.caption_font)}
+      />
+    );
+  }
 
   if (preset === "clean") {
     // Bold white phrase on a dark rounded box; the word being said turns accent-coloured with a small pop.
@@ -99,7 +326,7 @@ const Page: React.FC<{
             borderRadius: 24 * k,
             background: "rgba(13,15,24,.86)",
             boxShadow: `0 ${12 * k}px ${32 * k}px rgba(0,0,0,.35)`,
-            fontFamily: BODY_FONT,
+            fontFamily: BODY,
             fontWeight: 800,
             lineHeight: 1.18,
             color: "white",
@@ -176,7 +403,11 @@ const Page: React.FC<{
             now - t.fromMs + RISE_LEAD_MS,
             [0, RISE_MS],
             [0, 1],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: RISE },
+            {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+              easing: RISE,
+            },
           );
           return (
             // The mask: clips only below the line (with room for descenders), never the glow above or beside.
@@ -190,7 +421,7 @@ const Page: React.FC<{
               <span
                 style={{
                   display: "inline-block",
-                  fontFamily: accent ? ACCENT_FONT : BODY_FONT,
+                  fontFamily: accent ? ACCENT_FONT : BODY,
                   fontStyle: accent ? "italic" : "normal",
                   fontWeight: accent ? 400 : 700,
                   fontSize: (accent ? 104 : 60) * k,
@@ -256,7 +487,7 @@ const Page: React.FC<{
               key={i}
               style={{
                 display: "inline-block",
-                fontFamily: accent ? ACCENT_FONT : BODY_FONT,
+                fontFamily: accent ? ACCENT_FONT : BODY,
                 fontStyle: accent ? "italic" : "normal",
                 fontWeight: accent ? 400 : 700,
                 fontSize: (accent ? 104 : 60) * k,
@@ -280,7 +511,7 @@ const Page: React.FC<{
       <div
         style={{
           ...container,
-          fontFamily: BODY_FONT,
+          fontFamily: BODY,
           fontWeight: 700,
           fontSize: 54 * k,
           color: "white",
@@ -305,10 +536,10 @@ const Page: React.FC<{
     <div
       style={{
         ...container,
-        fontFamily: HEADLINE_FONT,
+        fontFamily: HEADLINE,
         fontWeight: boxed ? 800 : 900,
         fontSize: (boxed ? 66 : 84) * k,
-        textTransform: "uppercase",
+        textTransform: letterCase(plan),
         color: "white",
         scale: interpolate(enter, [0, 1], [0.82, 1]),
       }}
@@ -351,14 +582,65 @@ const Page: React.FC<{
   );
 };
 
+// Face placement (2026 short-form guides: keep captions off the eyes and mouth, out of the bottom ~20% that
+// TikTok/Reels/Shorts cover with buttons and the top ~12%): the caption's top edge sits just under the chin.
+const SAFE_TOP = 0.14;
+const SAFE_BOTTOM = 0.8;
+const CHIN_GAP = 0.015;
+const MOVE_AT_LEAST = 0.025; // ignore small head movements, so captions stay put
+/** Rough half-height of each style's caption block, as a share of the frame height. */
+const HALF: Partial<Record<Preset, number>> = {
+  duo: 0.055,
+  stack: 0.11,
+  editorial: 0.05,
+  rise: 0.05,
+  bold: 0.05,
+  pill: 0.04,
+};
+
+const facePlaces = (
+  pages: TikTokPage[],
+  tracks: Tracks | undefined,
+  plan: Plan,
+  fps: number,
+  reframe?: Reframe,
+) => {
+  const half = HALF[plan.caption_preset as Preset] ?? 0.04;
+  const scale = plan.background?.scale ?? 1; // a scaled-up cutout grows from the bottom edge
+  let last: number | null = null;
+  return pages.map((page) => {
+    if (plan.caption_place === "fixed" || !tracks?.face?.length)
+      return plan.caption_y;
+    const from = Math.round((page.startMs / 1000) * fps);
+    const chins: number[] = [];
+    for (let f = from; f < from + Math.max(1, Math.round(1.5 * fps)); f++) {
+      const s = tracks.face[f];
+      if (!s) continue;
+      const chin = 1 - (1 - (s[1] + s[2] * 0.5)) * scale;
+      chins.push(reframe ? reframeY(reframe, chin) : chin);
+    }
+    if (!chins.length) return last ?? plan.caption_y;
+    chins.sort((a, b) => a - b);
+    const chin = chins[Math.floor(chins.length / 2)];
+    const y = Math.min(
+      SAFE_BOTTOM - half,
+      Math.max(SAFE_TOP + half, chin + CHIN_GAP + half),
+    );
+    if (last === null || Math.abs(y - last) >= MOVE_AT_LEAST) last = y;
+    return last;
+  });
+};
+
 // While a full-screen, dimmed or split graphic is up, captions drop to the bottom so they never cover it
 // (or, in split view, the speaker's face).
 const LOW_Y = 0.88;
 
-export const Captions: React.FC<{ captions: Caption[]; plan: Plan }> = ({
-  captions,
-  plan,
-}) => {
+export const Captions: React.FC<{
+  captions: Caption[];
+  plan: Plan;
+  tracks?: Tracks;
+  reframe?: Reframe;
+}> = ({ captions, plan, tracks, reframe }) => {
   const lowered = (ms: number) =>
     plan.events.some(
       (e) =>
@@ -385,6 +667,10 @@ export const Captions: React.FC<{ captions: Caption[]; plan: Plan }> = ({
           }).pages,
     [captions, preset, plan.events],
   );
+  const places = useMemo(
+    () => facePlaces(pages, tracks, plan, fps, reframe),
+    [pages, tracks, plan, fps, reframe],
+  );
   if (preset === "none") return null;
   return (
     <AbsoluteFill>
@@ -410,7 +696,7 @@ export const Captions: React.FC<{ captions: Caption[]; plan: Plan }> = ({
               page={page}
               preset={preset}
               plan={plan}
-              y={lowered(page.startMs) ? LOW_Y : plan.caption_y}
+              y={lowered(page.startMs) ? LOW_Y : places[i]}
             />
           </Sequence>
         );

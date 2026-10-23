@@ -372,7 +372,9 @@ def claude_edit(folder,kind,task,finish,model,status,minutes,request=None):
     if model not in MODELS:raise ValueError('Model must be one of: '+', '.join(MODELS))
     # Absolute paths everywhere: relative permission rules stop matching once Claude runs `cd` in its shell.
     job=folder.resolve();hist=folder/'history';hist.mkdir(exist_ok=True);stamp=time.strftime('%Y%m%d-%H%M%S')
-    before=(folder/'index.html').read_text();backup=f'history/index-{stamp}.html';shutil.copyfile(folder/'index.html',folder/backup)
+    backup=f'history/index-{stamp}.html';n=1
+    while (folder/backup).exists():n+=1;backup=f'history/index-{stamp}-{n}.html'  # two runs in one second keep both backups
+    before=(folder/'index.html').read_text();shutil.copyfile(folder/'index.html',folder/backup)
     cmd=lambda c:f'{sys.executable} {ROOT/"graphics.py"} {c} {job}'
     ask='\n'.join([*task,'',
         f'The project folder is {job}. Write and edit files only there (you can read AGENTS.md, docs/motion-graphics.md, graphics-kit/kit, graphics-kit/template and the HyperFrames skills in .claude/skills).',

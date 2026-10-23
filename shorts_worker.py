@@ -10,6 +10,12 @@ MODELS=Path(__file__).resolve().parent/'models'
 URLS={'gesture_recognizer.task':'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/latest/gesture_recognizer.task',
  'blaze_face_short_range.tflite':'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite',
  'selfie_multiclass_256x256.tflite':'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite'}
+# Person cutout: Robust Video Matting (temporally stable, fine hair) when onnxruntime and the model are present,
+# else MediaPipe's 256 px selfie segmenter. Weights from the official release; the GPL code is not used.
+# resnet50 (107 MB, ~90 ms/frame on an M4) has tighter hair edges than mobilenetv3 (15 MB, ~45 ms); SHORTS_MATTE=fast picks the small one.
+import os
+RVM_NAME='rvm_mobilenetv3_fp32.onnx' if os.environ.get('SHORTS_MATTE')=='fast' else 'rvm_resnet50_fp32.onnx'
+RVM=MODELS/RVM_NAME;RVM_URL='https://github.com/PeterL1n/RobustVideoMatting/releases/download/v1.0.0/'+RVM_NAME
 GESTURES={'Open_Palm':'open_palm','Closed_Fist':'fist','Pointing_Up':'point','Thumb_Up':'thumbs_up','Victory':'peace','ILoveYou':'rock','Thumb_Down':'thumbs_down'}
 GAP=6  # bridge tracking gaps up to this many frames inside one shot
 
@@ -27,6 +33,35 @@ class OneEuro:
   if s.x is None:s.x=x;return x
   a=lambda c:1/(1+s.fps/(2*math.pi*c))
   dx=(x-s.x)*s.fps;s.dx+=a(1.)*(dx-s.dx);s.x+=a(s.mincut+s.beta*abs(s.dx))*(x-s.x);return s.x
+
+class Matte:
+ """RVM alpha and edge-cleaned colours per frame at a working size (long side 960, refined at half of that), upscaled; recurrent state resets at cuts."""
+ def __init__(s,W,H):
+  import onnxruntime as ort
+  if not RVM.exists():
+   tmp=RVM.with_suffix('.download');urllib.request.urlretrieve(RVM_URL,str(tmp));tmp.replace(RVM)
+  o=ort.SessionOptions();o.intra_op_num_threads=4  # leave cores free so the Mac stays responsive
+  s.sess=ort.InferenceSession(str(RVM),sess_options=o,providers=['CPUExecutionProvider'])
+  f=min(1,960/max(W,H));s.size=(round(W*f/2)*2,round(H*f/2)*2);s.W,s.H=W,H;s.reset()
+ def reset(s):s.rec=[np.zeros((1,1,1,1),np.float32)]*4
+ def __call__(s,rgb):
+  im=rgb if s.size==(s.W,s.H) else np.asarray(Image.fromarray(rgb).resize(s.size,Image.Resampling.BILINEAR))
+  src=(im.astype(np.float32)/255).transpose(2,0,1)[None]
+  fgr,pha,*s.rec=s.sess.run(None,{'src':src,'r1i':s.rec[0],'r2i':s.rec[1],'r3i':s.rec[2],'r4i':s.rec[3],'downsample_ratio':np.array([.5],np.float32)})
+  a=np.clip((pha[0,0]-.12)/.88,0,1)  # slight choke: drops the faint fringe of the old room around hair
+  f=fgr[0].transpose(1,2,0)
+  if a.shape!=(s.H,s.W):
+   a=np.asarray(Image.fromarray((a*255).astype(np.uint8)).resize((s.W,s.H),Image.Resampling.BICUBIC)).astype(np.float32)/255
+   f=np.asarray(Image.fromarray((np.clip(f,0,1)*255).astype(np.uint8)).resize((s.W,s.H),Image.Resampling.BILINEAR)).astype(np.float32)/255
+  # Edge pixels still carry the old room's colour (a dark muddy rim on a new background): there, use RVM's
+  # decontaminated foreground colour instead; the original pixels stay everywhere inside the person.
+  edge=np.clip((1-a)*4,0,1)[...,None]
+  clean=(rgb.astype(np.float32)/255*(1-edge)+f*edge)
+  return (a*255).astype(np.uint8),(np.clip(clean,0,1)*255).astype(np.uint8)
+
+def matte_or_none(W,H):
+ try:return Matte(W,H)
+ except Exception as e:print(f'Person cutout: Robust Video Matting unavailable ({e}); using MediaPipe',flush=True);return None
 
 def find_face(detector,rgb,W,H):
  """Best face over overlapping square tiles: a whole portrait frame is letterboxed and faces shrink."""
@@ -82,28 +117,34 @@ Path(root/'keyframes').mkdir(exist_ok=True)
 gesture_opts=mp.tasks.vision.GestureRecognizerOptions(base_options=model('gesture_recognizer.task'),running_mode=mp.tasks.vision.RunningMode.VIDEO,num_hands=2,min_hand_detection_confidence=.45,min_hand_presence_confidence=.45,min_tracking_confidence=.45)
 face_opts=mp.tasks.vision.FaceDetectorOptions(base_options=model('blaze_face_short_range.tflite'),running_mode=mp.tasks.vision.RunningMode.IMAGE,min_detection_confidence=.4)
 seg_opts=mp.tasks.vision.ImageSegmenterOptions(base_options=model('selfie_multiclass_256x256.tflite'),running_mode=mp.tasks.vision.RunningMode.VIDEO,output_confidence_masks=True,output_category_mask=False)
-raw_hands=[];faces=[];cuts=[];coverage=[];previous=None;alpha_prev=None;last={'left':None,'right':None}
+raw_hands=[];faces=[];cuts=[];coverage=[];previous=None;alpha_prev=None;last={'left':None,'right':None};matte=matte_or_none(W,H)
 with mp.tasks.vision.GestureRecognizer.create_from_options(gesture_opts) as gestures, mp.tasks.vision.FaceDetector.create_from_options(face_opts) as detector, mp.tasks.vision.ImageSegmenter.create_from_options(seg_opts) as segmenter, av.open(str(source)) as inp, av.open(str(root/'foreground.webm'),'w') as out:
- fg=out.add_stream('libvpx-vp9',rate=fps);fg.width,fg.height,fg.pix_fmt=W,H,'yuva420p';fg.options={'crf':'32','b':'0','deadline':'realtime','cpu-used':'8','row-mt':'1'}
+ fg=out.add_stream('libvpx-vp9',rate=fps);fg.width,fg.height,fg.pix_fmt=W,H,'yuva420p';fg.options={'crf':'26','b':'0','deadline':'realtime','cpu-used':'8','row-mt':'1'}
  for i,frame in enumerate(inp.decode(video=0)):
   rgb=np.ascontiguousarray(frame.to_ndarray(format='rgb24'))  # PyAV pads rows; MediaPipe needs packed pixels
   if i%15==0:progress(.9*i/total)
   ms=round(i*1000/fps);image=mp.Image(image_format=mp.ImageFormat.SRGB,data=rgb)
   small=np.asarray(Image.fromarray(rgb).convert('L').resize((64,64)),dtype=np.float32)
-  if previous is not None and np.abs(small-previous).mean()>28:cuts.append(i);alpha_prev=None
+  if previous is not None and np.abs(small-previous).mean()>28:
+   cuts.append(i);alpha_prev=None
+   if matte:matte.reset()
   previous=small
   if i%fps==0 and i//fps%2==0:Image.fromarray(rgb).resize((360,round(360*H/W))).save(root/f'keyframes/{i/fps:07.2f}.jpg',quality=80)
   result=gestures.recognize_for_video(image,ms)
   hands=[hand_record(lm,(g[0].category_name if g else ''),W,H) for lm,g in zip(result.hand_landmarks,result.gestures)]
   current=assign(hands,last);raw_hands.append(current);last={k:current[k] or (None if i in cuts else last[k]) for k in last}
   faces.append(find_face(detector,rgb,W,H))
-  background=segmenter.segment_for_video(image,ms).confidence_masks[0].numpy_view()
-  person=np.clip((1-background.squeeze()-.35)/.3,0,1)
-  if alpha_prev is not None:person=.6*person+.4*alpha_prev
-  alpha_prev=person;coverage.append(round(float(person.mean()),3))
-  mask=(person*255).astype(np.uint8)  # MediaPipe returns a soft mask already upsampled to frame size
-  if mask.shape!=(H,W):mask=np.asarray(Image.fromarray(mask).resize((W,H),Image.Resampling.BILINEAR))
-  rgba=np.dstack([rgb,mask])
+  colour=rgb
+  if matte:mask,colour=matte(rgb)
+  else:
+   background=segmenter.segment_for_video(image,ms).confidence_masks[0].numpy_view()
+   person=np.clip((1-background.squeeze()-.35)/.3,0,1)
+   if alpha_prev is not None:person=.6*person+.4*alpha_prev
+   alpha_prev=person
+   mask=(person*255).astype(np.uint8)  # MediaPipe returns a soft mask already upsampled to frame size
+   if mask.shape!=(H,W):mask=np.asarray(Image.fromarray(mask).resize((W,H),Image.Resampling.BILINEAR))
+  coverage.append(round(float(mask.mean()/255),3))
+  rgba=np.dstack([colour,mask])
   vf=av.VideoFrame.from_ndarray(rgba,format='rgba').reformat(format='yuva420p');vf.pts=i;vf.time_base=Fraction(1,fps)
   for p in fg.encode(vf):out.mux(p)
  for p in fg.encode():out.mux(p)

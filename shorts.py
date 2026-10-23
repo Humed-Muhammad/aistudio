@@ -6,6 +6,7 @@ Speech is never regenerated: the cut only removes parts of the original audio.
   python shorts.py cut JOB [--auto] [--notes TEXT] [--file CUT.json] [--apply]
   python shorts.py plan JOB [--auto] [--notes TEXT] [--file PLAN.json]
   python shorts.py render JOB [--final]
+  python shorts.py auto JOB [--notes TEXT]   # Claude cuts, picks the look, plans graphics, renders a draft
 """
 from pathlib import Path
 from fractions import Fraction
@@ -15,12 +16,17 @@ import av,numpy as np
 from pydantic import BaseModel,Field,ValidationError
 from config import ROOT,setting,credential
 FPS=30;MOTION=ROOT/'motion'
-PRESETS=['clean','editorial','rise','bold','minimal','boxed','none']
+PRESETS=['duo','karaoke','pill','typewriter','quiet','float','stack','clean','editorial','rise','bold','minimal','boxed','none']
+CAPTION_FONTS=['noto_black','noto_condensed','noto_bold','menbere','agbalumo','abyssinica','classic']
+CAPTION_MOTIONS=['pop','word','rise']
+GRAPHIC_STYLES=['glass','bold','editorial','minimal','tech','brutal','aurora','candy','noir','swiss','clay']
 # Hosted Remotion sounds, then family names resolved by sound_source() (the creator's sfx-library/ first).
 SOUNDS=['whoosh','whip','pop','ding','switch','mouse-click','shutter-modern','vine-boom','record-scratch','page-turn','anime-wow','yippee',
         'whoosh-soft','whoosh-deep','whoosh-long','riser-bass','riser-metal','hit','impact','ui-click','scifi-click','gears','camera-click','success']
 Sound=Literal[tuple(SOUNDS)]
-ACCENT='#FFD60A'  # the creator's accent: warm yellow, readable on bright footage
+ACCENT='#6EC1FF'  # default accent: sky blue. The creator does not want yellow (2026-10-23)
+# Accents Claude picks from per video, chosen to stand out from the look; never yellow.
+PALETTE={'sky':'#6EC1FF','mint':'#5EEAD4','coral':'#FF7A59','pink':'#FF6FAE','lavender':'#B79CFF','lime':'#B8F35A','white':'#FFFFFF'}
 ACCENT_BLUE='#3D7BFF'
 TEMPLATES=['steps','slider','stat','icons','list','chips','quote','title','progress']
 SCENES=['overlay','dim','dark','light','split']
@@ -28,7 +34,8 @@ GESTURES=['open_palm','fist','point','pinch','peace','thumbs_up','rock']
 
 class Event(BaseModel):
     """One timeline item. Fields that do not apply to a type are ignored."""
-    type:Literal['text','sticker','zoom','shake','flash','sfx','broll','card','no_captions']=Field(description='no_captions: hide captions for words spoken between start and end')
+    type:Literal['text','sticker','zoom','shake','flash','sfx','broll','card','no_captions','look']=Field(description='no_captions: hide captions for words spoken between start and end; look: switch the background look (e.g. original to show the real room) between start and end')
+    look:str=Field('',description='look event: name from the looks list; original shows the real room')
     start:float=Field(description='seconds')
     end:float=Field(description='seconds; for flash/sfx use start+0.3')
     text:str=Field('',description='text: words to show; keep to 1-5 words. card: headline; wrap words in *stars* for the italic serif accent')
@@ -65,9 +72,67 @@ class Event(BaseModel):
     timeline:list[tuple[float,int]]=Field([],description='card: (seconds, active item) changes inside one continuous card; filled when back-to-back cards are merged')
     scene:Literal[tuple(SCENES)]=Field('overlay',description='card: overlay on video, dim (darken+blur video behind), dark (full-screen glow), light (full-screen grid paper), split (graphic top, speaker bottom)')
 
+BG_MODES=['original','blur','glow','color','gradient','studio','grid','image']
+class Background(BaseModel):
+    """What sits behind the person (needs the person cutout), plus lighting and subject treatment. 0-1 strengths."""
+    mode:Literal[tuple(BG_MODES)]=Field('original',description='original footage, blur (own room blurred), glow (dark studio with a soft light), color, gradient, studio (coloured studio wall: color with a soft light pool of color2 behind the speaker), grid (light grid paper), image (an uploaded image)')
+    color:str='#141518';color2:str='#2A2B31'  # color / gradient top and bottom; glow base
+    image:str=Field('',description='image mode: uploaded image filename from assets/')
+    blur:float=.55;dim:float=.25  # blur strength and darkening of the background
+    light_color:str=ACCENT
+    glow:float=.0;rim:float=.0;vignette:float=.0;spotlight:float=.0
+    shadow:float=.0;outline:float=.0;outline_color:str='#FFFFFF';scale:float=1.0
+    # Pro finish: wrap = the wall's colour wraps the cutout's edges and tints its shadows (match lighting);
+    # reframe = punch in to a steady chest-up framing from the face track; tube = LED light tubes on the wall;
+    # grade = cinematic contrast and a colour-matched tone; grain = fine moving film grain. 0-1 strengths.
+    wrap:float=.0;reframe:float=.0;grade:float=.0;grain:float=.0
+    tube:Literal['none','left','right','both']='none'
+    look:str=''  # preset name this came from ('' = adjusted by hand)
+    auto:bool=True  # Claude may pick the look; false once the creator chooses one
+
+# Named looks Claude (or the creator) picks from. Each is a full Background; see docs/shorts-style.md.
+LOOKS={
+ 'original':dict(mode='original'),
+ 'clean_blur':dict(mode='blur',reframe=.4,grade=.4,grain=.2,blur=.55,dim=.3,shadow=.35,vignette=.2),
+ 'dark_glow':dict(mode='glow',wrap=.45,reframe=.5,grade=.5,grain=.3,color='#08090C',color2='#16171D',light_color='#8FB8FF',glow=.45,rim=.3,vignette=.45,shadow=.5),
+ 'warm_studio':dict(mode='gradient',wrap=.5,reframe=.5,grade=.6,grain=.3,color='#0C0B09',color2='#2A2219',light_color='#FF9E7A',glow=.35,spotlight=.35,vignette=.4,shadow=.45),
+ 'charcoal':dict(mode='gradient',wrap=.4,reframe=.5,grade=.5,grain=.25,color='#111214',color2='#2A2B31',shadow=.5,vignette=.3,rim=.15,light_color='#FFFFFF'),
+ 'cream':dict(mode='color',color='#EFE9DD',shadow=.3),
+ 'grid_paper':dict(mode='grid',shadow=.3,outline=.35,outline_color='#FFFFFF'),
+ # Coloured studio walls (podcast look): wall colour, the lighter pool of light behind the speaker, soft shadow.
+ 'studio_blue':dict(mode='studio',color='#264C99',color2='#628CC9',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
+ 'studio_coral':dict(mode='studio',color='#93423D',color2='#C7786B',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
+ 'studio_teal':dict(mode='studio',color='#1A5955',color2='#4C9F95',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
+ 'studio_violet':dict(mode='studio',color='#3C2D85',color2='#816FC5',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
+ 'studio_rose':dict(mode='studio',color='#8A385C',color2='#C67A9B',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
+ 'studio_forest':dict(mode='studio',color='#234931',color2='#629572',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
+ 'studio_slate':dict(mode='studio',color='#282D37',color2='#646D7D',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
+ 'studio_sunset':dict(mode='gradient',wrap=.5,reframe=.7,grade=.6,grain=.3,color='#572F82',color2='#BF624B',glow=.15,light_color='#E8A090',shadow=.45,vignette=.35),
+ 'color_pop':dict(mode='color',color='#FF7A59',shadow=.35,outline=.5,outline_color='#FFFFFF'),
+}
+LOOK_NOTES={'original':'the real footage, untouched','clean_blur':'own room softly blurred and darkened: natural, works for everything',
+ 'dark_glow':'near-black studio with a soft cool light behind the head: premium, serious, tech/business',
+ 'warm_studio':'warm dark brown gradient with a spotlight: storytelling, personal, emotional','charcoal':'neutral dark grey gradient: calm, clean, minimal',
+ 'cream':'flat warm cream: friendly explainers, light mood','grid_paper':'light grid paper with a white sticker outline: teaching, step-by-step, lists',
+ 'studio_blue':'saturated blue studio wall with a soft light behind: podcast, tech, confident','studio_coral':'warm coral studio wall: friendly, personal, lifestyle',
+ 'studio_teal':'teal studio wall: calm, health, education','studio_violet':'violet studio wall: creative, AI, future',
+ 'studio_rose':'rose studio wall: beauty, relationships, playful','studio_forest':'green studio wall: money, growth, nature',
+ 'studio_slate':'cool grey studio wall: serious, business, neutral','studio_sunset':'violet-to-coral diagonal: inspiring, bold hooks',
+ 'color_pop':'solid coral with a white outline: loud hooks, announcements; use for short videos only'}
+def look(name):return Background(**{**LOOKS[name],'look':name}) if name in LOOKS else None
+
 class Plan(BaseModel):
-    caption_preset:Literal[tuple(PRESETS)]='clean'
-    caption_y:float=Field(0.72,description='vertical centre of captions 0-1; keep clear of face and hand graphics')
+    background:Background=Background()
+    caption_preset:Literal[tuple(PRESETS)]='duo'
+    caption_font:Literal[tuple(CAPTION_FONTS)]=Field('noto_black',description='caption typeface; classic = each preset\'s own fonts')
+    caption_motion:Literal[tuple(CAPTION_MOTIONS)]=Field('pop',description='duo captions: pop (each phrase pops in), word (words appear as spoken), rise (words slide up)')
+    caption_fill:Literal['glass','chrome','glow','solid']=Field('glass',description='duo letters: glass (gradient with a reflection line and a passing shine), chrome, glow (soft light in the accent), solid')
+    captions_auto:bool=True  # Claude may change caption style and color; false once the creator chooses
+    graphics_style:Literal[tuple(GRAPHIC_STYLES)]=Field('glass',description='design of cards and text pops: glass (liquid glass, tech/AI), bold (solid blocks, marker accents, loud), editorial (serif accents, calm, premium), minimal (no panels, big type), tech (dark panels, grid, glow), brutal (white cards, thick outline, hard shadow), aurora (violet-coral gradient cards), candy (pastel, very round), noir (black, serif accents, luxury), swiss (square, caps, poster), clay (soft 3D grey)')
+    graphics_auto:bool=True  # Claude may pick the graphic style; false once the creator chooses
+    caption_y:float=Field(0.72,description='vertical centre of captions 0-1 when caption_place is fixed (and with no face)')
+    caption_case:Literal['capital','upper','spoken']=Field('capital',description='Latin letters in captions: capital (Each Word Capitalized), upper (ALL CAPS), spoken (as transcribed)')
+    caption_place:Literal['face','fixed']=Field('face',description='face: just under the chin, following the speaker, inside the platform safe zone; fixed: at caption_y')
     highlight_color:str=ACCENT
     progress_bar:bool=False
     emphasis:list[str]=Field([],description='editorial captions: words to stress in the italic serif accent (key nouns, numbers, punchlines), as spoken')
@@ -142,11 +207,15 @@ class PCard(BaseModel):
     side:str=choice(['top','bottom','left','right'],'split and full-screen scenes: edge the graphic pushes in from')
 class PNoCaptions(BaseModel):
     type:Literal['no_captions'];start:Num;end:Num
+class PLook(BaseModel):
+    type:Literal['look'];start:Num;end:Num;look:str=choice(list(LOOKS))
 class PlannerPlan(BaseModel):
     caption_preset:str=choice(PRESETS);caption_y:Num=Field(description='captions vertical centre 0-1, clear of face and stickers')
-    highlight_color:str;progress_bar:bool
+    graphics_style:str=choice(GRAPHIC_STYLES,'design of all cards and text pops for this video')
+    highlight_color:str=Field(description='caption line-2 / accent color: one hex from the palette list, picked to stand out from the look and footage');progress_bar:bool
+    look:str=choice(list(LOOKS),'background look for the whole video, see the looks list')
     emphasis:list[str]=Field(description='editorial captions: words to stress, as spoken (key nouns, numbers, punchlines), about one per sentence')
-    events:list[PText|PSticker|PZoom|PShake|PFlash|PSfx|PBroll|PCard|PNoCaptions]
+    events:list[PText|PSticker|PZoom|PShake|PFlash|PSfx|PBroll|PCard|PNoCaptions|PLook]
     notes:str=Field(description='one short paragraph explaining the edit choices to the creator')
     def to_plan(self):
         def fix(model,data):
@@ -155,7 +224,8 @@ class PlannerPlan(BaseModel):
                 if allowed and name in data and data[name] not in allowed:data[name]=f.default
             return data
         events=[Event(**fix(Event,{'end':e.start+.3,**e.model_dump()})) for e in self.events]
-        return Plan(**fix(Plan,{**self.model_dump(exclude={'events'}),'events':events}))
+        plan=Plan(**fix(Plan,{**self.model_dump(exclude={'events','look'}),'events':events}))
+        plan.background=look(self.look) or Background();return plan
 
 def status_file(folder):return Path(folder)/'status.json'
 def save_status(folder,state,message,**extra):
@@ -583,6 +653,63 @@ def decode_audio(src):
 NOISE=['off','light','strong']
 RNNOISE_URL='https://raw.githubusercontent.com/GregorR/rnnoise-models/master/somnolent-hogwash-2018-09-01/sh.rnnn'
 
+VOICE=['level','off']
+LOUDNESS=-14.  # LUFS: what TikTok, Reels and Shorts normalise to
+PEAK=10**(-1.5/20)  # limiter ceiling, leaves room for the sound effects on top
+
+def job_voice(folder):
+    """Voice levelling: on by default (only the volume changes, the voice itself never does)."""
+    try:mode=json.loads((Path(folder)/'workflow-mode.json').read_text()).get('voice','level')
+    except (OSError,ValueError):mode='level'
+    return mode if mode in VOICE else 'level'
+
+def loudness(x):
+    """Integrated loudness (ITU-R BS.1770 / EBU R128, LUFS) of float stereo audio at 48 kHz."""
+    from scipy.signal import lfilter
+    y=lfilter([1.53512485958697,-2.69169618940638,1.19839281085285],[1,-1.69065929318241,.73248077421585],x,axis=1)  # K-weighting
+    y=lfilter([1.,-2.,1.],[1,-1.99004745483398,.99007225036621],y,axis=1)
+    block=int(.4*SR);hop=block//4
+    if y.shape[1]<block:return -70.
+    c=np.concatenate([[0.],np.cumsum((y.astype(np.float64)**2).sum(0))]);at=np.arange(0,y.shape[1]-block+1,hop)
+    ms=(c[at+block]-c[at])/block;lufs=lambda m:-.691+10*np.log10(m+1e-12)
+    ms=ms[lufs(ms)>-70]
+    if not len(ms):return -70.
+    ms=ms[lufs(ms)>lufs(ms.mean())-10]
+    return float(lufs(ms.mean()))
+
+def level_voice(pcm):
+    """Even, platform-loud speech from int16 stereo: a slow rider lifts quiet passages and lowers loud ones
+    (±8 dB, speech only, so silences are not pumped up), the whole is normalised to -14 LUFS, and a short
+    look-ahead limiter catches peaks. Gain only: nothing is regenerated or reshaped."""
+    from scipy.ndimage import minimum_filter1d,uniform_filter1d
+    x=pcm.astype(np.float32)/32768
+    if x.shape[1]<SR:return pcm
+    hop=SR//10;n=x.shape[1]//hop
+    db=10*np.log10((x[:,:n*hop]**2).mean(0).reshape(n,hop).mean(1)+1e-12)
+    speech=db>np.percentile(db,90)-25
+    if speech.sum()>5:
+        aim=np.median(db[speech]);first=int(np.argmax(speech))
+        idx=np.where(speech,np.arange(n),first);np.maximum.accumulate(idx,out=idx)  # pauses hold the last speech gain
+        want=np.clip(aim-db,-8,8)[idx]
+        gain=uniform_filter1d(uniform_filter1d(want,15,mode='nearest'),9,mode='nearest')  # ~1.5 s, smooth
+        g=np.interp(np.arange(x.shape[1]),np.arange(n)*hop+hop/2,10**(gain/20)).astype(np.float32)
+        x=x*g
+    x*=10**((LOUDNESS-loudness(x))/20)
+    peak=np.abs(x).max(0)
+    lim=np.minimum(1,PEAK/np.maximum(peak,1e-9))
+    lim=minimum_filter1d(lim,int(.005*SR))  # 5 ms look-ahead window
+    lim=uniform_filter1d(lim,int(.003*SR))
+    x=np.clip(x*np.minimum(lim,1),-PEAK,PEAK)
+    return (x*32767).astype(np.int16)
+
+def voice_track(folder):
+    """The levelled voice for the render (voice-level.wav, cached against source.mp4), or None when off."""
+    folder=Path(folder);src=folder/'source.mp4';dst=folder/'voice-level.wav'
+    if job_voice(folder)!='level' or not src.exists() or not probe(src).get('audio'):return None
+    if not dst.exists() or dst.stat().st_mtime<src.stat().st_mtime:
+        write_wav(level_voice(decode_audio(src)),folder/'.voice-level.part.wav');(folder/'.voice-level.part.wav').replace(dst)
+    return dst.name
+
 def job_noise(folder):
     try:mode=json.loads((Path(folder)/'workflow-mode.json').read_text()).get('noise','off')
     except (OSError,ValueError):mode='off'
@@ -738,6 +865,8 @@ def prepare(src,folder,preset='bold',status=say):
 def apply_cut(folder,status=say):
     """Step 2: build the edited video from the cut, then track it."""
     folder=Path(folder);check_tools();src=folder/'upload.mp4';audio=job_audio(folder,status)
+    try:before=load_plan(folder)  # the look and caption choices are kept across rebuilds; graphics are reset
+    except (OSError,ValueError):before=Plan()
     captions=json.loads((folder/'full-captions.json').read_text())['captions'];units=json.loads((folder/'units.json').read_text())
     cut=load_cut(folder);info=json.loads((folder/'source-info.json').read_text())
     for stale in ['tracks.json','foreground.webm','tracking-preview.mp4','shorts-draft.mp4','shorts-final.mp4','plan.json','plan-warnings.json']:(folder/stale).unlink(missing_ok=True)
@@ -758,8 +887,11 @@ def apply_cut(folder,status=say):
     status('Step 2 of 2 · Tracking face, hands and you (for graphics)',0)
     run_with_progress([str(ROOT/'.venv-face/bin/python'),str(ROOT/'shorts_worker.py'),str(folder)],status,'Step 2 of 2 · Tracking face, hands and you (for graphics)')
     preset=json.loads((folder/'workflow-mode.json').read_text()).get('preset','bold')
-    preset=preset if preset in PRESETS else 'clean'
-    save_plan(folder,Plan(caption_preset=preset,highlight_color=ACCENT))
+    preset=preset if preset in PRESETS else 'duo'
+    keep={k:getattr(before,k) for k in ['caption_font','caption_motion','caption_fill','caption_place','caption_case','captions_auto','background']}
+    if not before.graphics_auto:keep.update(graphics_style=before.graphics_style,graphics_auto=False)
+    if not before.captions_auto:keep.update(caption_preset=before.caption_preset,highlight_color=before.highlight_color,caption_y=before.caption_y)
+    save_plan(folder,Plan(**{'caption_preset':preset,'highlight_color':ACCENT,**keep}))
     status(f"Your {meta['duration']:.0f}s edit is ready to review")
 
 CUT_SYSTEM="""You are a senior editor turning a raw talking recording into a tight short-form video.
@@ -864,6 +996,11 @@ def check_plan(plan,folder):
             if e.layout=='front' and not (folder/'foreground.webm').exists():e.layout='full';warnings.append(f'{where}: no person cutout, so it is shown full screen')
             broll_until=e.end
         if e.type=='text' and not e.text.strip():warnings.append(f'{where}: empty text; skipped');continue
+        if e.type=='look':
+            where=f'look switch at {e.start:.2f}s'
+            if e.look not in LOOKS:warnings.append(f'{where}: unknown look "{e.look}"; skipped');continue
+            if e.look!='original' and LOOKS[e.look].get('mode')!='blur' and not (folder/'foreground.webm').exists():warnings.append(f'{where}: no person cutout yet, so it cannot switch to {e.look}; skipped');continue
+            if any(k.type=='look' and k.end>e.start for k in kept):warnings.append(f'{where}: overlaps another look switch; skipped');continue
         if e.type=='card':
             where=f'{e.template} card at {e.start:.2f}s'
             e.items=[i.strip() for i in e.items if i.strip()][:6];e.active=min(max(e.active,1),max(1,len(e.items)))
@@ -879,7 +1016,24 @@ def check_plan(plan,folder):
         cover=tracks.get('person',[])[round(e.start*FPS):round(e.end*FPS)+1]
         if e.type=='text' and e.behind_subject and cover and sum(cover)/len(cover)>.55:warnings.append(f'{where}: the person fills ~{round(100*sum(cover)/len(cover))}% of the frame, so text behind them will be mostly hidden')
         kept.append(e)
-    plan.events=sorted(kept,key=lambda e:e.start);return plan,warnings
+    plan.events=sorted(kept,key=lambda e:e.start);return check_background(plan,folder,warnings),warnings
+
+HEX=re.compile(r'^#[0-9a-fA-F]{6}$')
+def check_background(plan,folder,warnings):
+    bg=plan.background
+    # The creator dropped the old yellow accent (2026-10-23): plans saved before then get the new colours.
+    if plan.highlight_color.upper()=='#FFD60A':plan.highlight_color=ACCENT
+    for k in ['color','color2','light_color']:
+        if getattr(bg,k).upper()=='#FFD60A':setattr(bg,k,LOOKS.get(bg.look,{}).get(k) or getattr(Background(),k))
+    for k in ['blur','dim','glow','rim','vignette','spotlight','shadow','outline','wrap','reframe','grade','grain']:setattr(bg,k,min(max(getattr(bg,k),0.),1.))
+    bg.scale=min(max(bg.scale,1.),1.2)
+    for k in ['color','color2','light_color','outline_color']:
+        if not HEX.match(getattr(bg,k)):setattr(bg,k,getattr(Background(),k));warnings.append(f'Background: {k} must be a hex color like #6EC1FF; reset')
+    if bg.mode=='image' and not (bg.image and (Path(folder)/'assets'/bg.image).exists()):
+        warnings.append(f'Background: image "{bg.image}" is not uploaded, so your room is blurred instead');bg.mode='blur'
+    if bg.mode!='original' and not (Path(folder)/'foreground.webm').exists():
+        warnings.append('Background: no person cutout yet (rebuild your edit), so the original background is kept');bg.mode='original'
+    return plan
 
 def save_plan(folder,plan):
     if isinstance(plan,(str,bytes)):plan=Plan.model_validate_json(plan)
@@ -914,6 +1068,8 @@ def planner_context(folder,notes=''):
     clips=load_clips(folder)
     lines.append('Screen recordings for broll (exact filename as asset): '+(', '.join(f"{n} ({c['duration']:.1f}s, {'vertical' if c['height']>=c['width'] else 'wide'})" for n,c in clips.items()) or 'none'))
     lines.append('Transcript, [start s] word:\n'+' '.join(f"[{c['startMs']/1000:.2f}]{c['text'].strip()}" for c in captions) if captions else 'No speech detected.')
+    lines.append('Accent palette (field highlight_color): '+', '.join(f'{k} {v}' for k,v in PALETTE.items()))
+    lines.append('Background looks (field look): '+'; '.join(f'{k} = {v}' for k,v in LOOK_NOTES.items()))
     if notes.strip():lines.append('Creator instructions (follow these first):\n'+notes.strip())
     images=[]
     frames=sorted((folder/'keyframes').glob('*.jpg'));frames=[frames[round(i*(len(frames)-1)/11)] for i in range(12)] if len(frames)>12 else frames
@@ -926,13 +1082,17 @@ def planner_context(folder,notes=''):
 
 PLANNER_SYSTEM="""You are a senior short-form video editor. You plan motion graphics for a vertical talking video that is rendered with Remotion from your JSON plan.
 Style goals: retention-focused like top YouTube Shorts/TikTok creators, but never cluttered. One focal element at a time.
-- Captions run automatically for every word; do not duplicate them as text events. Add a no_captions event (start, end) only where the creator asks for no captions. Pick caption_preset unless the creator chose one, and place caption_y away from the face and from hand stickers.
+- Captions run automatically for every word; do not duplicate them as text events. Add a no_captions event (start, end) only where the creator asks for no captions. Pick caption_preset unless the creator chose one, Captions sit just under the speaker's chin automatically (caption_place face); caption_y is only the fallback, keep it about 0.7.
 - Hook: a short bold text or a title card in the first 1-2 s that teases the payoff.
 - Emphasize key numbers, claims and punchlines with text pops (1-5 words), zoom punch-ins (1.1-1.3, 0.4-1.5 s) and the occasional flash or shake. Space emphasis 2-5 s apart.
 - Put text behind_subject only when a large headline sits where the person overlaps it, for a premium look.
 - Stickers anchored to a hand only where that hand is visible in the tracking data; prefer a gesture trigger matching what the hand does (e.g. open_palm to reveal an object on the palm). Hand left/right means screen side. Use uploaded images when they fit the words; use emoji stickers sparingly.
 - Screen recordings (broll): cut to them when the speaker talks about what is on screen ("open the app", "look at this", "here's the dashboard"), usually 2-8 s each, never overlapping. Pick src_start from the recording frames so the screen shows what is being said; raise speed (up to 3) to fit a longer action. Layouts: split for demos where the speaker keeps explaining, bubble when the screen needs the whole frame but the speaker's face matters, full for quick cutaways, front for a premium intro of the app. No hand stickers or text behind the subject during broll; captions stay on top.
 - Motion-graphic cards (type card) carry structure: steps for numbered points, stat for numbers, icons for tools/apps, list/chips for examples, slider for before/after, progress for 'almost finished, then stopped' moments, quote and title for key lines. Split and full-screen scenes push the speaker video out of the way from `side`. Do not use emoji (stickers or card items): they look unprofessional to this creator; use words, uploaded images or cards. About one card per 6-12 s; full-screen scenes (dark/light/split) 2-4 s, never overlapping a screen recording. Fill emphasis for editorial and rise captions.
+- Captions default to duo (two short lines, line 2 in the accent color). Other styles when the content asks for it: karaoke (word by word, energetic talking), pill (punchy tips, hooks), typewriter (tutorials, tech, step-by-step), quiet (calm storytelling, reflective), float (premium, aspirational), stack (short loud statements, under 40 s). Keep one caption style for the whole video. Pick highlight_color from the palette for contrast with the chosen look and the footage: sky or mint on warm or red scenes, coral or pink on blue or cool scenes, white when the scene is busy. Never yellow.
+- Pick one graphics_style for every card and text pop: glass for tech, AI and apps; bold for loud tips and hooks; editorial for calm, premium storytelling; minimal when the footage is busy or the look is strong; tech for coding and data; brutal for bold opinions and hot takes; aurora for inspiring, creative or future topics; candy for friendly, playful, lifestyle; noir for luxury, fashion, serious reflection; swiss for facts, lists and clean business; clay for calm how-tos and wellness. Make graphics big and few. A card headline must add something: never repeat the list or step text word for word.
+- Pick one background look for the whole video from the looks list, matched to the topic and mood (the person is cut out and placed on it). Prefer clean_blur when unsure; dark_glow or warm_studio for a premium feel; grid_paper or cream for teaching; color_pop only for short, loud videos; original when the real location matters to the story.
+- Look switches (type look, start, end, look): only where the creator asks to change the background for a part, e.g. show the real room (original) while they point at their setup. Not on your own initiative.
 - Sound design is automatic (auto_sound): only add sfx for a special moment the rules would miss, such as a ding on a big number.
 - The speaker may talk in Amharic, English or both. Write text events in the language being spoken at that moment (Amharic in Ethiopic script); keep them short.
 - Use only times inside the clip, aligned to the word timestamps. Do not invent speech."""
@@ -950,12 +1110,12 @@ def plan_from_json(data):
     defaults={k:f.default for k,f in Event.model_fields.items() if not f.is_required()}
     for raw in data.get('events') or []:
         if isinstance(raw,dict):raw={**defaults,**raw}  # a field the planner left out takes its default
-        try:events.append(PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.7,'highlight_color':ACCENT,'progress_bar':False,'emphasis':[],'notes':'','events':[raw]}).events[0])
+        try:events.append(PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.7,'highlight_color':ACCENT,'progress_bar':False,'look':'original','graphics_style':'glass','emphasis':[],'notes':'','events':[raw]}).events[0])
         except ValidationError:dropped.append(f"{raw.get('type','?')} at {raw.get('start','?')}s" if isinstance(raw,dict) else str(raw)[:40])
-    top={'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT,'progress_bar':False,'emphasis':[],'notes':'',
+    top={'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT,'progress_bar':False,'look':'original','graphics_style':'glass','emphasis':[],'notes':'',
          **{k:v for k,v in data.items() if k!='events'}}
     try:plan=PlannerPlan.model_validate({**top,'events':events})
-    except ValidationError:plan=PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT,'progress_bar':False,'emphasis':[],'notes':str(top.get('notes',''))[:500],'events':events})
+    except ValidationError:plan=PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT,'progress_bar':False,'look':'original','graphics_style':'glass','emphasis':[],'notes':str(top.get('notes',''))[:500],'events':events})
     return plan.to_plan(),dropped
 
 def json_from_text(text):
@@ -986,12 +1146,37 @@ def plan_auto(folder,notes='',preset=None,status=None):
             if attempt:raise RuntimeError(f'The planner did not return a readable plan ({response.stop_reason}: {e}).')
             messages+=[{'role':'assistant','content':reply},{'role':'user','content':f'That was not valid JSON ({e}). Reply with the corrected JSON object only.'}]
     plan,dropped=plan_from_json(data)
-    if preset or mode not in (None,'auto'):plan.caption_preset=preset or mode
+    try:
+        before=load_plan(folder);mine=before.background
+        if not mine.auto:plan.background=mine  # the creator chose a look: keep it
+        if not before.graphics_auto:plan.graphics_style,plan.graphics_auto=before.graphics_style,False
+        plan.caption_font,plan.caption_motion,plan.caption_fill,plan.caption_place,plan.caption_case,plan.captions_auto=before.caption_font,before.caption_motion,before.caption_fill,before.caption_place,before.caption_case,before.captions_auto
+        if not before.captions_auto:plan.caption_preset,plan.highlight_color,plan.caption_y=before.caption_preset,before.highlight_color,before.caption_y
+    except (OSError,ValueError):pass
+    if (preset or mode not in (None,'auto')) and plan.captions_auto:plan.caption_preset=preset or mode
     plan,warnings=save_plan(folder,plan)
     if dropped:
         warnings=[f'Planner item not understood and left out: {d}' for d in dropped]+warnings
         Path(folder,'plan-warnings.json').write_text(json.dumps(warnings))
     return plan,warnings
+
+def auto_edit(folder,notes='',status=say):
+    """The whole edit without the creator touching anything: Claude cuts, the edit is built and tracked,
+    Claude picks the look and plans graphics, then a draft renders for review. Paid Claude calls: cut + plan."""
+    folder=Path(folder);tc=transcript_check(folder)
+    if tc and tc['speech']>0 and tc['missing']>max(5,.1*tc['speech']):
+        raise RuntimeError(f"About {tc['missing']:.0f}s of speech has no transcript, so an automatic cut could drop it. Check the spoken language, transcribe again, then edit.")
+    def step(n,label):
+        def update(message,progress=None):status(f'Step {n} of 4 · {label} · {message}' if message and not message.startswith('Step') else f'Step {n} of 4 · {label}',progress)
+        return update
+    if setting('ANTHROPIC_API_KEY'):
+        step(1,'Claude is choosing what to keep')('',None);cut_auto(folder,notes,status=step(1,'Claude is choosing what to keep'))
+    apply_cut(folder,step(2,'Building and tracking your edit'))
+    if setting('ANTHROPIC_API_KEY'):
+        step(3,'Claude is picking the look and planning graphics')('',None);plan_auto(folder,notes,status=step(3,'Claude is picking the look and planning graphics'))
+    render(folder,False,step(4,'Rendering your draft'))
+    plan=load_plan(folder);s=cut_summary(folder)
+    return f"Draft ready · {s['kept']:.0f}s edit, {plan.background.look or plan.background.mode} look, {len(plan.events)} graphics"
 
 # Card items appear one after another: frame ITEM_START, then every ITEM_GAP frames (Cards.tsx uses the same numbers).
 ITEM_START=8;ITEM_GAP=6
@@ -1061,17 +1246,19 @@ def render_props(folder):
     if plan.auto_sound:
         try:cuts=[r['out'] for r in json.loads((folder/'cut-map.json').read_text())][1:]
         except (OSError,ValueError,KeyError):cuts=[]
-        voice=voice_level(folder/'source.mp4') if (folder/'source.mp4').exists() else .05
+        voiced=voice_track(folder)
+        voice=voice_level(folder/(voiced or 'source.mp4')) if (folder/'source.mp4').exists() else .05
         plan.events=plan.events+auto_sounds(plan,sound_kit(folder,AUTO_SOUNDS),cuts,voice)
     kit=sound_kit(folder,sorted({e.sound for e in plan.events if e.type=='sfx'}))
     missing=sorted({e.sound for e in plan.events if e.type=='sfx' and e.sound not in kit})
     if missing:warnings.append(f"No recording for sound {', '.join(missing)}: add it to sfx-library/ (skipped)")
     plan.events=sorted([e for e in plan.events if e.type!='sfx' or e.sound in kit],key=lambda e:e.start)
     return {'fps':FPS,'width':meta['width'],'height':meta['height'],'durationInFrames':meta['frames'],
-     'video':'source.mp4','foreground':'foreground.webm' if (folder/'foreground.webm').exists() else None,
+     'video':'source.mp4','voice':voice_track(folder),'foreground':'foreground.webm' if (folder/'foreground.webm').exists() else None,
      'captions':json.loads((folder/'captions.json').read_text())['captions'],
      'tracks':json.loads((folder/'tracks.json').read_text()),'plan':plan.model_dump(),'clips':load_clips(folder),
      'lottie':emoji_animations(plan),
+     'looks':{e.look:look(e.look).model_dump() for e in plan.events if e.type=='look' and e.look in LOOKS},
      'assets':sorted(p.name for p in (folder/'assets').iterdir() if p.suffix.lower() in ('.png','.jpg','.jpeg','.webp','.gif')) if (folder/'assets').exists() else []},warnings
 
 # Sound library. Real recordings only: the creator's own pack in sfx-library/<family>/ wins, then Remotion's
@@ -1143,12 +1330,16 @@ if __name__=='__main__':
     c=sub.add_parser('cut');c.add_argument('job');c.add_argument('--auto',action='store_true');c.add_argument('--notes',default='');c.add_argument('--file');c.add_argument('--apply',action='store_true')
     c=sub.add_parser('plan');c.add_argument('job');c.add_argument('--auto',action='store_true');c.add_argument('--notes',default='');c.add_argument('--file')
     c=sub.add_parser('render');c.add_argument('job');c.add_argument('--final',action='store_true')
+    c=sub.add_parser('auto');c.add_argument('job');c.add_argument('--notes',default='')
     a=p.parse_args()
     if a.command=='prepare':
         folder=ROOT/'runs'/uuid.uuid4().hex;folder.mkdir(parents=True);shutil.copy2(a.video,folder/'upload.mp4');print('JOB:',folder.name,flush=True)
         prepare(folder/'upload.mp4',folder,a.preset);save_status(folder,'done','Ready · choose what to keep');print(json.dumps(cut_summary(folder)));raise SystemExit
     if len(a.job)!=32 or any(ch not in '0123456789abcdef' for ch in a.job):p.error('Expected a 32-character local job ID')
     folder=ROOT/'runs'/a.job
+    if a.command=='auto':
+        if not (folder/'units.json').exists():p.error('Prepare this job first')
+        print(auto_edit(folder,a.notes));raise SystemExit
     if a.command=='cut':
         if not (folder/'units.json').exists():p.error('Prepare this job first')
         if a.auto:cut_auto(folder,a.notes)

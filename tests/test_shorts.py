@@ -238,7 +238,7 @@ class PlannerSchemaTests(unittest.TestCase):
    optional=sum(len(set(n['properties'])-set(n.get('required',[]))) for n in nodes if isinstance(n,dict) and 'properties' in n)
    self.assertEqual(optional,0,model.__name__)
  def test_compact_events_convert_to_full_plan(self):
-  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=True,emphasis=['three'],notes='n',events=[
+  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=True,look='original',graphics_style='glass',emphasis=['three'],notes='n',events=[
    shorts.PFlash(type='flash',start=2),shorts.PSfx(type='sfx',start=2,sound='pop',volume=.5),
    shorts.PSticker(type='sticker',start=1,end=3,asset='',emoji='🔥',anchor='hand',hand='left',point='palm',trigger='open_palm',animation='pop',idle='float',size=1,x=.5,y=.5)]).to_plan()
   self.assertEqual([(e.type,e.start,e.end) for e in plan.events],[('flash',2,2.3),('sfx',2,2.3),('sticker',1,3)])
@@ -314,7 +314,7 @@ class ShortsBrollTests(unittest.TestCase):
    self.assertTrue(any('nope.mp4' in w for w in warnings));self.assertTrue(any('shown full screen' in w for w in warnings))
 
  def test_planner_broll_converts(self):
-  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=False,emphasis=[],notes='',events=[
+  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=False,look='original',graphics_style='glass',emphasis=[],notes='',events=[
    shorts.PBroll(type='broll',start=1,end=4,asset='demo.mp4',src_start=2,speed=1.5,layout='bubble',corner='top_left')]).to_plan()
   e=plan.events[0];self.assertEqual((e.type,e.layout,e.corner,e.speed,e.src_start),('broll','bubble','top_left',1.5,2))
 
@@ -501,7 +501,7 @@ class CardAndSoundTests(unittest.TestCase):
    self.assertEqual([(e.template,e.active) for e in plan.events],[('steps',3),('list',1),('icons',1)])
    self.assertTrue(any('needs a value' in w for w in warnings));self.assertTrue(any('overlaps' in w for w in warnings))
    self.assertTrue(any('logo.png' in w for w in warnings))
-   self.assertEqual(plan.caption_preset,'clean')
+   self.assertEqual(plan.caption_preset,'duo')
 
  def test_auto_sound_is_sparse_and_under_the_voice(self):
   E=shorts.Event
@@ -555,7 +555,144 @@ class PlannerGrammarTests(unittest.TestCase):
   from anthropic.lib._parse._transform import transform_schema
   schema=json.dumps(transform_schema(shorts.PlannerPlan))
   self.assertLessEqual(schema.count('"enum"')+schema.count('"const"'),8)  # one marker per event type
-  plan=shorts.PlannerPlan(caption_preset='fancy',caption_y=.7,highlight_color='#3D7BFF',progress_bar=False,emphasis=['ሰላም'],notes='',events=[
+  plan=shorts.PlannerPlan(caption_preset='fancy',caption_y=.7,highlight_color='#3D7BFF',progress_bar=False,look='original',graphics_style='glass',emphasis=['ሰላም'],notes='',events=[
    shorts.PCard(type='card',start=1,end=3,template='hexagon',scene='dark',text='Hi',items=[],value='',label='',active=1,y=.5,side='diagonal'),
    shorts.PSfx(type='sfx',start=2,sound='laser',volume=.4)]).to_plan()
-  self.assertEqual((plan.caption_preset,plan.events[0].template,plan.events[0].scene,plan.events[0].side,plan.events[1].sound),('clean','list','dark','top','whoosh'))
+  self.assertEqual((plan.caption_preset,plan.events[0].template,plan.events[0].scene,plan.events[0].side,plan.events[1].sound),('duo','list','dark','top','whoosh'))
+
+class BackgroundTests(unittest.TestCase):
+ def test_looks_are_valid_and_checked_against_the_cutout(self):
+  for name in shorts.LOOKS:self.assertEqual(shorts.look(name).look,name)
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d)
+   plan,warnings=shorts.save_plan(p,{'background':{'mode':'glow'},'events':[]})
+   self.assertEqual(plan.background.mode,'original');self.assertTrue(any('cutout' in w for w in warnings))
+   (p/'foreground.webm').write_bytes(b'x')
+   plan,warnings=shorts.save_plan(p,{'background':{'mode':'image','image':'gone.png','glow':3,'scale':2,'color':'red'},'events':[]})
+   self.assertEqual((plan.background.mode,plan.background.glow,plan.background.scale,plan.background.color),('blur',1,1.2,'#141518'))
+   self.assertTrue(any('gone.png' in w for w in warnings));self.assertTrue(any('hex' in w for w in warnings))
+
+ def test_planner_picks_a_look_unless_the_creator_chose_one(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d);(p/'foreground.webm').write_bytes(b'x')
+   reply=lambda look:Mock(stop_reason='end_turn',content=[Mock(text=json.dumps({'caption_preset':'clean','caption_y':.7,'highlight_color':'#FFD60A','progress_bar':False,'look':look,'emphasis':[],'notes':'','events':[]}))])
+   client=Mock();client.beta.messages.create.side_effect=[reply('dark_glow'),reply('cream'),reply('no_such_look')]
+   with patch('anthropic.Anthropic',return_value=client),patch('shorts.setting',lambda name,default='':default):
+    plan,_=shorts.plan_auto(p);self.assertEqual((plan.background.mode,plan.background.look),('glow','dark_glow'))
+    self.assertIn('dark_glow =',client.beta.messages.create.call_args.kwargs['messages'][0]['content'][-1]['text'])
+    mine=plan.model_dump();mine['background']={**mine['background'],'mode':'color','color':'#FF6B3D','look':'','auto':False};shorts.save_plan(p,mine)
+    plan,_=shorts.plan_auto(p);self.assertEqual((plan.background.mode,plan.background.color),('color','#FF6B3D'))  # kept
+    mine['background']['auto']=True;shorts.save_plan(p,mine)
+    plan,_=shorts.plan_auto(p);self.assertEqual(plan.background.mode,'original')  # unknown look: safe default
+
+ def test_rebuild_keeps_the_look(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d);(p/'foreground.webm').write_bytes(b'x');shorts.save_plan(p,{'background':shorts.LOOKS['cream']|{'auto':False},'events':[]})
+   self.assertEqual(shorts.load_plan(p).background.color,'#EFE9DD')
+
+class AutoEditTests(unittest.TestCase):
+ def test_runs_cut_build_plan_and_draft_in_order(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=Path(d);calls=[]
+   with patch('shorts.transcript_check',return_value={'speech':60,'missing':1}),patch('shorts.setting',lambda name,default='':'key' if name=='ANTHROPIC_API_KEY' else default),\
+    patch('shorts.cut_auto',lambda f,n,status:calls.append(('cut',n))),patch('shorts.apply_cut',lambda f,status:(calls.append('build'),status('Tracking',.5))),\
+    patch('shorts.plan_auto',lambda f,n,status:calls.append(('plan',n))),patch('shorts.render',lambda f,final,status:calls.append(('render',final))),\
+    patch('shorts.load_plan',return_value=shorts.Plan(background=shorts.look('dark_glow'))),patch('shorts.cut_summary',return_value={'kept':42}):
+    seen=[];msg=shorts.auto_edit(p,'keep pricing',lambda m,pr=None:seen.append(m))
+   self.assertEqual(calls,[('cut','keep pricing'),'build',('plan','keep pricing'),('render',False)])
+   self.assertIn('Step 2 of 4 · Building and tracking your edit · Tracking',seen);self.assertIn('dark_glow',msg)
+
+ def test_stops_when_speech_was_not_transcribed(self):
+  with patch('shorts.transcript_check',return_value={'speech':60,'missing':20}),self.assertRaisesRegex(RuntimeError,'no transcript'):shorts.auto_edit('x')
+
+ def test_upload_with_auto_chains_into_the_edit(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app
+  client=TestClient(app.app);done=[]
+  with tempfile.TemporaryDirectory() as d, patch.object(shorts_app,'RUNS',Path(d)), patch('shorts.prepare',lambda *a:None),\
+   patch('shorts.auto_edit',lambda path,notes,status:(done.append(notes),'Draft ready')[1]):
+   j=client.post('/shorts/jobs',files={'video':('a.mov',b'x')},data={'auto':'true','notes':'dark look'}).json()
+   self.assertEqual(j['action'],'auto');shorts_app.active[j['id']].join(2)
+   s=client.get('/shorts/jobs/'+j['id']).json();self.assertEqual((s['state'],s['status']),('done','Draft ready'));self.assertEqual(done,['dark look'])
+   self.assertFalse((Path(d)/j['id']/'auto.json').exists())
+   self.assertEqual(client.get('/shorts/looks').json()[0]['id'],'original')
+
+class CaptionChoiceTests(unittest.TestCase):
+ def test_no_yellow_defaults(self):
+  self.assertNotIn('FFD60A',shorts.ACCENT+json.dumps(shorts.LOOKS)+json.dumps(shorts.PALETTE));self.assertNotIn('yellow_pop',shorts.LOOKS)
+  self.assertEqual((shorts.Plan().caption_preset,shorts.Plan().caption_font,shorts.Plan().caption_motion),('duo','noto_black','pop'))
+
+ def test_planner_keeps_font_motion_and_locked_captions(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d);(p/'workflow-mode.json').write_text('{"mode":"shorts","preset":"duo"}')
+   reply=Mock(stop_reason='end_turn',content=[Mock(text=json.dumps({'caption_preset':'bold','caption_y':.5,'highlight_color':'#FF7A59','progress_bar':False,'look':'original','emphasis':[],'notes':'','events':[]}))])
+   client=Mock();client.beta.messages.create.return_value=reply
+   with patch('anthropic.Anthropic',return_value=client),patch('shorts.setting',lambda name,default='':default):
+    shorts.save_plan(p,{'caption_font':'agbalumo','caption_motion':'rise','events':[]})
+    plan,_=shorts.plan_auto(p)
+    self.assertEqual((plan.caption_preset,plan.highlight_color,plan.caption_font,plan.caption_motion),('duo','#FF7A59','agbalumo','rise'))
+    self.assertIn('coral #FF7A59',client.beta.messages.create.call_args.kwargs['messages'][0]['content'][-1]['text'])
+    shorts.save_plan(p,{'caption_preset':'minimal','highlight_color':'#5EEAD4','caption_y':.8,'captions_auto':False,'events':[]})
+    plan,_=shorts.plan_auto(p)
+    self.assertEqual((plan.caption_preset,plan.highlight_color,plan.caption_y),('minimal','#5EEAD4',.8))
+
+ def test_studio_walls_and_face_placement_are_kept(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d);(p/'foreground.webm').write_bytes(b'x')
+   plan,warnings=shorts.save_plan(p,{'background':shorts.look('studio_blue').model_dump(),'caption_place':'fixed','events':[]})
+   self.assertEqual((plan.background.mode,plan.caption_place,warnings),('studio','fixed',[]))
+   self.assertEqual(shorts.Plan().caption_place,'face')
+
+ def test_pro_finish_is_clamped_and_on_studio_looks(self):
+  b=shorts.look('studio_coral');self.assertEqual((b.tube,b.wrap>0,b.reframe>0,b.grade>0,b.grain>0),('left',True,True,True,True))
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d);(p/'foreground.webm').write_bytes(b'x')
+   plan,_=shorts.save_plan(p,{'background':{**b.model_dump(),'wrap':4,'grain':-1},'events':[]})
+   self.assertEqual((plan.background.wrap,plan.background.grain),(1,0))
+
+ def test_look_switches_are_checked_and_sent_to_the_renderer(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d,frames=300)
+   plan,w=shorts.save_plan(p,{'events':[{'type':'look','start':1,'end':2,'look':'studio_blue'},{'type':'look','start':3,'end':4,'look':'original'}]})
+   self.assertEqual([e.look for e in plan.events],['original']);self.assertTrue(any('cutout' in x for x in w))
+   (p/'foreground.webm').write_bytes(b'x')
+   plan,w=shorts.save_plan(p,{'events':[{'type':'look','start':1,'end':5,'look':'studio_blue'},{'type':'look','start':4,'end':6,'look':'original'},{'type':'look','start':7,'end':8,'look':'nope'}]})
+   self.assertEqual([e.look for e in plan.events],['studio_blue']);self.assertEqual(len(w),2)
+   props,_=shorts.render_props(p);self.assertEqual(props['looks']['studio_blue']['mode'],'studio')
+   plan,_=shorts.plan_from_json({'events':[{'type':'look','start':1,'end':3,'look':'original'}]});self.assertEqual(plan.events[0].look,'original')
+
+class VoiceLevelTests(unittest.TestCase):
+ def test_quiet_and_loud_speech_end_up_even_at_platform_loudness(self):
+  import numpy as np
+  sr=shorts.SR;t=np.arange(sr*6)/sr;rng=np.random.default_rng(1)
+  speech=np.sin(2*np.pi*180*t)*(0.6+0.4*np.sin(2*np.pi*3*t))*(rng.random(len(t))*.3+.7)
+  amp=np.where(t<3,.03,.25)  # first half mumbled, second half loud
+  pcm=(np.vstack([speech*amp]*2)*32767).astype(np.int16)
+  out=shorts.level_voice(pcm).astype(np.float32)/32768
+  q,l=np.abs(out[:,sr//2:int(2.5*sr)]).mean(),np.abs(out[:,int(3.5*sr):int(5.5*sr)]).mean()
+  self.assertLess(l/q,2.2)  # was 8.3x apart
+  self.assertAlmostEqual(shorts.loudness(out),shorts.LOUDNESS,delta=1.5);self.assertLessEqual(np.abs(out).max(),shorts.PEAK+1e-3)
+
+ def test_setting_defaults_on_and_is_switchable(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app
+  with tempfile.TemporaryDirectory() as d:
+   ident='b'*32;p=job(Path(d)/ident);(p/'upload.mp4').write_bytes(b'x')
+   self.assertEqual(shorts.job_voice(p),'level')
+   with patch.object(shorts_app,'RUNS',Path(d)):
+    c=TestClient(app.app)
+    self.assertEqual(c.patch(f'/shorts/jobs/{ident}',json={'voice':'off'}).json()['voice'],'off')
+    self.assertEqual(c.patch(f'/shorts/jobs/{ident}',json={'voice':'loud'}).status_code,422)
+   self.assertIsNone(shorts.voice_track(p))
+
+class GraphicStyleTests(unittest.TestCase):
+ def test_planner_picks_a_style_unless_the_creator_chose_one(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d)
+   reply=Mock(stop_reason='end_turn',content=[Mock(text=json.dumps({'caption_preset':'duo','caption_y':.7,'graphics_style':'tech','highlight_color':'#6EC1FF','progress_bar':False,'look':'original','emphasis':[],'notes':'','events':[]}))])
+   client=Mock();client.beta.messages.create.return_value=reply
+   with patch('anthropic.Anthropic',return_value=client),patch('shorts.setting',lambda name,default='':default):
+    self.assertEqual(shorts.plan_auto(p)[0].graphics_style,'tech')
+    shorts.save_plan(p,{'graphics_style':'editorial','graphics_auto':False,'events':[]})
+    self.assertEqual(shorts.plan_auto(p)[0].graphics_style,'editorial')
+   self.assertEqual(shorts.Plan().graphics_style,'glass')

@@ -4,9 +4,9 @@ How the Shorts editor should look and sound. The auto-planner follows this, and 
 
 ## Look
 
-- **Captions (default: Clean).** Bold white phrase on a dark rounded box; the word being said turns accent-coloured with a small pop. Readable on bright, busy phone footage. Editorial (below) is the elegant alternative for calm, dark footage.
+- **Captions (default: Two-line glass, `duo`).** Two short lines in a heavy face (Noto Sans Ethiopic Black by default): line 1 white, line 2 in the accent. Letters are glass (gradient with a reflection line, a thin light rim and one passing shine), with soft drop shadows for readability. **Never a hard black outline**: the creator finds it cheap. Other styles when the content fits: `karaoke` (word by word), `pill` (colour chip), `typewriter`, `quiet` (calm serif), `float` (soft glow), `stack` (one big word per line), plus `clean`, `editorial`, `rise`, `bold`, `boxed`, `minimal`. One caption style per video. The creator's font, letters (`caption_fill`) and motion choices are theirs; the planner leaves them.
 - **Editorial captions.** Small white sans-serif words appear as they are spoken. About one word per sentence switches to a large italic serif in the accent colour: the key noun, number or punchline. Put those words in the plan's `emphasis` list exactly as spoken (Amharic in Ge'ez script). Keep captions at chest height (`caption_y` about 0.6–0.75), never over the face.
-- **Accent colour.** Warm yellow `#FFD60A` by default (text on yellow is near-black). Use one accent per video.
+- **Accent colour.** One per video, from the palette: sky `#6EC1FF` (default), mint, coral, pink, lavender, lime or white, picked to stand out from the background look. **No yellow** anywhere (text, backgrounds or light): the creator stopped liking it. Avoid neon, and never three or more colours in one line.
 - **Text pops.** Plain words with a soft halo, or with `background: pill` a solid accent badge with dark text and one light sweep. No emoji anywhere.
 - **Scenes.** Two worlds:
   - *Dark glow:* deep navy to black, soft blue and purple light, frosted-glass cards.

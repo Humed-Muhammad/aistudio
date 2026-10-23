@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   AbsoluteFill,
   Easing,
@@ -6,16 +7,28 @@ import {
   random,
   Sequence,
   spring,
-  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
 import { Audio, Video } from "@remotion/media";
+import {
+  BackLight,
+  Backdrop,
+  DEFAULT_LOOK,
+  Finish,
+  footageStyle,
+  gradeFilter,
+  needsSubject,
+  Subject,
+  Vignette,
+} from "./Background";
 import { Broll } from "./Broll";
+import { LookSwitch } from "./LookSwitch";
 import { Captions } from "./Captions";
 import { Card } from "./Cards";
 import { Sticker, TextPop } from "./Graphics";
-import { faceAt } from "./tracking";
+import { MediaBase, useMedia } from "./media";
+import { faceAt, reframeFor } from "./tracking";
 import type { ShortEvent, ShortsProps } from "./types";
 
 const RAMP = 7; // zoom in/out frames
@@ -67,10 +80,13 @@ const useCamera = (events: ShortEvent[], tracks: ShortsProps["tracks"]) => {
   return { scale, origin, dx, dy };
 };
 
-// Every sound is copied into the job's sfx/ folder by shorts.py (the creator's pack or cached recordings).
-const SOUND = (name: string) => staticFile(`sfx/${name}.wav`);
+export const Shorts: React.FC<ShortsProps> = (props) => (
+  <MediaBase.Provider value={props.base ?? null}>
+    <Edit {...props} />
+  </MediaBase.Provider>
+);
 
-export const Shorts: React.FC<ShortsProps> = ({
+const Edit: React.FC<ShortsProps> = ({
   video,
   foreground,
   captions,
@@ -78,10 +94,22 @@ export const Shorts: React.FC<ShortsProps> = ({
   plan,
   clips = {},
   assets = [],
+  looks = {},
+  voice = null,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames, width } = useVideoConfig();
+  const { fps, durationInFrames, width, height } = useVideoConfig();
   const camera = useCamera(plan.events, tracks);
+  const media = useMedia();
+  // Every sound is copied into the job's sfx/ folder by shorts.py (the creator's pack or cached recordings).
+  const sound = (name: string) => media(`sfx/${name}.wav`);
+  const look = { ...DEFAULT_LOOK, ...plan.background };
+  const subject = foreground && needsSubject(look) ? foreground : null;
+  const k = width / 1080;
+  const reframe = useMemo(
+    () => reframeFor(tracks, look.reframe),
+    [tracks, look.reframe],
+  );
   const behind = plan.events.filter(
     (e) => e.type === "text" && e.behind_subject,
   );
@@ -92,66 +120,117 @@ export const Shorts: React.FC<ShortsProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
+      {/* Steady chest-up reframe and grade around the whole picture; the camera moves inside it. */}
       <AbsoluteFill
         style={{
-          transformOrigin: `${camera.origin[0] * 100}% ${camera.origin[1] * 100}%`,
-          scale: camera.scale,
-          translate: `${camera.dx}px ${camera.dy}px`,
+          transformOrigin: `${reframe.ox * 100}% ${reframe.oy * 100}%`,
+          scale: reframe.s,
+          translate: `${reframe.tx * width}px ${reframe.ty * height}px`,
+          filter: gradeFilter(look),
         }}
       >
-        {video ? <Video src={staticFile(video)} /> : null}
-        {behind.map((e, i) => {
-          const { from, duration } = frames(e, fps);
-          return (
-            <Sequence
-              key={`b${i}`}
-              from={from}
-              durationInFrames={duration}
-              layout="none"
-            >
-              <TextPop
-                event={e}
-                duration={duration}
-                accent={plan.highlight_color}
-              />
-            </Sequence>
-          );
-        })}
-        {foreground
-          ? behind.map((e, i) => {
-              // Person cutout over the text, only while behind-subject text is on screen.
-              const { from, duration } = frames(e, fps);
-              return (
-                <Sequence key={`f${i}`} from={from} durationInFrames={duration}>
-                  <OffthreadVideo
-                    src={staticFile(foreground)}
-                    muted
-                    transparent
-                    trimBefore={from}
-                  />
-                </Sequence>
-              );
-            })
-          : null}
-        {stickers.map((e, i) => {
-          const { from, duration } = frames(e, fps);
-          return (
-            <Sequence
-              key={`s${i}`}
-              from={from}
-              durationInFrames={duration}
-              layout="none"
-            >
-              <Sticker
-                event={e}
-                tracks={tracks}
+        <AbsoluteFill
+          style={{
+            transformOrigin: `${camera.origin[0] * 100}% ${camera.origin[1] * 100}%`,
+            scale: camera.scale,
+            translate: `${camera.dx}px ${camera.dy}px`,
+          }}
+        >
+          {video ? (
+            <Video
+              src={media(video)}
+              muted={!!voice}
+              style={subject ? footageStyle(look, k) : undefined}
+            />
+          ) : null}
+          {subject ? <Backdrop bg={look} reframe={reframe} /> : null}
+          {subject ? <BackLight bg={look} tracks={tracks} /> : null}
+          {behind.map((e, i) => {
+            const { from, duration } = frames(e, fps);
+            return (
+              <Sequence
+                key={`b${i}`}
                 from={from}
-                duration={duration}
-              />
-            </Sequence>
-          );
-        })}
+                durationInFrames={duration}
+                layout="none"
+              >
+                <TextPop
+                  event={e}
+                  duration={duration}
+                  accent={plan.highlight_color}
+                  style={plan.graphics_style}
+                />
+              </Sequence>
+            );
+          })}
+          {subject ? <Subject bg={look} foreground={subject} /> : null}
+          {video
+            ? plan.events
+                .filter((e) => e.type === "look" && e.look && looks[e.look])
+                .map((e, i) => {
+                  const { from, duration } = frames(e, fps);
+                  return (
+                    <Sequence
+                      key={`lk${i}`}
+                      from={from}
+                      durationInFrames={duration}
+                    >
+                      <LookSwitch
+                        look={looks[e.look!]}
+                        video={video}
+                        foreground={foreground}
+                        tracks={tracks}
+                        reframe={reframe}
+                        from={from}
+                        duration={duration}
+                        k={k}
+                      />
+                    </Sequence>
+                  );
+                })
+            : null}
+          {foreground && !subject
+            ? behind.map((e, i) => {
+                // Person cutout over the text, only while behind-subject text is on screen.
+                const { from, duration } = frames(e, fps);
+                return (
+                  <Sequence
+                    key={`f${i}`}
+                    from={from}
+                    durationInFrames={duration}
+                  >
+                    <OffthreadVideo
+                      src={media(foreground)}
+                      muted
+                      transparent
+                      trimBefore={from}
+                    />
+                  </Sequence>
+                );
+              })
+            : null}
+          <Vignette bg={look} />
+          {stickers.map((e, i) => {
+            const { from, duration } = frames(e, fps);
+            return (
+              <Sequence
+                key={`s${i}`}
+                from={from}
+                durationInFrames={duration}
+                layout="none"
+              >
+                <Sticker
+                  event={e}
+                  tracks={tracks}
+                  from={from}
+                  duration={duration}
+                />
+              </Sequence>
+            );
+          })}
+        </AbsoluteFill>
       </AbsoluteFill>
+      <Finish bg={look} />
 
       {video
         ? plan.events
@@ -192,12 +271,18 @@ export const Shorts: React.FC<ShortsProps> = ({
                 video={video}
                 tracks={tracks}
                 assets={assets}
+                style={plan.graphics_style}
               />
             </Sequence>
           );
         })}
 
-      <Captions captions={captions} plan={plan} />
+      <Captions
+        captions={captions}
+        plan={plan}
+        tracks={tracks}
+        reframe={reframe}
+      />
 
       {front.map((e, i) => {
         const { from, duration } = frames(e, fps);
@@ -212,6 +297,7 @@ export const Shorts: React.FC<ShortsProps> = ({
               event={e}
               duration={duration}
               accent={plan.highlight_color}
+              style={plan.graphics_style}
             />
           </Sequence>
         );
@@ -248,11 +334,12 @@ export const Shorts: React.FC<ShortsProps> = ({
         />
       ) : null}
 
+      {voice ? <Audio src={media(voice)} /> : null}
       {plan.events
         .filter((e) => e.type === "sfx")
         .map((e, i) => (
           <Sequence key={`a${i}`} from={frames(e, fps).from}>
-            <Audio src={SOUND(e.sound)} volume={e.volume} />
+            <Audio src={sound(e.sound)} volume={e.volume} />
           </Sequence>
         ))}
     </AbsoluteFill>

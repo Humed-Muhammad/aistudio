@@ -1,0 +1,91 @@
+import { loadFont as loadAbyssinica } from "@remotion/google-fonts/AbyssinicaSIL";
+import { loadFont as loadAgbalumo } from "@remotion/google-fonts/Agbalumo";
+import { loadFont as loadMenbere } from "@remotion/google-fonts/Menbere";
+import {
+  loadFont as loadNoto,
+  loadVariableFont as loadNotoVariable,
+} from "@remotion/google-fonts/NotoSansEthiopic";
+import type { Plan } from "./types";
+
+// Caption typefaces that carry both Ethiopic (Amharic) and Latin letters. Mirrors CAPTION_FONTS in shorts.py.
+export type CaptionFontId = NonNullable<Plan["caption_font"]>;
+export type CaptionFace = {
+  family: string;
+  weight: number;
+  stretch?: string;
+  /** Font size multiplier: some faces draw Ethiopic smaller or larger at the same size. */
+  scale: number;
+};
+
+const LOADERS: Record<Exclude<CaptionFontId, "classic">, () => CaptionFace> = {
+  noto_black: () => ({
+    family: loadNoto("normal", {
+      weights: ["900"],
+      subsets: ["ethiopic", "latin"],
+    }).fontFamily,
+    weight: 900,
+    scale: 1,
+  }),
+  noto_condensed: () => ({
+    // The variable font's narrowest width (62.5%): Ethiopic narrows ~10%, Latin much more.
+    family: loadNotoVariable("normal", { subsets: ["ethiopic", "latin"] })
+      .fontFamily,
+    weight: 900,
+    stretch: "62.5%",
+    scale: 1,
+  }),
+  noto_bold: () => ({
+    family: loadNoto("normal", {
+      weights: ["800"],
+      subsets: ["ethiopic", "latin"],
+    }).fontFamily,
+    weight: 800,
+    scale: 1,
+  }),
+  menbere: () => ({
+    family: loadMenbere("normal", {
+      weights: ["700"],
+      subsets: ["ethiopic", "latin"],
+    }).fontFamily,
+    weight: 700,
+    scale: 1.02,
+  }),
+  agbalumo: () => ({
+    family: loadAgbalumo("normal", {
+      weights: ["400"],
+      subsets: ["ethiopic", "latin"],
+    }).fontFamily,
+    weight: 400,
+    scale: 1,
+  }),
+  abyssinica: () => ({
+    family: loadAbyssinica("normal", {
+      weights: ["400"],
+      subsets: ["ethiopic", "latin"],
+    }).fontFamily,
+    weight: 400,
+    scale: 1.1,
+  }),
+};
+
+const loaded = new Map<string, CaptionFace>();
+
+/** The chosen caption face, loaded on first use; null means each preset keeps its own fonts. */
+export const captionFace = (id: Plan["caption_font"]): CaptionFace | null => {
+  if (!id || id === "classic") return null;
+  const load = LOADERS[id] ?? LOADERS.noto_black;
+  if (!loaded.has(id)) loaded.set(id, load());
+  const face = loaded.get(id)!;
+  return {
+    ...face,
+    family: `${face.family}, "Noto Sans Ethiopic", "Geeza Pro", sans-serif`,
+  };
+};
+
+/** Letter case for caption styles that used to force ALL CAPS: Capitalized by default (Ethiopic has no case). */
+export const letterCase = (plan: Plan): React.CSSProperties["textTransform"] =>
+  plan.caption_case === "upper"
+    ? "uppercase"
+    : plan.caption_case === "spoken"
+      ? "none"
+      : "capitalize";

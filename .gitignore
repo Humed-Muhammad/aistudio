@@ -19,3 +19,5 @@ sfx-library/
 graphics-kit/node_modules
 # HyperFrames skills for Claude Code (third-party, restored by make graphics)
 .claude/skills/
+# Shorts studio build (motion/studio, rebuilt by make shorts)
+static/studio/

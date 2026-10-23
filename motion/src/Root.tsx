@@ -21,9 +21,11 @@ const defaultProps: ShortsProps = {
     face: [],
   },
   plan: {
-    caption_preset: "clean",
+    caption_preset: "duo",
+    caption_font: "noto_black",
+    caption_motion: "pop",
     caption_y: 0.72,
-    highlight_color: "#FFD60A",
+    highlight_color: "#6EC1FF",
     progress_bar: false,
     emphasis: [],
     auto_sound: true,

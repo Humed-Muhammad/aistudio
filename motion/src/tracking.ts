@@ -61,3 +61,43 @@ export const faceAt = (tracks: Tracks, frame: number): [number, number] => {
   }
   return [0.5, 0.4];
 };
+
+export type Reframe = {
+  s: number;
+  ox: number;
+  oy: number;
+  tx: number;
+  ty: number;
+};
+const REFRAME_FACE = 0.27; // face height share in a chest-up podcast framing
+const REFRAME_Y = 0.38; // where the face centre lands
+
+/**
+ * One steady punch-in for the whole edit (no motion): scale so the typical face reaches a chest-up size,
+ * then move it toward the upper-middle, never exposing an edge of the frame. strength 0 = off, 1 = full.
+ */
+export const reframeFor = (tracks: Tracks, strength: number): Reframe => {
+  const faces = tracks.face.filter((f): f is FaceSample => !!f);
+  if (strength <= 0 || faces.length < 10)
+    return { s: 1, ox: 0.5, oy: 0.5, tx: 0, ty: 0 };
+  const median = (i: number) =>
+    [...faces.map((f) => f[i] as number)].sort((a, b) => a - b)[
+      Math.floor(faces.length / 2)
+    ];
+  const [ox, oy, h] = [median(0), median(1), median(2)];
+  const s = Math.min(1.6, Math.max(1, 1 + (REFRAME_FACE / h - 1) * strength));
+  // Range of shifts that keep the scaled picture covering the frame: [(1-o)(1-s), o(s-1)].
+  const fit = (want: number, o: number) =>
+    Math.min(o * (s - 1), Math.max((1 - o) * (1 - s), want));
+  return {
+    s,
+    ox,
+    oy,
+    tx: fit((0.5 - ox) * strength, ox),
+    ty: fit((REFRAME_Y - oy) * strength, oy),
+  };
+};
+
+/** Where a point of the original picture ends up after the reframe (normalized y). */
+export const reframeY = (r: Reframe, y: number) =>
+  r.oy + (y - r.oy) * r.s + r.ty;

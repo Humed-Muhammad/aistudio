@@ -3,10 +3,10 @@ import {
   interpolate,
   OffthreadVideo,
   spring,
-  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { useMedia } from "./media";
 import { Video } from "@remotion/media";
 import { Push } from "./Push";
 import type { ClipInfo, ShortEvent, Tracks } from "./types";
@@ -48,6 +48,7 @@ export const Broll: React.FC<Props> = ({
   tracks,
 }) => {
   const frame = useCurrentFrame();
+  const media = useMedia();
   const { fps, width, height } = useVideoConfig();
   const k = width / 1080;
   const enter = spring({
@@ -61,7 +62,7 @@ export const Broll: React.FC<Props> = ({
 
   const screen = (fit: "cover" | "contain") => (
     <Video
-      src={staticFile(`assets/${event.asset}`)}
+      src={media(`assets/${event.asset}`)}
       muted
       trimBefore={Math.round(event.src_start * fps)}
       playbackRate={event.speed}
@@ -75,7 +76,7 @@ export const Broll: React.FC<Props> = ({
     fit: "cover" | "fill" = "cover",
   ) => (
     <Video
-      src={staticFile(video)}
+      src={media(video)}
       muted
       trimBefore={from}
       objectFit={fit}
@@ -179,7 +180,7 @@ export const Broll: React.FC<Props> = ({
           }}
         >
           <OffthreadVideo
-            src={staticFile(foreground)}
+            src={media(foreground)}
             muted
             transparent
             trimBefore={from}

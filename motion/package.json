@@ -12,6 +12,7 @@
     "@remotion/install-whisper-cpp": "4.0.535",
     "@remotion/lottie": "4.0.535",
     "@remotion/media": "4.0.535",
+    "@remotion/player": "4.0.535",
     "lottie-web": "5.13.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -20,15 +21,19 @@
   "devDependencies": {
     "@remotion/eslint-config-flat": "4.0.535",
     "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
     "@types/web": "0.0.166",
     "eslint": "9.39.5",
     "prettier": "3.8.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vite": "8.3.3"
   },
   "scripts": {
     "dev": "remotion studio",
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
-    "lint": "eslint src && tsc"
+    "lint": "eslint src && tsc && tsc -p studio",
+    "studio": "vite --config studio/vite.config.ts",
+    "studio:build": "vite build --config studio/vite.config.ts"
   }
 }

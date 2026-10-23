@@ -9,7 +9,7 @@ ROOT=Path(__file__).resolve().parent;RUNS=ROOT/'runs'
 router=APIRouter();active={};cancels={};lock=threading.Lock()
 IMAGES=['.png','.jpg','.jpeg','.webp','.gif']
 # What each background action is called in the UI, and how to retry it.
-ACTIONS={'transcribe':'Transcribing','autocut':'Auto-cut','apply':'Building your edit','plan':'Auto-plan','render':'Rendering'}
+ACTIONS={'auto':'Editing for you','transcribe':'Transcribing','autocut':'Auto-cut','apply':'Building your edit','plan':'Auto-plan','render':'Rendering'}
 
 def folder(ident):
     if len(ident)!=32 or any(c not in '0123456789abcdef' for c in ident):raise HTTPException(404)
@@ -76,8 +76,47 @@ def summary(path):
     return {'id':path.name,**meta(path),'duration':info.get('duration'),'stage':stage(path),'thumb':thumb,
             'state':s['state'],'action':s.get('action'),'progress':s.get('progress'),'status':s.get('status','')}
 
+STUDIO=ROOT/'static'/'studio'/'index.html'  # React app (motion/studio), built by `make shorts`
+
 @router.get('/shorts')
-def page():return FileResponse(ROOT/'static/shorts.html')
+def page():return FileResponse(STUDIO if STUDIO.exists() else ROOT/'static/shorts.html')
+
+@router.get('/shorts/classic')
+def classic():return FileResponse(ROOT/'static/shorts.html')
+
+@router.get('/shorts/setup')
+def setup():return {'planner_available':bool(shorts.setting('ANTHROPIC_API_KEY')),'strong_noise_available':bool(shorts.setting('ELEVENLABS_API_KEY')),'palette':shorts.PALETTE}
+
+@router.post('/shorts/jobs/{ident}/revise')
+def revise(ident:str,notes:str=Form(...),scope:str=Form('graphics')):
+    """Ask for changes in words. graphics: Claude re-plans look + graphics; edit: the cut too. Then a new draft."""
+    path=folder(ident)
+    if not notes.strip():raise HTTPException(422,'Say what you want changed.')
+    if not shorts.setting('ANTHROPIC_API_KEY'):raise HTTPException(400,'Set ANTHROPIC_API_KEY in .env, or ask Claude Code for the change.')
+    if scope=='edit':
+        if not (path/'units.json').exists():raise HTTPException(409,'Wait for the transcript first.')
+        def work(status):return shorts.auto_edit(path,notes,status)
+    else:
+        if not (path/'tracks.json').exists():raise HTTPException(409,'Build your edit first.')
+        def work(status):
+            status('Step 1 of 2 · Claude is updating the look and graphics')
+            current=shorts.load_plan(path);current.background.auto=True  # the creator asked Claude to change things
+            shorts.save_plan(path,current)
+            ask=f"Current plan (keep everything that the request does not touch):\n{current.model_dump_json(exclude_none=True)}\n\nRequested change: {notes.strip()}"
+            shorts.plan_auto(path,ask,status=status)
+            shorts.render(path,False,lambda m,p=None:status('Step 2 of 2 · '+m,p));return 'New draft ready with your changes'
+    start(path,'auto','Making your changes',work);return state(ident)
+
+@router.get('/shorts/looks')
+def looks():return [{'id':k,'note':shorts.LOOK_NOTES[k],**shorts.look(k).model_dump()} for k in shorts.LOOKS]
+
+@router.get('/shorts/jobs/{ident}/props')
+def props(ident:str):
+    """Everything the in-browser Player needs to play the edit exactly as the renderer will."""
+    path=folder(ident)
+    if not (path/'plan.json').exists():raise HTTPException(409,'Build your edit first (step 2).')
+    data,warnings=shorts.render_props(path)
+    return {**data,'base':f'/runs/{ident}/','warnings':warnings}
 
 @router.get('/shorts/jobs')
 def list_jobs():
@@ -85,7 +124,7 @@ def list_jobs():
     return sorted(jobs,key=lambda j:-j['created'])
 
 @router.post('/shorts/jobs')
-def create(video:list[UploadFile]=File(...),preset:str=Form('bold'),title:str=Form(''),noise:str=Form('off'),language:str=Form('')):
+def create(video:list[UploadFile]=File(...),preset:str=Form('bold'),title:str=Form(''),noise:str=Form('off'),language:str=Form(''),auto:bool=Form(False),notes:str=Form('')):
     if preset not in shorts.PRESETS+['auto']:raise HTTPException(400,'Unknown caption style')
     if noise not in shorts.NOISE:raise HTTPException(400,'Unknown noise setting')
     if language and language not in shorts.LANGUAGES:raise HTTPException(400,'Unknown language')
@@ -102,6 +141,7 @@ def create(video:list[UploadFile]=File(...),preset:str=Form('bold'),title:str=Fo
     name=title.strip() or re.sub(r'[_-]+',' ',Path(video[0].filename or '').stem).strip() or 'Untitled video'
     (path/'job.json').write_text(json.dumps({'title':name[:80],'created':time.time()}))
     (path/'workflow-mode.json').write_text(json.dumps({'mode':'shorts','preset':preset,'noise':noise,'language':language or shorts.job_language(path)}))
+    if auto:(path/'auto.json').write_text(json.dumps({'notes':notes.strip()[:2000]}))
     transcribe(path.name);return state(path.name)
 
 @router.post('/shorts/jobs/{ident}/transcribe')
@@ -111,8 +151,19 @@ def transcribe(ident:str):
         if not (path/'upload.mp4').exists():
             parts=shorts.join_recordings(sorted((path/'parts').iterdir(),key=lambda p:natural(p.name)),path/'upload.mp4',status)
             (path/'job.json').write_text(json.dumps({**meta(path),'parts':parts}))
-        shorts.prepare(path/'upload.mp4',path,preset,status);return 'Transcript ready · choose what to keep'
-    start(path,'transcribe','Starting',work);return state(ident)
+        shorts.prepare(path/'upload.mp4',path,preset,status)
+        wanted=read(path,'auto.json')  # "Edit it for me" at upload: carry straight on, once
+        if wanted is None:return 'Transcript ready · choose what to keep'
+        (path/'auto.json').unlink(missing_ok=True);return shorts.auto_edit(path,wanted.get('notes',''),status)
+    start(path,'auto' if (path/'auto.json').exists() else 'transcribe','Starting',work);return state(ident)
+
+@router.post('/shorts/jobs/{ident}/auto')
+def auto_edit(ident:str,notes:str=Form('')):
+    """Edit it for me: Claude cut, build, look + graphics, draft render."""
+    path=folder(ident)
+    if not (path/'units.json').exists():raise HTTPException(409,'Wait for the transcript first.')
+    def work(status):return shorts.auto_edit(path,notes,status)
+    start(path,'auto','Editing your video',work);return state(ident)
 
 @router.post('/shorts/jobs/{ident}/cancel')
 def cancel(ident:str):
@@ -134,6 +185,9 @@ def rename(ident:str,body:dict=Body(...)):
         if body['noise'] not in shorts.NOISE:raise HTTPException(422,'Unknown noise setting')
         if busy(ident):raise HTTPException(409,'Wait for the current step to finish.')
         mode=read(path,'workflow-mode.json') or {'mode':'shorts'};(path/'workflow-mode.json').write_text(json.dumps({**mode,'noise':body['noise']}))
+    if 'voice' in body:  # used from the next render; only the volume changes
+        if body['voice'] not in shorts.VOICE:raise HTTPException(422,'Unknown voice setting')
+        mode=read(path,'workflow-mode.json') or {'mode':'shorts'};(path/'workflow-mode.json').write_text(json.dumps({**mode,'voice':body['voice']}))
     if 'title' in body:
         title=str(body.get('title','')).strip()[:80]
         if not title:raise HTTPException(422,'Give the video a name.')
@@ -149,7 +203,7 @@ def delete(ident:str):
 @router.get('/shorts/jobs/{ident}')
 def state(ident:str):
     path=folder(ident);tracks=read(path,'tracks.json');captions=read(path,'captions.json',{});cut=read(path,'cut.json')
-    files=[n for n in ['source.mp4','tracking-preview.mp4','shorts-draft.mp4','shorts-final.mp4'] if (path/n).exists()]
+    files=[n for n in ['source.mp4','tracking-preview.mp4','shorts-draft.mp4','shorts-final.mp4','plan.json'] if (path/n).exists()]
     try:cut_summary=shorts.cut_summary(path) if cut else None
     except (OSError,ValueError,KeyError):cut_summary=None
     return {**status_of(path),**summary(path),'id':ident,'manifest':read(path,'manifest.json'),'plan':read(path,'plan.json'),'warnings':read(path,'plan-warnings.json',[]),
@@ -161,7 +215,7 @@ def state(ident:str):
        'left':sum(map(bool,tracks['hands']['left'])),'right':sum(map(bool,tracks['hands']['right']))} if tracks else None,
      'transcript':{'language':captions.get('language'),'text':''.join(c['text'] for c in captions.get('captions',[])).strip()},
      'cut_mtime':(path/'cut.json').stat().st_mtime if cut else None,'planner_available':bool(shorts.setting('ANTHROPIC_API_KEY')),
-     'noise':shorts.job_noise(path),'strong_noise_available':bool(shorts.setting('ELEVENLABS_API_KEY')),
+     'noise':shorts.job_noise(path),'voice':shorts.job_voice(path),'strong_noise_available':bool(shorts.setting('ELEVENLABS_API_KEY')),
      'language':shorts.job_language(path),'transcript_check':check(path),
      'stopping':bool(cancels.get(ident) and cancels[ident].is_set() and busy(ident))}
 

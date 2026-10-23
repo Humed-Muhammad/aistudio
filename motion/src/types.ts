@@ -12,7 +12,8 @@ export type ShortEvent = {
     | "sfx"
     | "broll"
     | "card"
-    | "no_captions";
+    | "no_captions"
+    | "look";
   start: number;
   end: number;
   text: string;
@@ -65,12 +66,85 @@ export type ShortEvent = {
   scene: "overlay" | "dim" | "dark" | "light" | "split";
   side: "top" | "bottom" | "left" | "right";
   timeline: [number, number][];
+  look?: string;
 };
 
 export type ClipInfo = { duration: number; width: number; height: number };
 
+export type BackgroundLook = {
+  mode:
+    | "original"
+    | "blur"
+    | "glow"
+    | "color"
+    | "gradient"
+    | "studio"
+    | "grid"
+    | "image";
+  color: string;
+  color2: string;
+  image: string;
+  blur: number;
+  dim: number;
+  light_color: string;
+  glow: number;
+  rim: number;
+  vignette: number;
+  spotlight: number;
+  shadow: number;
+  outline: number;
+  outline_color: string;
+  scale: number;
+  wrap: number;
+  reframe: number;
+  grade: number;
+  grain: number;
+  tube: "none" | "left" | "right" | "both";
+};
+
 export type Plan = {
-  caption_preset: "clean" | "editorial" | "rise" | "bold" | "minimal" | "boxed" | "none";
+  background?: BackgroundLook;
+  caption_preset:
+    | "duo"
+    | "karaoke"
+    | "pill"
+    | "typewriter"
+    | "quiet"
+    | "float"
+    | "stack"
+    | "clean"
+    | "editorial"
+    | "rise"
+    | "bold"
+    | "minimal"
+    | "boxed"
+    | "none";
+  caption_font?:
+    | "noto_black"
+    | "noto_condensed"
+    | "noto_bold"
+    | "menbere"
+    | "agbalumo"
+    | "abyssinica"
+    | "classic";
+  caption_motion?: "pop" | "word" | "rise";
+  caption_fill?: "glass" | "chrome" | "glow" | "solid";
+  caption_place?: "face" | "fixed";
+  caption_case?: "capital" | "upper" | "spoken";
+  graphics_style?:
+    | "glass"
+    | "bold"
+    | "editorial"
+    | "minimal"
+    | "tech"
+    | "brutal"
+    | "aurora"
+    | "candy"
+    | "noir"
+    | "swiss"
+    | "clay";
+  graphics_auto?: boolean;
+  captions_auto?: boolean;
   caption_y: number;
   highlight_color: string;
   progress_bar: boolean;
@@ -100,6 +174,8 @@ export type ShortsProps = {
   height: number;
   durationInFrames: number;
   video: string | null;
+  /** Levelled voice (voice-level.wav); when set, the video's own sound is muted. */
+  voice?: string | null;
   foreground: string | null;
   captions: Caption[];
   tracks: Tracks;
@@ -107,4 +183,8 @@ export type ShortsProps = {
   clips: Record<string, ClipInfo>;
   assets: string[];
   lottie: Record<string, LottieAnimationData>;
+  /** Full settings of the looks used by look-switch events. */
+  looks?: Record<string, BackgroundLook>;
+  /** Job folder URL for the in-browser Player; the renderer leaves it unset. */
+  base?: string | null;
 };

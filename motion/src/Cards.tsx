@@ -6,11 +6,10 @@ import {
   interpolate,
   random,
   spring,
-  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { ACCENT_FONT, BODY_FONT, HEADLINE_FONT } from "./fonts";
+import { useMedia } from "./media";
 import { Push } from "./Push";
 import type { ShortEvent, Tracks } from "./types";
 
@@ -20,30 +19,9 @@ export const ITEM_GAP = 6;
 const EXIT = 7;
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
-type Theme = {
-  text: string;
-  sub: string;
-  card: string;
-  border: string;
-  shadow: string;
-};
-const DARK: Theme = {
-  text: "#ffffff",
-  sub: "rgba(222,230,255,.72)",
-  // Opaque enough to read over bright video, still glassy on the dark scenes.
-  card: "linear-gradient(160deg, rgba(44,52,86,.88), rgba(10,12,26,.9))",
-  border: "rgba(150,175,255,.32)",
-  shadow: "0 30px 80px rgba(0,0,20,.55)",
-};
-const LIGHT: Theme = {
-  text: "#14151a",
-  sub: "#5d5f6b",
-  card: "#ffffff",
-  border: "rgba(20,20,40,.07)",
-  shadow: "0 24px 60px rgba(30,40,80,.14)",
-};
+import { accentCss, kitFor, type Kit, type Theme } from "./graphicKits";
 
-/** "Reserve your *visual effects*": words in stars become the italic serif accent. */
+/** "Reserve your *visual effects*": starred words get the style's accent treatment (serif, colour, marker…). */
 const Headline: React.FC<{
   text: string;
   accent: string;
@@ -51,31 +29,25 @@ const Headline: React.FC<{
   size: number;
 }> = ({ text, accent, theme, size }) => {
   const parts = text.split(/(\*[^*]+\*)/).filter(Boolean);
-  const plain = parts.length === 1 && !parts[0].startsWith("*");
   return (
     <div
       style={{
         textAlign: "center",
-        lineHeight: 1.05,
-        color: theme.text,
-        fontFamily: plain ? HEADLINE_FONT : BODY_FONT,
-        fontWeight: plain ? 800 : 500,
-        fontSize: plain ? size * 0.9 : size * 0.62,
-        letterSpacing: plain ? "-0.01em" : 0,
+        lineHeight: 1.08,
+        color: theme.ink ?? theme.text,
+        fontFamily: theme.head,
+        fontWeight: theme.headWeight,
+        fontSize: size * 0.8 * theme.type,
+        letterSpacing: theme.tracking,
+        textTransform: theme.upper ? "uppercase" : undefined,
+        textWrap: "balance",
       }}
     >
       {parts.map((p, i) =>
         p.startsWith("*") ? (
           <span
             key={i}
-            style={{
-              fontFamily: ACCENT_FONT,
-              fontStyle: "italic",
-              fontWeight: 400,
-              fontSize: size * 1.15,
-              color: accent,
-              textShadow: `0 0 ${size * 0.4}px ${accent}55`,
-            }}
+            style={accentCss(theme, accent, size * 0.8 * theme.type)}
           >
             {p.slice(1, -1)}
           </span>
@@ -86,6 +58,9 @@ const Headline: React.FC<{
     </div>
   );
 };
+
+/** Compare texts ignoring case, stars and punctuation (a headline that just repeats the step is hidden). */
+const norm = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
 const pop = (frame: number, fps: number, delay = 0) =>
   spring({
@@ -112,8 +87,9 @@ const Steps: React.FC<{
   e: ShortEvent;
   beat: Beat;
   accent: string;
+  theme: Theme;
   k: number;
-}> = ({ e, beat, accent, k }) => {
+}> = ({ e, beat, accent, theme, k }) => {
   const frame = useCurrentFrame();
   const d = 66 * k;
   const gap = 58 * k;
@@ -139,7 +115,7 @@ const Steps: React.FC<{
           alignItems: "center",
           padding: `${16 * k}px ${22 * k}px`,
           borderRadius: 999,
-          background: "rgba(10,12,24,.72)",
+          background: theme.chip,
           border: `${1.5 * k}px solid rgba(255,255,255,.14)`,
           boxShadow: `0 ${16 * k}px ${40 * k}px rgba(0,0,0,.35)`,
         }}
@@ -177,9 +153,9 @@ const Steps: React.FC<{
                   borderRadius: "50%",
                   display: "grid",
                   placeItems: "center",
-                  fontFamily: BODY_FONT,
+                  fontFamily: theme.body,
                   fontWeight: 700,
-                  fontSize: 28 * k,
+                  fontSize: 28 * k * theme.type,
                   color: done ? "#0b0d18" : "white",
                   background: done ? "white" : "transparent",
                   border: `${3 * k}px solid ${done ? "white" : "rgba(255,255,255,.5)"}`,
@@ -204,13 +180,13 @@ const Steps: React.FC<{
             textShadow: `0 ${2 * k}px ${16 * k}px rgba(0,0,0,.8)`,
           }}
         >
-          {e.text ? (
+          {e.text && norm(e.text) !== norm(now) ? (
             <div
               style={{
-                fontFamily: BODY_FONT,
+                fontFamily: theme.body,
                 fontWeight: 600,
-                fontSize: 40 * k,
-                color: "white",
+                fontSize: 40 * k * theme.type,
+                color: theme.inkSub ?? theme.sub,
               }}
             >
               {e.text.replace(/\*/g, "")}
@@ -220,17 +196,20 @@ const Steps: React.FC<{
             <div
               key={active}
               style={{
-                fontFamily: ACCENT_FONT,
-                fontStyle: "italic",
-                fontSize: 78 * k,
+                fontFamily: theme.head,
+                fontWeight: theme.headWeight,
+                textTransform: theme.upper ? "uppercase" : undefined,
+
+                fontSize: 78 * k * theme.type,
                 lineHeight: 1.05,
-                color: accent,
                 opacity: label,
                 filter: `blur(${(1 - label) * 8 * k}px)`,
                 translate: `0 ${(1 - label) * 14 * k}px`,
               }}
             >
-              {now}
+              <span style={accentCss(theme, accent, 78 * k * theme.type)}>
+                {now}
+              </span>
             </div>
           ) : null}
         </div>
@@ -269,9 +248,10 @@ const Slider: React.FC<{
         style={{
           width: w + 80 * k,
           padding: `${34 * k}px ${40 * k}px`,
-          borderRadius: 40 * k,
+          borderRadius: 40 * k * theme.radius,
           background: theme.card,
-          border: `${1.5 * k}px solid ${theme.border}`,
+          backdropFilter: theme.blur,
+          border: `${1.5 * k * (theme.line ?? 1)}px solid ${theme.border}`,
           boxShadow: theme.shadow,
         }}
       >
@@ -279,9 +259,9 @@ const Slider: React.FC<{
           style={{
             display: "flex",
             justifyContent: "space-between",
-            fontFamily: BODY_FONT,
+            fontFamily: theme.body,
             fontWeight: 600,
-            fontSize: 32 * k,
+            fontSize: 32 * k * theme.type,
             color: theme.sub,
             marginBottom: 22 * k,
           }}
@@ -388,9 +368,10 @@ const Stat: React.FC<{
       style={{
         width: w + 100 * k,
         padding: `${44 * k}px ${50 * k}px`,
-        borderRadius: 48 * k,
+        borderRadius: 48 * k * theme.radius,
         background: theme.card,
-        border: `${1.5 * k}px solid ${theme.border}`,
+        backdropFilter: theme.blur,
+        border: `${1.5 * k * (theme.line ?? 1)}px solid ${theme.border}`,
         boxShadow: `${theme.shadow}, 0 0 ${120 * k}px ${accent}33`,
         scale: interpolate(pop(frame, fps), [0, 1], [0.9, 1]),
       }}
@@ -398,9 +379,9 @@ const Stat: React.FC<{
       {e.text ? (
         <div
           style={{
-            fontFamily: BODY_FONT,
+            fontFamily: theme.body,
             fontWeight: 600,
-            fontSize: 30 * k,
+            fontSize: 30 * k * theme.type,
             color: theme.sub,
           }}
         >
@@ -409,9 +390,9 @@ const Stat: React.FC<{
       ) : null}
       <div
         style={{
-          fontFamily: HEADLINE_FONT,
+          fontFamily: theme.head,
           fontWeight: 800,
-          fontSize: 130 * k,
+          fontSize: 130 * k * theme.type,
           lineHeight: 1.05,
           color: theme.text,
           textShadow: `0 0 ${50 * k}px ${accent}88`,
@@ -423,8 +404,8 @@ const Stat: React.FC<{
       {e.label ? (
         <div
           style={{
-            fontFamily: BODY_FONT,
-            fontSize: 28 * k,
+            fontFamily: theme.body,
+            fontSize: 28 * k * theme.type,
             color: theme.sub,
             marginBottom: 24 * k,
           }}
@@ -489,6 +470,7 @@ const Icons: React.FC<{
   assets: string[];
 }> = ({ e, beat, accent, theme, k, assets }) => {
   const frame = useCurrentFrame();
+  const media = useMedia();
   const { fps } = useVideoConfig();
   const n = e.items.length;
   const size = (n > 3 ? 170 : 210) * k;
@@ -537,7 +519,7 @@ const Icons: React.FC<{
                 style={{
                   width: size,
                   height: size,
-                  borderRadius: size * 0.26,
+                  borderRadius: size * 0.26 * theme.radius,
                   display: "grid",
                   placeItems: "center",
                   overflow: "hidden",
@@ -548,15 +530,15 @@ const Icons: React.FC<{
                   boxShadow: current
                     ? `0 0 ${60 * k}px ${accent}, inset 0 ${8 * k}px ${18 * k}px rgba(255,255,255,.35)`
                     : `0 ${18 * k}px ${40 * k}px rgba(0,0,0,.45), inset 0 ${6 * k}px ${14 * k}px rgba(255,255,255,.12)`,
-                  fontSize: size * 0.5,
-                  fontFamily: HEADLINE_FONT,
+                  fontSize: size * 0.5 * theme.type,
+                  fontFamily: theme.head,
                   fontWeight: 800,
                   color: "white",
                 }}
               >
                 {"image" in icon && icon.image ? (
                   <Img
-                    src={staticFile(`assets/${icon.image}`)}
+                    src={media(`assets/${icon.image}`)}
                     style={{
                       width: "72%",
                       height: "72%",
@@ -570,9 +552,9 @@ const Icons: React.FC<{
               {icon.label ? (
                 <div
                   style={{
-                    fontFamily: BODY_FONT,
+                    fontFamily: theme.body,
                     fontWeight: 600,
-                    fontSize: 28 * k,
+                    fontSize: 28 * k * theme.type,
                     color: theme.text,
                   }}
                 >
@@ -627,8 +609,9 @@ const List: React.FC<{
               alignItems: "center",
               gap: 26 * k,
               padding: `0 ${30 * k}px`,
-              borderRadius: 28 * k,
+              borderRadius: 28 * k * theme.radius,
               background: theme.card,
+              backdropFilter: theme.blur,
               border: `${2 * k}px solid ${current ? accent : theme.border}`,
               boxShadow: `${theme.shadow}, 0 0 ${50 * k * lit}px ${accent}66`,
               opacity: t * (current || e.items.length < 2 ? 1 : 0.62),
@@ -646,18 +629,18 @@ const List: React.FC<{
                 placeItems: "center",
                 background: current ? accent : "rgba(255,255,255,.12)",
                 color: "white",
-                fontFamily: BODY_FONT,
+                fontFamily: theme.body,
                 fontWeight: 700,
-                fontSize: 26 * k,
+                fontSize: 26 * k * theme.type,
               }}
             >
               {i + 1}
             </div>
             <div
               style={{
-                fontFamily: BODY_FONT,
+                fontFamily: theme.body,
                 fontWeight: 600,
-                fontSize: 38 * k,
+                fontSize: 38 * k * theme.type,
                 color: theme.text,
                 lineHeight: 1.2,
               }}
@@ -725,13 +708,14 @@ const Chips: React.FC<{
               translate: "-50% -50%",
               scale: s,
               padding: `${22 * k}px ${36 * k}px`,
-              borderRadius: 26 * k,
+              borderRadius: 26 * k * theme.radius,
               background: theme.card,
-              border: `${1.5 * k}px solid ${theme.border}`,
+              backdropFilter: theme.blur,
+              border: `${1.5 * k * (theme.line ?? 1)}px solid ${theme.border}`,
               boxShadow: theme.shadow,
-              fontFamily: BODY_FONT,
+              fontFamily: theme.body,
               fontWeight: 700,
-              fontSize: 40 * k,
+              fontSize: 40 * k * theme.type,
               color: theme.text,
               whiteSpace: "nowrap",
             }}
@@ -747,8 +731,9 @@ const Chips: React.FC<{
 const Quote: React.FC<{
   e: ShortEvent;
   accent: string;
+  theme: Theme;
   k: number;
-}> = ({ e, accent, k }) => {
+}> = ({ e, accent, theme, k }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const s = pop(frame, fps);
@@ -757,8 +742,9 @@ const Quote: React.FC<{
       style={{
         width: 900 * k,
         padding: `${34 * k}px ${44 * k}px`,
-        borderRadius: 18 * k,
-        background: "rgba(8,10,20,.82)",
+        borderRadius: 18 * k * theme.radius,
+        background: theme.card,
+        backdropFilter: theme.blur,
         border: `${3 * k}px solid ${accent}`,
         boxShadow: `0 0 ${50 * k}px ${accent}55, 0 ${20 * k}px ${60 * k}px rgba(0,0,0,.5)`,
         textAlign: "center",
@@ -768,9 +754,9 @@ const Quote: React.FC<{
     >
       <div
         style={{
-          fontFamily: BODY_FONT,
+          fontFamily: theme.body,
           fontWeight: 600,
-          fontSize: 42 * k,
+          fontSize: 42 * k * theme.type,
           lineHeight: 1.3,
           color: "white",
         }}
@@ -789,8 +775,8 @@ const Quote: React.FC<{
         <div
           style={{
             marginTop: 16 * k,
-            fontFamily: BODY_FONT,
-            fontSize: 26 * k,
+            fontFamily: theme.body,
+            fontSize: 26 * k * theme.type,
             color: "rgba(255,255,255,.65)",
           }}
         >
@@ -828,12 +814,12 @@ const Title: React.FC<{
       {e.label ? (
         <div
           style={{
-            fontFamily: BODY_FONT,
+            fontFamily: theme.body,
             fontWeight: 700,
-            fontSize: 26 * k,
+            fontSize: 26 * k * theme.type,
             letterSpacing: "0.3em",
             textTransform: "uppercase",
-            color: theme.sub,
+            color: theme.inkSub ?? theme.sub,
           }}
         >
           {e.label}
@@ -885,9 +871,10 @@ const Progress: React.FC<{
       style={{
         width: w + 100 * k,
         padding: `${44 * k}px ${50 * k}px`,
-        borderRadius: 44 * k,
+        borderRadius: 44 * k * theme.radius,
         background: theme.card,
-        border: `${1.5 * k}px solid ${theme.border}`,
+        backdropFilter: theme.blur,
+        border: `${1.5 * k * (theme.line ?? 1)}px solid ${theme.border}`,
         boxShadow: theme.shadow,
       }}
     >
@@ -896,18 +883,24 @@ const Progress: React.FC<{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "baseline",
-          fontFamily: BODY_FONT,
+          fontFamily: theme.body,
           color: theme.text,
         }}
       >
-        <span style={{ fontWeight: 600, fontSize: 34 * k, color: theme.sub }}>
+        <span
+          style={{
+            fontWeight: 600,
+            fontSize: 34 * k * theme.type,
+            color: theme.sub,
+          }}
+        >
           {e.text.replace(/\*/g, "")}
         </span>
         <span
           style={{
-            fontFamily: HEADLINE_FONT,
+            fontFamily: theme.head,
             fontWeight: 800,
-            fontSize: 76 * k,
+            fontSize: 76 * k * theme.type,
             fontVariantNumeric: "tabular-nums",
           }}
         >
@@ -954,7 +947,7 @@ const Progress: React.FC<{
               style={{
                 width: 12 * k,
                 height: 40 * k,
-                borderRadius: 4 * k,
+                borderRadius: 4 * k * theme.radius,
                 background: theme.sub,
               }}
             />
@@ -973,27 +966,18 @@ const Progress: React.FC<{
   );
 };
 
-// The dark scene keeps a fixed blue/violet glow: a warm accent (yellow) would muddy the navy.
-const Backdrop: React.FC<{ scene: ShortEvent["scene"] }> = ({ scene }) => {
+/** Full-screen scene background from the graphic style, with a slow drift so it is never a still frame. */
+const Backdrop: React.FC<{ scene: ShortEvent["scene"]; kit: Kit }> = ({
+  scene,
+  kit,
+}) => {
   const frame = useCurrentFrame();
-  const { width } = useVideoConfig();
-  const k = width / 1080;
-  if (scene === "light")
-    return (
-      <AbsoluteFill
-        style={{
-          backgroundColor: "#f3f1ec",
-          backgroundImage: `linear-gradient(rgba(20,20,40,.06) ${1.5 * k}px, transparent ${1.5 * k}px), linear-gradient(90deg, rgba(20,20,40,.06) ${1.5 * k}px, transparent ${1.5 * k}px)`,
-          backgroundSize: `${54 * k}px ${54 * k}px`,
-        }}
-      />
-    );
-  // Deep navy with slowly drifting glow, like the dark inspiration boards.
-  const drift = Math.sin(frame / 40) * 60 * k;
+  const drift = Math.sin(frame / 60) * 1.5;
   return (
     <AbsoluteFill
       style={{
-        background: `radial-gradient(70% 45% at ${50 + drift / 20}% 18%, #2f55ff55, transparent 70%), radial-gradient(60% 40% at 80% 95%, #7c3aed44, transparent 70%), linear-gradient(180deg, #070b22 0%, #04050d 100%)`,
+        background: scene === "light" ? kit.scene.light : kit.scene.dark,
+        backgroundPosition: `${drift}% 0`,
       }}
     />
   );
@@ -1007,6 +991,8 @@ type Props = {
   video: string | null;
   tracks: Tracks;
   assets: string[];
+  /** Graphic style id (plan.graphics_style). */
+  style?: string;
 };
 
 /** Motion-graphic card. Rendered inside a Sequence, so frame 0 is its start. */
@@ -1018,6 +1004,7 @@ export const Card: React.FC<Props> = ({
   video,
   tracks,
   assets,
+  style,
 }) => {
   const frame = useCurrentFrame();
   const { fps, width } = useVideoConfig();
@@ -1029,7 +1016,8 @@ export const Card: React.FC<Props> = ({
     durationInFrames: 9,
   });
   const fade = interpolate(frame, [duration - EXIT, duration], [1, 0], clamp);
-  const theme = e.scene === "light" ? LIGHT : DARK;
+  const kit = kitFor(style);
+  const theme = e.scene === "light" ? kit.light : kit.dark;
   // Timeline in frames from the card's start; without one, items cascade in quickly.
   const marks = e.timeline.map(
     ([t, a]) => [Math.round(t * fps) - from, a] as const,
@@ -1050,7 +1038,7 @@ export const Card: React.FC<Props> = ({
         reveal: (i) => ITEM_START + i * ITEM_GAP,
       };
   const body = {
-    steps: <Steps e={e} beat={beat} accent={accent} k={k} />,
+    steps: <Steps e={e} beat={beat} accent={accent} theme={theme} k={k} />,
     slider: <Slider e={e} accent={accent} theme={theme} k={k} />,
     stat: <Stat e={e} accent={accent} theme={theme} k={k} />,
     icons: (
@@ -1065,7 +1053,7 @@ export const Card: React.FC<Props> = ({
     ),
     list: <List e={e} beat={beat} accent={accent} theme={theme} k={k} />,
     chips: <Chips e={e} beat={beat} accent={accent} theme={theme} k={k} />,
-    quote: <Quote e={e} accent={accent} k={k} />,
+    quote: <Quote e={e} accent={accent} theme={theme} k={k} />,
     title: <Title e={e} accent={accent} theme={theme} k={k} />,
     progress: (
       <Progress e={e} accent={accent} theme={theme} k={k} duration={duration} />
@@ -1118,8 +1106,9 @@ export const Card: React.FC<Props> = ({
       video={video}
       tracks={tracks}
       accent={accent}
+      backdrop={kit.scene.dark}
     >
-      <Backdrop scene={e.scene === "light" ? "light" : "dark"} />
+      <Backdrop scene={e.scene === "light" ? "light" : "dark"} kit={kit} />
       <div
         style={{
           position: "absolute",

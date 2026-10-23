@@ -4,13 +4,13 @@ import {
   Img,
   interpolate,
   spring,
-  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { useMedia } from "./media";
 import { onAccent } from "./colors";
 import { Emoji } from "./Emoji";
-import { ACCENT_FONT, BODY_FONT } from "./fonts";
+import { accentCss, kitFor } from "./graphicKits";
 import { faceAt, findTrigger, follow } from "./tracking";
 import type { ShortEvent, Tracks } from "./types";
 
@@ -31,7 +31,10 @@ export const TextPop: React.FC<{
   event: ShortEvent;
   duration: number;
   accent: string;
-}> = ({ event, duration, accent }) => {
+  /** Graphic style id (plan.graphics_style). */
+  style?: string;
+}> = ({ event, duration, accent, style }) => {
+  const theme = kitFor(style).dark;
   const frame = useCurrentFrame();
   const { width } = useVideoConfig();
   const k = width / 1080;
@@ -51,7 +54,8 @@ export const TextPop: React.FC<{
           ),
         )
       : event.text.length;
-  const size = 80 * event.size * k * (event.behind_subject ? 1.6 : 1);
+  const size =
+    80 * event.size * k * theme.type * (event.behind_subject ? 1.6 : 1);
   const colour = event.color.toUpperCase() === "#FFFFFF" ? accent : event.color;
   const halo = `0 0 ${20 * k}px rgba(0,0,0,.65), 0 ${3 * k}px ${8 * k}px rgba(0,0,0,.5)`;
   let shown = 0;
@@ -59,7 +63,11 @@ export const TextPop: React.FC<{
   const plain = parts.length === 1 && !parts[0].startsWith("*");
   // A pill is a solid accent badge with dark text and one light sweep as it lands.
   const badge = event.background === "pill";
-  const ink = badge ? onAccent(accent) : "white";
+  // The badge is the style's own surface (glass panel, black block, white outlined card…); a style with
+  // no panels (minimal) falls back to a solid accent badge.
+  const solid = theme.card === "transparent";
+  const surface = solid ? accent : theme.card;
+  const ink = badge ? (solid ? onAccent(accent) : theme.text) : "white";
   const sweep = interpolate(frame, [6, 22], [-30, 130], clamp);
   return (
     <div
@@ -78,14 +86,21 @@ export const TextPop: React.FC<{
         textAlign: "center",
         lineHeight: 1.05,
         padding: badge ? `${18 * k}px ${38 * k}px` : 0,
-        borderRadius: 22 * k,
+        borderRadius: 22 * k * theme.radius,
         overflow: badge ? "hidden" : undefined,
         background: badge
-          ? `linear-gradient(105deg, transparent ${sweep - 18}%, rgba(255,255,255,.55) ${sweep}%, transparent ${sweep + 18}%), ${accent}`
+          ? `linear-gradient(105deg, transparent ${sweep - 18}%, rgba(255,255,255,.4) ${sweep}%, transparent ${sweep + 18}%), ${surface}`
           : "transparent",
         boxShadow: badge
-          ? `0 ${14 * k}px ${34 * k}px rgba(0,0,0,.35), inset 0 ${-4 * k}px 0 rgba(0,0,0,.12)`
+          ? solid
+            ? `0 ${14 * k}px ${34 * k}px rgba(0,0,0,.35)`
+            : theme.shadow
           : undefined,
+        border:
+          badge && !solid
+            ? `${1.5 * k * (theme.line ?? 1)}px solid ${theme.border}`
+            : undefined,
+        backdropFilter: badge && !solid ? theme.blur : undefined,
       }}
     >
       {parts.map((p, i) => {
@@ -98,16 +113,19 @@ export const TextPop: React.FC<{
           <span
             key={i}
             style={{
-              fontFamily: accented ? ACCENT_FONT : BODY_FONT,
-              fontStyle: accented ? "italic" : "normal",
-              fontWeight: accented ? 400 : 700,
-              fontSize: accented ? size * 1.3 : size * (plain ? 1 : 0.72),
-              color: badge ? ink : accented ? colour : "white",
-              textShadow: badge
-                ? "none"
-                : accented
-                  ? `0 0 ${30 * k}px ${colour}55, ${halo}`
-                  : halo,
+              fontFamily: theme.head,
+              fontWeight: theme.headWeight,
+              letterSpacing: theme.tracking,
+              textTransform: theme.upper ? "uppercase" : undefined,
+              fontSize: size * (plain ? 1 : 0.8),
+              color: badge ? ink : "white",
+              textShadow: badge ? "none" : halo,
+              ...(accented && (!badge || !solid)
+                ? accentCss(theme, colour, size * 0.8)
+                : {}),
+              ...(accented && !badge && theme.accent !== "glow"
+                ? { textShadow: halo }
+                : {}),
             }}
           >
             {visible}
@@ -126,6 +144,7 @@ export const Sticker: React.FC<{
   duration: number;
 }> = ({ event, tracks, from, duration }) => {
   const frame = useCurrentFrame();
+  const media = useMedia();
   const { fps, width, height } = useVideoConfig();
   const abs = from + frame;
   const trigger = useMemo(
@@ -226,7 +245,7 @@ export const Sticker: React.FC<{
       <div style={{ ...idle, scale: undefined }}>
         {event.asset ? (
           <Img
-            src={staticFile(`assets/${event.asset}`)}
+            src={media(`assets/${event.asset}`)}
             style={{ width: "100%", display: "block" }}
           />
         ) : (

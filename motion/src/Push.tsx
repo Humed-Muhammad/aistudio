@@ -3,10 +3,10 @@ import {
   Easing,
   interpolate,
   spring,
-  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { useMedia } from "./media";
 import { Video } from "@remotion/media";
 import type { Tracks } from "./types";
 
@@ -39,6 +39,8 @@ type Props = {
   video: string | null;
   tracks: Tracks;
   accent: string;
+  /** Colour behind the pushed video (the graphic style's dark scene). */
+  backdrop?: string;
   children: React.ReactNode; // the graphic, laid out at its full size
 };
 
@@ -54,9 +56,11 @@ export const Push: React.FC<Props> = ({
   video,
   tracks,
   accent,
+  backdrop = "#05060d",
   children,
 }) => {
   const frame = useCurrentFrame();
+  const media = useMedia();
   const { width, height } = useVideoConfig();
   const k = width / 1080;
   const p = usePush(duration);
@@ -85,7 +89,7 @@ export const Push: React.FC<Props> = ({
   const line = `${3 * k}px solid ${accent}`;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#05060d" }}>
+    <AbsoluteFill style={{ background: backdrop }}>
       {video && share < 1 ? (
         <div
           style={{
@@ -115,7 +119,7 @@ export const Push: React.FC<Props> = ({
             }}
           >
             <Video
-              src={staticFile(video)}
+              src={media(video)}
               muted
               trimBefore={from}
               style={{ width: "100%", height: "100%" }}
@@ -133,7 +137,7 @@ export const Push: React.FC<Props> = ({
           }}
         >
           <Video
-            src={staticFile(video)}
+            src={media(video)}
             muted
             trimBefore={from}
             style={{ width: "100%", height: "100%" }}

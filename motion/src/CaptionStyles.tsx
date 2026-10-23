@@ -24,6 +24,27 @@ type Props = {
 };
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
+
+/**
+ * Wave rise for one letter: each word rises as it is spoken and its letters follow one after another
+ * (28 ms apart), so the motion rolls across the line like a wave. Expo-out, with a fade and a blur that clears.
+ * at = the word's spoken start (ms), j = the letter's place in the word.
+ */
+export const waveLetter = (now: number, at: number, j: number, slow = 1): React.CSSProperties => {
+  const p = interpolate(now - (at - 90 + j * 28 * slow), [0, 620 * slow], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.bezier(0.16, 1, 0.3, 1),
+  });
+  return {
+    display: "inline-block",
+    opacity: interpolate(p, [0, 0.35], [0, 1], { extrapolateRight: "clamp" }),
+    transform: p < 1 ? `translateY(${(1 - p) * 0.6}em)` : undefined,
+    filter: p < 1 ? `blur(${(1 - p) * 0.07}em)` : undefined,
+  };
+};
+
+
 const SERIF = `${loadSerif("normal", { weights: ["500"], subsets: ["ethiopic", "latin"] }).fontFamily}, Georgia, serif`;
 
 /** Lowercase for the quiet look, but acronyms and brand caps (AI, TikTok, CEO) stay as written. */
@@ -346,6 +367,63 @@ export const Stack: React.FC<Props> = ({ page, plan, style, face }) => {
           </div>
         );
       })}
+    </div>
+  );
+};
+
+/**
+ * Light sweep: the whole phrase sits on screen dim and soft, and a light sweeps across it as it is spoken: letters
+ * already said are bright white and rise into place in a wave, the ones just ahead fade from silver to grey
+ * (the Rofi Edits look).
+ */
+export const Sweep: React.FC<Props> = ({ page, plan, style, face }) => {
+  const { frame, k, now, exit } = useTiming(page);
+  const size = 88 * k * (face?.scale ?? 1);
+  const enter = interpolate(frame, [0, 6], [0, 1], clamp);
+  // Each letter's moment: spread across its word while the word is spoken (at most 90 ms a letter).
+  const words = page.tokens.map((t) => {
+    const chars = Array.from(t.text.trim());
+    const dur = Math.max(120, Math.min(t.toMs - t.fromMs, 90 * chars.length));
+    return chars.map((c, j) => ({ c, at: t.fromMs - 40 + (dur * j) / Math.max(1, chars.length) }));
+  });
+  return (
+    <div
+      style={{
+        ...style,
+        ...faceCss(face, 800),
+        fontSize: size,
+        columnGap: "0.24em",
+        textTransform: letterCase(plan),
+        filter: `drop-shadow(0 ${size * 0.05}px ${size * 0.18}px rgba(0,0,0,.45))`,
+        opacity: enter * (1 - exit),
+      }}
+    >
+      {words.map((chars, i) => (
+        <span key={i} style={{ display: "inline-block", whiteSpace: "nowrap" }}>
+          {chars.map(({ c, at }, j) => {
+            // 1 = lit (said), 0 = still dark; the 260 ms ramp is the soft edge of the light.
+            const slow = plan.caption_speed ?? 1;
+            const lit = interpolate(now - at, [-260 * slow, 0], [0, 1], clamp);
+            // Letters wait a little low and rise into place as the light reaches them, one after another.
+            const rise = interpolate(now - at, [-260 * slow, 420 * slow], [0, 1], { ...clamp, easing: Easing.bezier(0.16, 1, 0.3, 1) });
+            return (
+              <span
+                key={j}
+                style={{
+                  display: "inline-block",
+                  transform: rise < 1 ? `translateY(${(1 - rise) * 0.32}em)` : undefined,
+                  color: mix("#b4b9c3", "#ffffff", lit),
+                  opacity: 0.55 + lit * 0.45,
+                  filter: lit < 1 ? `blur(${(1 - lit) * 2.5 * k}px)` : undefined,
+                  textShadow: lit > 0.05 && lit < 1 ? `0 0 ${size * 0.25}px rgba(255,255,255,${0.7 * Math.sin(lit * Math.PI)})` : undefined,
+                }}
+              >
+                {c}
+              </span>
+            );
+          })}
+        </span>
+      ))}
     </div>
   );
 };

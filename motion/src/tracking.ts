@@ -62,6 +62,22 @@ export const faceAt = (tracks: Tracks, frame: number): [number, number] => {
   return [0.5, 0.4];
 };
 
+const homes = new WeakMap<Tracks, [number, number]>();
+/** Where the head usually is (median face centre over the edit): steady, for lights fixed to the wall. */
+export const faceHome = (tracks: Tracks): [number, number] => {
+  const known = homes.get(tracks);
+  if (known) return known;
+  const faces = tracks.face.filter((f): f is FaceSample => !!f);
+  const median = (i: number) =>
+    faces.map((f) => f[i] as number).sort((a, b) => a - b)[
+      Math.floor(faces.length / 2)
+    ];
+  const home: [number, number] =
+    faces.length < 10 ? [0.5, 0.36] : [median(0), median(1)];
+  homes.set(tracks, home);
+  return home;
+};
+
 export type Reframe = {
   s: number;
   ox: number;

@@ -238,7 +238,7 @@ class PlannerSchemaTests(unittest.TestCase):
    optional=sum(len(set(n['properties'])-set(n.get('required',[]))) for n in nodes if isinstance(n,dict) and 'properties' in n)
    self.assertEqual(optional,0,model.__name__)
  def test_compact_events_convert_to_full_plan(self):
-  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=True,look='original',graphics_style='glass',emphasis=['three'],notes='n',events=[
+  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=True,look='original',light='pool',graphics_style='glass',emphasis=['three'],notes='n',events=[
    shorts.PFlash(type='flash',start=2),shorts.PSfx(type='sfx',start=2,sound='pop',volume=.5),
    shorts.PSticker(type='sticker',start=1,end=3,asset='',emoji='🔥',anchor='hand',hand='left',point='palm',trigger='open_palm',animation='pop',idle='float',size=1,x=.5,y=.5)]).to_plan()
   self.assertEqual([(e.type,e.start,e.end) for e in plan.events],[('flash',2,2.3),('sfx',2,2.3),('sticker',1,3)])
@@ -314,7 +314,7 @@ class ShortsBrollTests(unittest.TestCase):
    self.assertTrue(any('nope.mp4' in w for w in warnings));self.assertTrue(any('shown full screen' in w for w in warnings))
 
  def test_planner_broll_converts(self):
-  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=False,look='original',graphics_style='glass',emphasis=[],notes='',events=[
+  plan=shorts.PlannerPlan(caption_preset='bold',caption_y=.7,highlight_color='#fff',progress_bar=False,look='original',light='pool',graphics_style='glass',emphasis=[],notes='',events=[
    shorts.PBroll(type='broll',start=1,end=4,asset='demo.mp4',src_start=2,speed=1.5,layout='bubble',corner='top_left')]).to_plan()
   e=plan.events[0];self.assertEqual((e.type,e.layout,e.corner,e.speed,e.src_start),('broll','bubble','top_left',1.5,2))
 
@@ -525,9 +525,67 @@ class CardAndSoundTests(unittest.TestCase):
  def test_own_sound_pack_wins_and_risers_need_it(self):
   with tempfile.TemporaryDirectory() as d:
    lib=Path(d)/'lib';(lib/'whoosh').mkdir(parents=True);(lib/'whoosh'/'Airy 01.wav').write_bytes(b'x');(lib/'riser-big.wav').write_bytes(b'x')
-   with patch.object(shorts,'SFX_LIBRARY',lib),patch.object(shorts,'hosted_sound',lambda n:Path(f'/cache/{n}.wav')):
+   with patch.object(shorts,'SFX_LIBRARY',lib),patch.object(shorts,'hosted_sound',lambda n:Path(f'/cache/{n}.wav')),patch.object(shorts,'mixkit_sound',lambda i:Path(f'/mixkit/{i}.wav')):
     self.assertEqual(shorts.sound_source('whoosh-soft').name,'Airy 01.wav');self.assertEqual(shorts.sound_source('riser-metal').name,'riser-big.wav')
-    self.assertEqual(shorts.sound_source('pop'),Path('/cache/mouse-click.wav'));self.assertIsNone(shorts.sound_source('impact'));self.assertIsNone(shorts.sound_source('hit'))
+    self.assertEqual(shorts.sound_source('pop'),Path('/mixkit/2364.wav'));self.assertIsNone(shorts.sound_source('impact'));self.assertIsNone(shorts.sound_source('hit'))
+
+ def test_post_text_is_written_from_the_edit_and_cleaned(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d);(p/'captions.json').write_text(json.dumps({'captions':[{'text':' ሰላም AI','startMs':0,'endMs':500}]}))
+   out=shorts.PostCopy(titles=['One','Two','Three','Four'],caption=' Hi \n Comment 👇 ',hashtags=['AI','#ai','#Video Editing','#fyp'],best_time='6-11 PM')
+   reply=Mock(stop_reason='end_turn',parsed_output=out)
+   with patch('anthropic.Anthropic') as A:
+    A.return_value.beta.messages.parse.return_value=reply
+    data=shorts.post_copy(p,'series part 1')
+    sent=A.return_value.beta.messages.parse.call_args.kwargs['messages'][0]['content']
+   self.assertIn('ሰላም AI',sent);self.assertIn('series part 1',sent)
+   self.assertEqual(data['titles'],['One','Two','Three']);self.assertEqual(data['hashtags'],['#AI','#VideoEditing','#fyp'])
+   self.assertEqual(json.loads((p/'post.json').read_text())['caption'],'Hi \n Comment 👇')
+
+ def test_half_drawn_frames_are_found(self):
+  from PIL import Image
+  pic=shorts.np.tile(shorts.np.linspace(0,255,960)[:,None],(1,540)).astype('uint8')  # light changing down the frame
+  torn=pic.copy();torn[480:]=pic[:480]  # the glitch: the top half repeated below a hard line
+  self.assertFalse(shorts.torn(Image.fromarray(pic)));self.assertTrue(shorts.torn(Image.fromarray(torn)))
+  tiles=shorts.np.tile(shorts.np.linspace(20,60,192)[:,None],(5,540)).astype('uint8')  # only the wall, tiled
+  self.assertTrue(shorts.torn(Image.fromarray(tiles)))
+  with tempfile.TemporaryDirectory() as d:  # a plain stretch is never flagged; a lone glitch is
+   path=Path(d)/'v.mp4'
+   with shorts.av.open(str(path),'w') as out:
+    vs=out.add_stream('libx264',rate=30);vs.width,vs.height,vs.pix_fmt=540,960,'yuv420p'
+    for i in range(12):
+     img=Image.fromarray(tiles if i==8 else pic if i>4 else shorts.np.full((960,540),40,'uint8')).convert('RGB')
+     out.mux(vs.encode(shorts.av.VideoFrame.from_image(img).reformat(format='yuv420p')))
+    out.mux(vs.encode())
+   self.assertEqual(shorts.torn_frames(path),[8])
+
+ def test_switch_effect_sets_the_flash_sound(self):
+  kit={'whoosh-soft':(.1,.05,.5),'camera-click':(.01,.05,.2)}
+  def sounds(t):
+   plan=shorts.Plan(transition=t,events=[shorts.Event(type='flash',start=5,end=5.3)])
+   return [e.sound for e in shorts.auto_sounds(plan,kit,voice=.05)]
+  self.assertEqual((sounds('flash'),sounds('bloom'),sounds('dip'),sounds('none')),(['camera-click'],['whoosh-soft'],[],[]))
+  self.assertEqual(shorts.Plan().transition,'bloom')
+  plan=shorts.Plan(transition='bloom',events=[shorts.Event(type='flash',start=5,end=5.3,effect='flash'),shorts.Event(type='flash',start=9,end=9.3,effect='dip')])
+  self.assertEqual([e.sound for e in shorts.auto_sounds(plan,kit,voice=.05)],['camera-click'])  # each switch's own effect wins
+
+ def test_picked_sounds_win_and_jobs_pick_up_a_new_choice(self):
+  ids=[i for items in shorts.MIXKIT.values() for i,_ in items]
+  self.assertEqual(set(shorts.MIXKIT),set(shorts.SFX_FAMILIES));self.assertEqual(set(shorts.FAMILY.values()),set(shorts.SFX_FAMILIES))
+  for fam,i in shorts.SFX_DEFAULT.items():self.assertIn(i,[x for x,_ in shorts.MIXKIT[fam]])
+  with self.assertRaises(ValueError):shorts.mixkit_sound(99999999)
+  with tempfile.TemporaryDirectory() as d:
+   lib=Path(d)/'lib';lib.mkdir();snd=Path(d)/'snd'
+   def fake(i):
+    snd.mkdir(exist_ok=True);path=snd/f'{i}.wav';shorts.write_wav((shorts.np.ones((2,4800))*(900 if int(i)==772 else 90)).astype(shorts.np.int16),path);return path
+   with patch.object(shorts,'SFX_LIBRARY',lib),patch.object(shorts,'mixkit_sound',fake):
+    shorts.set_sound_choice('impact','mixkit:772');shorts.set_sound_choice('pop','off')
+    self.assertEqual(shorts.sound_source('impact').name,'772.wav');self.assertIsNone(shorts.sound_source('pop'))
+    with self.assertRaises(ValueError):shorts.set_sound_choice('nope','off')
+    cat={f['id']:f for f in shorts.sound_catalog()};self.assertEqual((cat['impact']['choice'],cat['pop']['choice']),('mixkit:772','off'))
+    p=job(d);shorts.sound_kit(p,['impact']);loud=shorts.sound_info(p/'sfx'/'impact.wav')[1]
+    shorts.set_sound_choice('impact','mixkit:788');shorts.sound_kit(p,['impact'])
+    self.assertLess(shorts.sound_info(p/'sfx'/'impact.wav')[1],loud)  # the job's copy follows the new pick
 
  def test_back_to_back_cards_merge_and_rows_follow_speech(self):
   with tempfile.TemporaryDirectory() as d:
@@ -555,7 +613,7 @@ class PlannerGrammarTests(unittest.TestCase):
   from anthropic.lib._parse._transform import transform_schema
   schema=json.dumps(transform_schema(shorts.PlannerPlan))
   self.assertLessEqual(schema.count('"enum"')+schema.count('"const"'),8)  # one marker per event type
-  plan=shorts.PlannerPlan(caption_preset='fancy',caption_y=.7,highlight_color='#3D7BFF',progress_bar=False,look='original',graphics_style='glass',emphasis=['ሰላም'],notes='',events=[
+  plan=shorts.PlannerPlan(caption_preset='fancy',caption_y=.7,highlight_color='#3D7BFF',progress_bar=False,look='original',light='pool',graphics_style='glass',emphasis=['ሰላም'],notes='',events=[
    shorts.PCard(type='card',start=1,end=3,template='hexagon',scene='dark',text='Hi',items=[],value='',label='',active=1,y=.5,side='diagonal'),
    shorts.PSfx(type='sfx',start=2,sound='laser',volume=.4)]).to_plan()
   self.assertEqual((plan.caption_preset,plan.events[0].template,plan.events[0].scene,plan.events[0].side,plan.events[1].sound),('duo','list','dark','top','whoosh'))
@@ -643,6 +701,14 @@ class CaptionChoiceTests(unittest.TestCase):
    self.assertEqual((plan.background.mode,plan.caption_place,warnings),('studio','fixed',[]))
    self.assertEqual(shorts.Plan().caption_place,'face')
 
+ def test_light_design_defaults_to_pool_and_planner_can_pick_one(self):
+  self.assertEqual(shorts.look('studio_blue').pattern,'pool')
+  plan=shorts.PlannerPlan(caption_preset='duo',caption_y=.7,highlight_color='#6EC1FF',progress_bar=False,look='studio_teal',light='blinds',graphics_style='glass',emphasis=[],notes='',events=[]).to_plan()
+  self.assertEqual((plan.background.look,plan.background.pattern),('studio_teal','blinds'))
+  plan=shorts.PlannerPlan(caption_preset='duo',caption_y=.7,highlight_color='#6EC1FF',progress_bar=False,look='studio_teal',light='disco',graphics_style='glass',emphasis=[],notes='',events=[]).to_plan()
+  self.assertEqual(plan.background.pattern,'pool')
+  with self.assertRaises(Exception):shorts.Background(pattern='disco')
+
  def test_pro_finish_is_clamped_and_on_studio_looks(self):
   b=shorts.look('studio_coral');self.assertEqual((b.tube,b.wrap>0,b.reframe>0,b.grade>0,b.grain>0),('left',True,True,True,True))
   with tempfile.TemporaryDirectory() as d:
@@ -696,3 +762,17 @@ class GraphicStyleTests(unittest.TestCase):
     shorts.save_plan(p,{'graphics_style':'editorial','graphics_auto':False,'events':[]})
     self.assertEqual(shorts.plan_auto(p)[0].graphics_style,'editorial')
    self.assertEqual(shorts.Plan().graphics_style,'glass')
+
+class WordFixTests(TranscriptEditTests):
+ def test_claude_suggests_and_nothing_changes_until_applied(self):
+  out=shorts.WordFixes(fixes=[shorts.WordFix(id=0,text='So  this works.',why='spelling'),shorts.WordFix(id=1,text='This works.',why='same'),shorts.WordFix(id=9,text='x',why='bad id')])
+  client=Mock();client.beta.messages.parse.return_value=Mock(stop_reason='end_turn',parsed_output=out)
+  with patch('anthropic.Anthropic',return_value=client),patch('shorts.setting',lambda name,default='':default):
+   fixes=shorts.suggest_fixes(self.p,'video about code')
+  self.assertEqual(fixes,[{'id':0,'old':'So this wroks.','new':'So this works.','why':'spelling'}])
+  self.assertIn('video about code',client.beta.messages.parse.call_args.kwargs['messages'][0]['content'])
+  self.assertEqual(self.caps()[2]['text'].strip(),'wroks.')  # untouched
+  before=[(c['startMs'],c['endMs']) for c in self.caps()]
+  shorts.apply_fixes(self.p,{'0':'So this works.'})
+  self.assertEqual(self.caps()[2]['text'].strip(),'works.');self.assertEqual([(c['startMs'],c['endMs']) for c in self.caps()],before)
+  self.assertFalse((self.p/'word-fixes.json').exists())

@@ -28,6 +28,8 @@ export const LookSwitch: React.FC<{
   from: number;
   duration: number;
   k: number;
+  /** false when the next look takes over right here: stay solid while it fades in on top (no gap to the room). */
+  fadeOut?: boolean;
 }> = ({
   look: partial,
   video,
@@ -37,20 +39,31 @@ export const LookSwitch: React.FC<{
   from,
   duration,
   k,
+  fadeOut = true,
 }) => {
   const media = useMedia();
   const frame = useCurrentFrame();
   const look = { ...DEFAULT_LOOK, ...partial };
   const subject = foreground && needsSubject(look) ? foreground : null;
-  const opacity = interpolate(
-    frame,
-    [0, FADE, duration - FADE, duration],
-    [0, 1, 1, 0],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  );
+  // Quick flashes (e.g. three looks in a second) are shorter than two fades: share the time between them.
+  const fade = Math.min(FADE, Math.floor((duration - 1) / 2));
+  const opacity =
+    fade < 1
+      ? 1
+      : fadeOut
+        ? interpolate(frame, [0, fade, duration - fade, duration], [0, 1, 1, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        : interpolate(
+          frame,
+          [0, fade],
+          [0, 1],
+          {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          },
+        );
   return (
     <AbsoluteFill style={{ opacity }}>
       <Video
@@ -59,7 +72,7 @@ export const LookSwitch: React.FC<{
         trimBefore={from}
         style={subject ? footageStyle(look, k) : undefined}
       />
-      {subject ? <Backdrop bg={look} reframe={reframe} /> : null}
+      {subject ? <Backdrop bg={look} tracks={tracks} reframe={reframe} /> : null}
       {subject ? <BackLight bg={look} tracks={tracks} /> : null}
       {subject ? (
         <Subject bg={look} foreground={subject} trimBefore={from} />

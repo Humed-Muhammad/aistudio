@@ -19,6 +19,10 @@ export type ShortEvent = {
   text: string;
   style: "pop" | "slide" | "type";
   color: string;
+  /** card: accent colour; empty uses the video accent. */
+  accent?: string;
+  /** card or text pop: text colour; empty uses the graphic style. */
+  ink?: string;
   background: "none" | "pill";
   size: number;
   x: number;
@@ -66,6 +70,8 @@ export type ShortEvent = {
   scene: "overlay" | "dim" | "dark" | "light" | "split";
   side: "top" | "bottom" | "left" | "right";
   timeline: [number, number][];
+  /** flash: this switch's own effect; empty uses the video's transition. */
+  effect?: "" | "bloom" | "leak" | "blur" | "whip" | "dip" | "flash" | "none";
   look?: string;
 };
 
@@ -100,6 +106,20 @@ export type BackgroundLook = {
   grade: number;
   grain: number;
   tube: "none" | "left" | "right" | "both";
+  lamp?: "tube" | "twin" | "neon" | "globe" | "ring" | "arch" | "hex";
+  pattern:
+    | "pool"
+    | "halo"
+    | "split"
+    | "beam"
+    | "wash"
+    | "slash"
+    | "blinds"
+    | "window"
+    | "leaves"
+    | "bokeh"
+    | "ring"
+    | "side";
 };
 
 export type Plan = {
@@ -118,19 +138,24 @@ export type Plan = {
     | "bold"
     | "minimal"
     | "boxed"
+    | "sweep"
     | "none";
   caption_font?:
     | "noto_black"
+    | "wide"
     | "noto_condensed"
     | "noto_bold"
     | "menbere"
     | "agbalumo"
     | "abyssinica"
     | "classic";
-  caption_motion?: "pop" | "word" | "rise";
+  caption_motion?: "pop" | "word" | "rise" | "lift";
   caption_fill?: "glass" | "chrome" | "glow" | "solid";
   caption_place?: "face" | "fixed";
   caption_case?: "capital" | "upper" | "spoken";
+  /** Caption animation length: 1 as designed, up to 2 slower, down to 0.6 faster. */
+  caption_speed?: number;
+  transition?: "bloom" | "leak" | "blur" | "whip" | "dip" | "flash" | "none";
   graphics_style?:
     | "glass"
     | "bold"

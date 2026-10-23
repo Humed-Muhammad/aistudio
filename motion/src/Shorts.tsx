@@ -24,6 +24,7 @@ import {
 } from "./Background";
 import { Broll } from "./Broll";
 import { LookSwitch } from "./LookSwitch";
+import { TransitionLight, transitionMotion } from "./Transitions";
 import { Captions } from "./Captions";
 import { Card } from "./Cards";
 import { Sticker, TextPop } from "./Graphics";
@@ -104,6 +105,8 @@ const Edit: React.FC<ShortsProps> = ({
   // Every sound is copied into the job's sfx/ folder by shorts.py (the creator's pack or cached recordings).
   const sound = (name: string) => media(`sfx/${name}.wav`);
   const look = { ...DEFAULT_LOOK, ...plan.background };
+  const transition = plan.transition ?? "bloom";
+  const fx = transitionMotion(plan.events, transition, frame, fps, width / 1080);
   const subject = foreground && needsSubject(look) ? foreground : null;
   const k = width / 1080;
   const reframe = useMemo(
@@ -117,25 +120,28 @@ const Edit: React.FC<ShortsProps> = ({
     (e) => e.type === "text" && !e.behind_subject,
   );
   const stickers = plan.events.filter((e) => e.type === "sticker");
+  const switches = plan.events
+    .filter((e) => e.type === "look" && e.look && looks[e.look])
+    .sort((a, b) => a.start - b.start);
+
+  const outer: React.CSSProperties = {
+    transformOrigin: `${reframe.ox * 100}% ${reframe.oy * 100}%`,
+    scale: reframe.s,
+    translate: `${reframe.tx * width}px ${reframe.ty * height}px`,
+    filter: gradeFilter(look),
+  };
+  const inner: React.CSSProperties = {
+    transformOrigin: `${camera.origin[0] * 100}% ${camera.origin[1] * 100}%`,
+    scale: camera.scale * (fx.scale ?? 1),
+    translate: `${camera.dx + (fx.x ?? 0) * width}px ${camera.dy}px`,
+    filter: fx.filter,
+  };
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
       {/* Steady chest-up reframe and grade around the whole picture; the camera moves inside it. */}
-      <AbsoluteFill
-        style={{
-          transformOrigin: `${reframe.ox * 100}% ${reframe.oy * 100}%`,
-          scale: reframe.s,
-          translate: `${reframe.tx * width}px ${reframe.ty * height}px`,
-          filter: gradeFilter(look),
-        }}
-      >
-        <AbsoluteFill
-          style={{
-            transformOrigin: `${camera.origin[0] * 100}% ${camera.origin[1] * 100}%`,
-            scale: camera.scale,
-            translate: `${camera.dx}px ${camera.dy}px`,
-          }}
-        >
+      <AbsoluteFill style={outer}>
+        <AbsoluteFill style={inner}>
           {video ? (
             <Video
               src={media(video)}
@@ -143,7 +149,7 @@ const Edit: React.FC<ShortsProps> = ({
               style={subject ? footageStyle(look, k) : undefined}
             />
           ) : null}
-          {subject ? <Backdrop bg={look} reframe={reframe} /> : null}
+          {subject ? <Backdrop bg={look} tracks={tracks} reframe={reframe} /> : null}
           {subject ? <BackLight bg={look} tracks={tracks} /> : null}
           {behind.map((e, i) => {
             const { from, duration } = frames(e, fps);
@@ -165,29 +171,33 @@ const Edit: React.FC<ShortsProps> = ({
           })}
           {subject ? <Subject bg={look} foreground={subject} /> : null}
           {video
-            ? plan.events
-                .filter((e) => e.type === "look" && e.look && looks[e.look])
-                .map((e, i) => {
-                  const { from, duration } = frames(e, fps);
-                  return (
-                    <Sequence
-                      key={`lk${i}`}
+            ? switches.map((e, i) => {
+                const { from, duration } = frames(e, fps);
+                // Back to back with the next switch: hold this look under the next one's fade-in, so the
+                // real room never shows through between them.
+                const next = switches[i + 1];
+                const handoff = !!next && Math.abs(next.start - e.end) < 0.1;
+                const hold = handoff ? Math.round(0.4 * fps) : 0;
+                return (
+                  <Sequence
+                    key={`lk${i}`}
+                    from={from}
+                    durationInFrames={duration + hold}
+                  >
+                    <LookSwitch
+                      look={looks[e.look!]}
+                      video={video}
+                      foreground={foreground}
+                      tracks={tracks}
+                      reframe={reframe}
                       from={from}
-                      durationInFrames={duration}
-                    >
-                      <LookSwitch
-                        look={looks[e.look!]}
-                        video={video}
-                        foreground={foreground}
-                        tracks={tracks}
-                        reframe={reframe}
-                        from={from}
-                        duration={duration}
-                        k={k}
-                      />
-                    </Sequence>
-                  );
-                })
+                      duration={duration + hold}
+                      k={k}
+                      fadeOut={!handoff}
+                    />
+                  </Sequence>
+                );
+              })
             : null}
           {foreground && !subject
             ? behind.map((e, i) => {
@@ -261,6 +271,8 @@ const Edit: React.FC<ShortsProps> = ({
         .filter((e) => e.type === "card")
         .map((e, i) => {
           const { from, duration } = frames(e, fps);
+          // A card "behind me": the person, framed exactly as below, is drawn again over it while it shows.
+          const tucked = e.behind_subject && e.scene === "overlay" && !!foreground;
           return (
             <Sequence key={`c${i}`} from={from} durationInFrames={duration}>
               <Card
@@ -273,6 +285,17 @@ const Edit: React.FC<ShortsProps> = ({
                 assets={assets}
                 style={plan.graphics_style}
               />
+              {tucked ? (
+                <AbsoluteFill style={outer}>
+                  <AbsoluteFill style={inner}>
+                    {subject ? (
+                      <Subject bg={look} foreground={subject} trimBefore={from} />
+                    ) : (
+                      <OffthreadVideo src={media(foreground!)} muted transparent trimBefore={from} />
+                    )}
+                  </AbsoluteFill>
+                </AbsoluteFill>
+              ) : null}
             </Sequence>
           );
         })}
@@ -303,23 +326,12 @@ const Edit: React.FC<ShortsProps> = ({
         );
       })}
 
-      {plan.events
-        .filter((e) => e.type === "flash")
-        .map((e, i) => {
-          const { from } = frames(e, fps);
-          return (
-            <Sequence key={`fl${i}`} from={from} durationInFrames={10}>
-              <AbsoluteFill
-                style={{
-                  backgroundColor: "white",
-                  opacity: interpolate(frame - from, [0, 2, 9], [0, 0.85, 0], {
-                    extrapolateRight: "clamp",
-                  }),
-                }}
-              />
-            </Sequence>
-          );
-        })}
+      <TransitionLight
+        events={plan.events}
+        kind={transition}
+        frame={frame}
+        fps={fps}
+      />
 
       {plan.progress_bar ? (
         <div

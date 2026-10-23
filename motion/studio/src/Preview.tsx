@@ -29,10 +29,17 @@ export const Preview = forwardRef<PlayerRef, Props>(({ id, version, override }, 
     };
   }, [id, version]);
 
-  const input = useMemo(
-    () => (props && override ? { ...props, plan: { ...props.plan, ...override } } : props),
-    [props, override],
-  );
+  const input = useMemo(() => {
+    if (!props || !override) return props;
+    const plan = { ...props.plan, ...override };
+    // Edited graphics replace the saved list, which lacks the sounds added automatically at render: keep those.
+    if (override.events) {
+      const own = override.events.filter((e) => e.type === "sfx");
+      const auto = props.plan.events.filter((e) => e.type === "sfx" && !own.some((o) => o.sound === e.sound && Math.abs(o.start - e.start) < 0.01));
+      plan.events = [...override.events, ...auto];
+    }
+    return { ...props, plan };
+  }, [props, override]);
 
   if (error) return <div className="empty">{error}</div>;
   if (!input) return <div className="frame" style={{ display: "grid", placeItems: "center" }}><div className="spinner" /></div>;

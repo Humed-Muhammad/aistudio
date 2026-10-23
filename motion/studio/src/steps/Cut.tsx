@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { clock, jobUrl, sendJSON, type Cut as CutPlan, type Job } from "../api";
 import type { JobApi } from "../JobView";
+import { WordFixes } from "./WordFixes";
 
 type Filter = "all" | "kept" | "removed";
 
-export const Cut: React.FC<JobApi> = ({ job, busy, setup, show, post, toast }) => {
+export const Cut: React.FC<JobApi> = (ctx) => {
+  const { job, busy, setup, show, post, toast } = ctx;
   const [filter, setFilter] = useState<Filter>("all");
   const [notes, setNotes] = useState("");
   const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
@@ -115,6 +117,8 @@ export const Cut: React.FC<JobApi> = ({ job, busy, setup, show, post, toast }) =
           </button>
         </div>
       </div>
+
+      <WordFixes {...ctx} />
 
       {lost ? (
         <div className="problem">

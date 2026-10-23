@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_LOOK } from "../../../src/Background";
+import { LIGHT_PATTERNS, wallLayers } from "../../../src/wallLights";
 import { api, clock, type BackgroundLook } from "../api";
 import type { ShortEvent } from "../../../src/types";
 import type { JobApi } from "../JobView";
@@ -7,7 +8,7 @@ import { Preview } from "../Preview";
 
 type Preset = BackgroundLook & { id: string; note: string; look: string };
 
-const TITLES: Record<string, string> = {
+export const TITLES: Record<string, string> = {
   original: "Original",
   clean_blur: "Clean blur",
   dark_glow: "Dark glow",
@@ -22,9 +23,19 @@ const TITLES: Record<string, string> = {
   studio_violet: "Studio violet",
   studio_rose: "Studio rose",
   studio_forest: "Studio green",
+  studio_haze: "Blue haze",
   studio_slate: "Studio slate",
   studio_sunset: "Sunset",
 };
+const LAMPS: [NonNullable<BackgroundLook["lamp"]>, string, string][] = [
+  ["tube", "LED tube", "A vertical light tube"],
+  ["twin", "Twin tubes", "Two tubes side by side"],
+  ["neon", "Neon bar", "A horizontal bar up high"],
+  ["globe", "Hanging bulb", "A warm bulb on a cord"],
+  ["ring", "Ring lamp", "A round LED ring"],
+  ["arch", "Neon arch", "An arch of light"],
+  ["hex", "Hex panels", "Hexagon light panels"],
+];
 const MODES: [BackgroundLook["mode"], string][] = [
   ["original", "Original"],
   ["blur", "Blur my room"],
@@ -96,7 +107,8 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast }) => {
   const pick = (p: Preset) => {
     const { id, note, ...rest } = p;
     void note;
-    change({ ...DEFAULT_LOOK, ...rest, look: id }, true);
+    // Switching wall colour keeps the light design you picked.
+    change({ ...DEFAULT_LOOK, ...rest, pattern: look.pattern ?? "pool", look: id }, true);
   };
   const giveBack = async () => {
     if (!job.plan) return;
@@ -187,6 +199,56 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast }) => {
               ))}
             </div>
           </div>
+
+          {look.mode === "studio" ? (
+            <div className="section">
+              <h3>Light design</h3>
+              <p className="hint" style={{ marginTop: -4 }}>
+                How the lamp lights the wall behind you. It stays fixed where your head usually is.
+              </p>
+              <div className="looks lights">
+                {LIGHT_PATTERNS.map(([id, name, note]) => (
+                  <button key={id} type="button" className={"look" + ((look.pattern ?? "pool") === id ? " on" : "")} disabled={busy} title={note} onClick={() => change({ pattern: id })}>
+                    <span className="sw" style={{ filter: look.dim !== 0.5 ? `brightness(${1.35 - look.dim * 0.7})` : undefined }}>
+                      {wallLayers({ ...look, pattern: id }, [0.5, 0.42], 0, 0.1).map((style, i) => (
+                        <span key={i} style={{ position: "absolute", inset: 0, ...style }} />
+                      ))}
+                    </span>
+                    <span>
+                      {name}
+                      <small>{note}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {look.mode === "studio" || look.mode === "glow" || look.mode === "gradient" || look.mode === "color" ? (
+            <div className="section">
+              <h3>Lamp on the wall</h3>
+              <div className="row" style={{ marginBottom: 10 }}>
+                <span className="hint" style={{ width: 70 }}>Where</span>
+                <div className="seg">
+                  {(["none", "left", "right", "both"] as const).map((t) => (
+                    <button key={t} type="button" className={look.tube === t ? "on" : ""} disabled={busy} onClick={() => change({ tube: t })}>
+                      {t === "none" ? "No lamp" : t === "both" ? "Both sides" : t === "left" ? "Left" : "Right"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {look.tube && look.tube !== "none" ? (
+                <div className="templates">
+                  {LAMPS.map(([id, name, note]) => (
+                    <button key={id} type="button" className={"tpl" + ((look.lamp ?? "tube") === id ? " on" : "")} disabled={busy} onClick={() => change({ lamp: id })}>
+                      {name}
+                      <small>{note}</small>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <Switches job={job} busy={busy} presets={presets} savePlan={savePlan} toast={toast} />
 

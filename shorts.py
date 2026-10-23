@@ -16,10 +16,11 @@ import av,numpy as np
 from pydantic import BaseModel,Field,ValidationError
 from config import ROOT,setting,credential
 FPS=30;MOTION=ROOT/'motion'
-PRESETS=['duo','karaoke','pill','typewriter','quiet','float','stack','clean','editorial','rise','bold','minimal','boxed','none']
-CAPTION_FONTS=['noto_black','noto_condensed','noto_bold','menbere','agbalumo','abyssinica','classic']
-CAPTION_MOTIONS=['pop','word','rise']
+PRESETS=['duo','karaoke','pill','typewriter','quiet','float','stack','clean','editorial','rise','bold','minimal','boxed','sweep','none']
+CAPTION_FONTS=['noto_black','wide','noto_condensed','noto_bold','menbere','agbalumo','abyssinica','classic']
+CAPTION_MOTIONS=['pop','word','rise','lift']
 GRAPHIC_STYLES=['glass','bold','editorial','minimal','tech','brutal','aurora','candy','noir','swiss','clay']
+TRANSITIONS=['bloom','leak','blur','whip','dip','flash','none']  # what flash events look like (motion/src/Transitions.tsx)
 # Hosted Remotion sounds, then family names resolved by sound_source() (the creator's sfx-library/ first).
 SOUNDS=['whoosh','whip','pop','ding','switch','mouse-click','shutter-modern','vine-boom','record-scratch','page-turn','anime-wow','yippee',
         'whoosh-soft','whoosh-deep','whoosh-long','riser-bass','riser-metal','hit','impact','ui-click','scifi-click','gears','camera-click','success']
@@ -40,12 +41,14 @@ class Event(BaseModel):
     end:float=Field(description='seconds; for flash/sfx use start+0.3')
     text:str=Field('',description='text: words to show; keep to 1-5 words. card: headline; wrap words in *stars* for the italic serif accent')
     style:Literal['pop','slide','type']='pop'
-    color:str=Field('#FFFFFF',description='text color as hex')
+    color:str=Field('#FFFFFF',description='text pop: colour of *starred* words as hex; #FFFFFF uses the video accent')
+    accent:str=Field('',description='card: accent colour as hex; empty uses the video accent')
+    ink:str=Field('',description='card or text pop: text colour as hex; empty uses the graphic style')
     background:Literal['none','pill']='none'
     size:float=Field(1.0,description='text: 1 = 96px headline. sticker: 1 = one hand length (hand anchor) or full frame width x 0.3 (screen/face anchor)')
     x:float=Field(0.5,description='screen anchor / text: horizontal centre 0-1')
     y:float=Field(0.3,description='screen anchor / text: vertical centre 0-1')
-    behind_subject:bool=Field(False,description='text only: place behind the person (person cutout drawn on top)')
+    behind_subject:bool=Field(False,description='text, or a card with scene overlay: place behind the person (person cutout drawn on top)')
     asset:str=Field('',description='sticker: uploaded image filename from assets/')
     emoji:str=Field('',description='sticker: emoji to use when no asset')
     anchor:Literal['screen','hand','face']='screen'
@@ -71,8 +74,11 @@ class Event(BaseModel):
     side:Literal['top','bottom','left','right']=Field('top',description='card split / broll split: edge the graphic comes from; it pushes the video the other way')
     timeline:list[tuple[float,int]]=Field([],description='card: (seconds, active item) changes inside one continuous card; filled when back-to-back cards are merged')
     scene:Literal[tuple(SCENES)]=Field('overlay',description='card: overlay on video, dim (darken+blur video behind), dark (full-screen glow), light (full-screen grid paper), split (graphic top, speaker bottom)')
+    effect:Literal[('',*TRANSITIONS)]=Field('',description='flash: this switch\'s own effect; empty uses the video\'s transition')
 
 BG_MODES=['original','blur','glow','color','gradient','studio','grid','image']
+LAMPS=['tube','twin','neon','globe','ring','arch','hex']  # wall lamp designs (Background.tsx Tubes)
+LIGHT_PATTERNS=['pool','halo','split','beam','wash','slash','blinds','window','leaves','bokeh','ring','side']  # motion/src/wallLights.ts
 class Background(BaseModel):
     """What sits behind the person (needs the person cutout), plus lighting and subject treatment. 0-1 strengths."""
     mode:Literal[tuple(BG_MODES)]=Field('original',description='original footage, blur (own room blurred), glow (dark studio with a soft light), color, gradient, studio (coloured studio wall: color with a soft light pool of color2 behind the speaker), grid (light grid paper), image (an uploaded image)')
@@ -87,6 +93,8 @@ class Background(BaseModel):
     # grade = cinematic contrast and a colour-matched tone; grain = fine moving film grain. 0-1 strengths.
     wrap:float=.0;reframe:float=.0;grade:float=.0;grain:float=.0
     tube:Literal['none','left','right','both']='none'
+    lamp:Literal[tuple(LAMPS)]=Field('tube',description='design of the lamp on the wall (placed by tube): tube (LED tube), twin (two tubes), neon (horizontal bar), globe (hanging bulb), ring (round LED ring), arch (neon arch), hex (hexagon panels)')
+    pattern:Literal[tuple(LIGHT_PATTERNS)]=Field('pool',description='studio wall light design: pool (lamp pool behind the head), halo, split (two lamps, the second in light_color), beam (ceiling cone), wash (corner uplights), slash, blinds, window, leaves (dappled), bokeh, ring (LED ring behind the head), side (light_color washing in from the lower right)')
     look:str=''  # preset name this came from ('' = adjusted by hand)
     auto:bool=True  # Claude may pick the look; false once the creator chooses one
 
@@ -106,6 +114,7 @@ LOOKS={
  'studio_violet':dict(mode='studio',color='#3C2D85',color2='#816FC5',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
  'studio_rose':dict(mode='studio',color='#8A385C',color2='#C67A9B',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
  'studio_forest':dict(mode='studio',color='#234931',color2='#629572',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
+ 'studio_haze':dict(mode='studio',color='#6F7598',color2='#A3A9CC',light_color='#3F6BFF',pattern='side',wrap=.6,reframe=.7,grade=.5,grain=.25,tube='left',dim=.5,shadow=.4,vignette=.2),
  'studio_slate':dict(mode='studio',color='#282D37',color2='#646D7D',wrap=.6,reframe=.7,grade=.6,grain=.3,tube='left',dim=.5,shadow=.45,vignette=.3),
  'studio_sunset':dict(mode='gradient',wrap=.5,reframe=.7,grade=.6,grain=.3,color='#572F82',color2='#BF624B',glow=.15,light_color='#E8A090',shadow=.45,vignette=.35),
  'color_pop':dict(mode='color',color='#FF7A59',shadow=.35,outline=.5,outline_color='#FFFFFF'),
@@ -117,7 +126,7 @@ LOOK_NOTES={'original':'the real footage, untouched','clean_blur':'own room soft
  'studio_blue':'saturated blue studio wall with a soft light behind: podcast, tech, confident','studio_coral':'warm coral studio wall: friendly, personal, lifestyle',
  'studio_teal':'teal studio wall: calm, health, education','studio_violet':'violet studio wall: creative, AI, future',
  'studio_rose':'rose studio wall: beauty, relationships, playful','studio_forest':'green studio wall: money, growth, nature',
- 'studio_slate':'cool grey studio wall: serious, business, neutral','studio_sunset':'violet-to-coral diagonal: inspiring, bold hooks',
+ 'studio_haze':'lavender-grey wall with a blue lamp washing in from the side and an LED tube: modern creator studio, tech and design', 'studio_slate':'cool grey studio wall: serious, business, neutral','studio_sunset':'violet-to-coral diagonal: inspiring, bold hooks',
  'color_pop':'solid coral with a white outline: loud hooks, announcements; use for short videos only'}
 def look(name):return Background(**{**LOOKS[name],'look':name}) if name in LOOKS else None
 
@@ -130,7 +139,9 @@ class Plan(BaseModel):
     captions_auto:bool=True  # Claude may change caption style and color; false once the creator chooses
     graphics_style:Literal[tuple(GRAPHIC_STYLES)]=Field('glass',description='design of cards and text pops: glass (liquid glass, tech/AI), bold (solid blocks, marker accents, loud), editorial (serif accents, calm, premium), minimal (no panels, big type), tech (dark panels, grid, glow), brutal (white cards, thick outline, hard shadow), aurora (violet-coral gradient cards), candy (pastel, very round), noir (black, serif accents, luxury), swiss (square, caps, poster), clay (soft 3D grey)')
     graphics_auto:bool=True  # Claude may pick the graphic style; false once the creator chooses
+    transition:Literal[tuple(TRANSITIONS)]=Field('bloom',description='the creator\'s switch effect for flash events: bloom (soft glow), leak (film light leak), blur (zoom-blur punch), whip (whip pan), dip (dip to black), flash (white flash), none')
     caption_y:float=Field(0.72,description='vertical centre of captions 0-1 when caption_place is fixed (and with no face)')
+    caption_speed:float=Field(1.0,description='caption animation length chosen by the creator: 1 as designed, 2 slower, 0.6 faster')
     caption_case:Literal['capital','upper','spoken']=Field('capital',description='Latin letters in captions: capital (Each Word Capitalized), upper (ALL CAPS), spoken (as transcribed)')
     caption_place:Literal['face','fixed']=Field('face',description='face: just under the chin, following the speaker, inside the platform safe zone; fixed: at caption_y')
     highlight_color:str=ACCENT
@@ -214,6 +225,7 @@ class PlannerPlan(BaseModel):
     graphics_style:str=choice(GRAPHIC_STYLES,'design of all cards and text pops for this video')
     highlight_color:str=Field(description='caption line-2 / accent color: one hex from the palette list, picked to stand out from the look and footage');progress_bar:bool
     look:str=choice(list(LOOKS),'background look for the whole video, see the looks list')
+    light:str=choice(LIGHT_PATTERNS,'light design on studio walls (ignored for other looks): pool is the safe default; halo or split for podcasts, blinds/window/leaves for calm stories, beam or bokeh for drama')
     emphasis:list[str]=Field(description='editorial captions: words to stress, as spoken (key nouns, numbers, punchlines), about one per sentence')
     events:list[PText|PSticker|PZoom|PShake|PFlash|PSfx|PBroll|PCard|PNoCaptions|PLook]
     notes:str=Field(description='one short paragraph explaining the edit choices to the creator')
@@ -224,8 +236,10 @@ class PlannerPlan(BaseModel):
                 if allowed and name in data and data[name] not in allowed:data[name]=f.default
             return data
         events=[Event(**fix(Event,{'end':e.start+.3,**e.model_dump()})) for e in self.events]
-        plan=Plan(**fix(Plan,{**self.model_dump(exclude={'events','look'}),'events':events}))
-        plan.background=look(self.look) or Background();return plan
+        plan=Plan(**fix(Plan,{**self.model_dump(exclude={'events','look','light'}),'events':events}))
+        plan.background=look(self.look) or Background()
+        if self.light in LIGHT_PATTERNS:plan.background.pattern=self.light
+        return plan
 
 def status_file(folder):return Path(folder)/'status.json'
 def save_status(folder,state,message,**extra):
@@ -888,7 +902,7 @@ def apply_cut(folder,status=say):
     run_with_progress([str(ROOT/'.venv-face/bin/python'),str(ROOT/'shorts_worker.py'),str(folder)],status,'Step 2 of 2 · Tracking face, hands and you (for graphics)')
     preset=json.loads((folder/'workflow-mode.json').read_text()).get('preset','bold')
     preset=preset if preset in PRESETS else 'duo'
-    keep={k:getattr(before,k) for k in ['caption_font','caption_motion','caption_fill','caption_place','caption_case','captions_auto','background']}
+    keep={k:getattr(before,k) for k in ['caption_font','caption_motion','caption_fill','caption_place','caption_case','caption_speed','captions_auto','background','transition']}
     if not before.graphics_auto:keep.update(graphics_style=before.graphics_style,graphics_auto=False)
     if not before.captions_auto:keep.update(caption_preset=before.caption_preset,highlight_color=before.highlight_color,caption_y=before.caption_y)
     save_plan(folder,Plan(**{'caption_preset':preset,'highlight_color':ACCENT,**keep}))
@@ -926,6 +940,90 @@ def cut_auto(folder,notes='',status=None):
     if decision is None:raise RuntimeError(f'The editor returned no cut ({response.stop_reason}).')
     old=load_cut(folder)
     return save_cut(folder,CutPlan(keep=decision.keep,tighten=old.tighten,max_pause=old.max_pause,removed=[r.model_dump() for r in decision.removed],summary=decision.summary))
+
+class WordFix(BaseModel):
+    id:int=Field(description='transcript part id')
+    text:str=Field(description='the whole corrected part, same words in the same order, only misheard words fixed')
+    why:str=Field(description='2-6 words, e.g. "misheard: podcast", "spelling"')
+
+class WordFixes(BaseModel):
+    fixes:list[WordFix]=Field(description='only parts that need a change; empty when everything is right')
+
+FIX_SYSTEM="""You proofread an automatic transcript of a talking video. The speaker talks Amharic mixed with English.
+The speech recogniser often mishears Amharic: wrong letters (ቋን for እንኳን), words split or joined wrongly (ክፍለው for ክፍሌ ነው), and English words written as odd Ethiopic (ፖርካስት for ፖድካስት).
+Fix only recognition errors, so each part reads as what the speaker actually said:
+- Keep the same meaning, the same words in the same order, and the speaker's own phrasing and slang. Never rewrite, shorten, translate or improve the style. Never add or remove content.
+- English words the speaker says in English: write them the way the rest of the transcript does (keep Ethiopic spelling of loanwords if it is used, e.g. ስቱዲዮ, ባክግራውንድ; keep Latin for names and brands like TikTok, AI).
+- Keep Ethiopic punctuation (። ፣ ?).
+- When you are unsure what was said, leave the word as it is.
+Creator notes, when given, are facts about this video (topic, names, how words are spelled): follow them.
+Return only the parts that change, each as the complete corrected part text."""
+
+def suggest_fixes(folder,notes='',status=None):
+    """Ask Claude to proofread the transcript; saves suggestions to word-fixes.json for the creator to review (nothing is applied)."""
+    import anthropic
+    folder=Path(folder);units=json.loads((folder/'units.json').read_text())
+    text='Transcript parts, [id] text:\n'+'\n'.join(f"[{i}] {u['text']}" for i,u in enumerate(units))
+    if notes.strip():text+='\n\nCreator notes:\n'+notes.strip()
+    client=anthropic.Anthropic(api_key=setting('ANTHROPIC_API_KEY') or None)
+    response=interruptible(lambda:client.beta.messages.parse(
+        model=setting('SHORTS_PLANNER_MODEL','claude-opus-5-5'),max_tokens=16000,
+        betas=['server-side-fallback-2026-07-01'],fallbacks='default',system=FIX_SYSTEM,
+        messages=[{'role':'user','content':text+'\n\nProofread it.'}],output_format=WordFixes),status)
+    if response.stop_reason=='refusal':raise RuntimeError('Claude declined this request.')
+    out=response.parsed_output
+    if out is None:raise RuntimeError(f'Claude returned no corrections ({response.stop_reason}).')
+    fixes=[{'id':f.id,'old':units[f.id]['text'],'new':' '.join(f.text.split()),'why':f.why} for f in out.fixes
+           if 0<=f.id<len(units) and ' '.join(f.text.split()) and ' '.join(f.text.split())!=units[f.id]['text']]
+    (folder/'word-fixes.json').write_text(json.dumps({'notes':notes,'fixes':fixes},ensure_ascii=False,indent=1))
+    return fixes
+
+POST_SYSTEM="""You write the TikTok post for a short vertical video by an Ethiopian creator who talks Amharic mixed with English
+about AI and tech. Write for Ethiopian viewers, in Amharic (Ethiopic script) with the English words they actually use
+(AI, TikTok, app names). Base everything only on what is said in the video; never invent claims, numbers or products.
+- titles: 3 different hooks of at most 60 characters each: curiosity, the payoff, or a direct question. One emoji at most.
+- caption: the description, 2-4 short lines with line breaks: what happens in the video, then end on a question that
+  invites comments (the video's own question when it asks one). A few fitting emoji, no hashtags here.
+- hashtags: 8-14, most specific first: the topic in English and Amharic, then #Ethiopia #ኢትዮጵያ #Amharic #habesha
+  style audience tags, then one or two broad ones like #fyp. Each starts with # and has no spaces.
+- best_time: one short line on when to post (this audience is most active 6-11 PM Ethiopia time)."""
+
+class PostCopy(BaseModel):
+    titles:list[str];caption:str;hashtags:list[str];best_time:str
+
+def post_copy(folder,notes='',status=None):
+    """Title options, description and hashtags for posting, from the edit's own words. Saved to post.json."""
+    import anthropic
+    folder=Path(folder);caps=json.loads((folder/'captions.json').read_text())['captions']
+    text='What is said in the final video:\n'+''.join(c['text'] for c in caps).strip()
+    plan=load_plan(folder) if (folder/'plan.json').exists() else None
+    if plan and plan.notes:text+='\n\nEditor notes on the video:\n'+plan.notes
+    if notes.strip():text+='\n\nCreator notes:\n'+notes.strip()
+    client=anthropic.Anthropic(api_key=setting('ANTHROPIC_API_KEY') or None)
+    response=interruptible(lambda:client.beta.messages.parse(
+        model=setting('SHORTS_PLANNER_MODEL','claude-opus-5-5'),max_tokens=4000,
+        betas=['server-side-fallback-2026-07-01'],fallbacks='default',system=POST_SYSTEM,
+        messages=[{'role':'user','content':text+'\n\nWrite the post.'}],output_format=PostCopy),status)
+    if response.stop_reason=='refusal':raise RuntimeError('Claude declined this request.')
+    out=response.parsed_output
+    if out is None:raise RuntimeError(f'Claude returned no post text ({response.stop_reason}).')
+    tags=[]
+    for t in out.hashtags:
+        t='#'+re.sub(r'\s+','',t.lstrip('#'))
+        if len(t)>1 and t.lower() not in {x.lower() for x in tags}:tags.append(t)
+    data={'titles':[t.strip() for t in out.titles if t.strip()][:3],'caption':out.caption.strip(),'hashtags':tags[:15],'best_time':out.best_time.strip(),'notes':notes}
+    (folder/'post.json').write_text(json.dumps(data,ensure_ascii=False,indent=1));return data
+
+def apply_fixes(folder,edits):
+    """Apply reviewed corrections {part id: text}. Returns True when the built edit's captions updated in place,
+    False when one of them moves a cut point (then the edit needs a rebuild). Applied ones leave word-fixes.json."""
+    folder=Path(folder);in_place=True
+    for ident,text in sorted((int(k),v) for k,v in edits.items()):in_place=edit_part(folder,ident,text) and in_place
+    path=folder/'word-fixes.json'
+    if path.exists():
+        data=json.loads(path.read_text());data['fixes']=[f for f in data['fixes'] if str(f['id']) not in {str(k) for k in edits}]
+        path.write_text(json.dumps(data,ensure_ascii=False,indent=1)) if data['fixes'] else path.unlink()
+    return in_place
 
 def load_plan(folder):
     path=Path(folder)/'plan.json'
@@ -965,7 +1063,7 @@ def check_plan(plan,folder):
     folder=Path(folder);meta=json.loads((folder/'manifest.json').read_text());tracks=json.loads((folder/'tracks.json').read_text())
     duration=meta['duration'];warnings=[];kept=[]
     seen=lambda t:any(t);clips=load_clips(folder);broll_until=-1.
-    plan.caption_y=min(max(plan.caption_y,.1),.92)
+    plan.caption_y=min(max(plan.caption_y,.1),.92);plan.caption_speed=min(max(plan.caption_speed,.6),2.)
     try:captions=json.loads((folder/'captions.json').read_text())['captions']
     except (OSError,ValueError,KeyError):captions=[]
     for e in merge_cards(sorted(plan.events,key=lambda e:e.start)):
@@ -996,6 +1094,8 @@ def check_plan(plan,folder):
             if e.layout=='front' and not (folder/'foreground.webm').exists():e.layout='full';warnings.append(f'{where}: no person cutout, so it is shown full screen')
             broll_until=e.end
         if e.type=='text' and not e.text.strip():warnings.append(f'{where}: empty text; skipped');continue
+        for k in ('accent','ink'):
+            if getattr(e,k) and not HEX.match(getattr(e,k)):setattr(e,k,'')
         if e.type=='look':
             where=f'look switch at {e.start:.2f}s'
             if e.look not in LOOKS:warnings.append(f'{where}: unknown look "{e.look}"; skipped');continue
@@ -1110,12 +1210,12 @@ def plan_from_json(data):
     defaults={k:f.default for k,f in Event.model_fields.items() if not f.is_required()}
     for raw in data.get('events') or []:
         if isinstance(raw,dict):raw={**defaults,**raw}  # a field the planner left out takes its default
-        try:events.append(PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.7,'highlight_color':ACCENT,'progress_bar':False,'look':'original','graphics_style':'glass','emphasis':[],'notes':'','events':[raw]}).events[0])
+        try:events.append(PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.7,'highlight_color':ACCENT,'progress_bar':False,'look':'original','light':'pool','graphics_style':'glass','emphasis':[],'notes':'','events':[raw]}).events[0])
         except ValidationError:dropped.append(f"{raw.get('type','?')} at {raw.get('start','?')}s" if isinstance(raw,dict) else str(raw)[:40])
-    top={'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT,'progress_bar':False,'look':'original','graphics_style':'glass','emphasis':[],'notes':'',
+    top={'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT,'progress_bar':False,'look':'original','light':'pool','graphics_style':'glass','emphasis':[],'notes':'',
          **{k:v for k,v in data.items() if k!='events'}}
     try:plan=PlannerPlan.model_validate({**top,'events':events})
-    except ValidationError:plan=PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT,'progress_bar':False,'look':'original','graphics_style':'glass','emphasis':[],'notes':str(top.get('notes',''))[:500],'events':events})
+    except ValidationError:plan=PlannerPlan.model_validate({'caption_preset':'editorial','caption_y':.72,'highlight_color':ACCENT,'progress_bar':False,'look':'original','light':'pool','graphics_style':'glass','emphasis':[],'notes':str(top.get('notes',''))[:500],'events':events})
     return plan.to_plan(),dropped
 
 def json_from_text(text):
@@ -1151,6 +1251,8 @@ def plan_auto(folder,notes='',preset=None,status=None):
         if not mine.auto:plan.background=mine  # the creator chose a look: keep it
         if not before.graphics_auto:plan.graphics_style,plan.graphics_auto=before.graphics_style,False
         plan.caption_font,plan.caption_motion,plan.caption_fill,plan.caption_place,plan.caption_case,plan.captions_auto=before.caption_font,before.caption_motion,before.caption_fill,before.caption_place,before.caption_case,before.captions_auto
+        plan.transition=before.transition  # the creator's switch effect
+        plan.caption_speed=before.caption_speed
         if not before.captions_auto:plan.caption_preset,plan.highlight_color,plan.caption_y=before.caption_preset,before.highlight_color,before.caption_y
     except (OSError,ValueError):pass
     if (preset or mode not in (None,'auto')) and plan.captions_auto:plan.caption_preset=preset or mode
@@ -1193,7 +1295,7 @@ def voice_level(src):
 def auto_sounds(plan,kit,cuts=(),voice=.05):
     """Sparse sound design from the graphics, always under the voice: a whoosh on real movement (its loudest
     moment on the fastest frame), one click per new element, an impact when a full-screen scene arrives and
-    a riser + hit into the occasional big change (impacts, risers and hits only from the creator's own pack)."""
+    a riser + hit into the occasional big change (impacts, risers and hits only once the creator picks or adds them)."""
     out=[];placed=[e.start for e in plan.events if e.type=='sfx'];last={}
     family=lambda sound:'whoosh' if sound.startswith('whoosh') else 'riser' if sound.startswith('riser') else 'hit' if sound=='hit' else 'texture'
     gap={'whoosh':1.5,'texture':.8,'riser':25,'hit':25}
@@ -1209,7 +1311,10 @@ def auto_sounds(plan,kit,cuts=(),voice=.05):
         if e.type=='zoom' and e.scale>=1.15:whoosh(e.start+2/FPS)
         elif e.type=='text':add('pop',e.start+2/FPS)
         elif e.type=='sticker' and e.trigger=='time':add('pop',e.start+2/FPS)
-        elif e.type=='flash':add('camera-click',e.start)
+        elif e.type=='flash':  # a sound that fits the switch effect
+            kind=e.effect or plan.transition
+            if kind=='flash':add('camera-click',e.start)
+            elif kind in ('bloom','leak','blur','whip'):whoosh(e.start)
         elif e.type=='broll':whoosh(e.start+2/FPS);scenes.append(e.start)
         elif e.type=='card':
             if e.scene in ('dark','light','split'):whoosh(e.start+2/FPS);add('impact',e.start+4/FPS);scenes.append(e.start)
@@ -1258,18 +1363,40 @@ def render_props(folder):
      'captions':json.loads((folder/'captions.json').read_text())['captions'],
      'tracks':json.loads((folder/'tracks.json').read_text()),'plan':plan.model_dump(),'clips':load_clips(folder),
      'lottie':emoji_animations(plan),
-     'looks':{e.look:look(e.look).model_dump() for e in plan.events if e.type=='look' and e.look in LOOKS},
+     'looks':{e.look:{**look(e.look).model_dump(),'pattern':plan.background.pattern} for e in plan.events if e.type=='look' and e.look in LOOKS},
      'assets':sorted(p.name for p in (folder/'assets').iterdir() if p.suffix.lower() in ('.png','.jpg','.jpeg','.webp','.gif')) if (folder/'assets').exists() else []},warnings
 
-# Sound library. Real recordings only: the creator's own pack in sfx-library/<family>/ wins, then Remotion's
-# free hosted recordings (cached in models/sfx-cache). Risers, hits and impacts only play from the creator's pack.
-SFX_LIBRARY=ROOT/'sfx-library';SFX_CACHE=ROOT/'models'/'sfx-cache'
+# Sound library. Real recordings only. Each family plays the creator's pick (Sound effects on the Graphics tab,
+# saved in sfx-library/choices.json); without one, their own file in sfx-library/<family>/, else a default from the
+# Mixkit catalog, else Remotion's free hosted recordings (cached in models/sfx-cache). Impacts, risers and hits stay
+# off until the creator picks one or adds their own.
+SFX_LIBRARY=ROOT/'sfx-library';SFX_CACHE=ROOT/'models'/'sfx-cache';SFX_MIXKIT=ROOT/'models'/'sfx-mixkit'
 HOSTED=['whoosh','whip','ding','switch','mouse-click','shutter-modern','vine-boom','record-scratch','page-turn','anime-wow','yippee']
-FAMILY={'whoosh-soft':'whoosh','whoosh-deep':'whoosh','whoosh-long':'whoosh','ui-click':'click','scifi-click':'click','pop':'click',
+FAMILY={'whoosh-soft':'whoosh','whoosh-deep':'whoosh','whoosh-long':'whoosh','ui-click':'click','scifi-click':'click','pop':'pop',
         'gears':'click','camera-click':'camera','impact':'impact','riser-bass':'riser','riser-metal':'riser','hit':'hit','success':'success'}
-FALLBACK={'whoosh':'whoosh','click':'mouse-click','camera':'shutter-modern','success':'ding'}
+FALLBACK={'whoosh':'whoosh','click':'mouse-click','pop':'mouse-click','camera':'shutter-modern','success':'ding'}
 AUTO_SOUNDS=['whoosh-soft','pop','ui-click','camera-click','impact','riser-bass','riser-metal','hit']  # what auto_sounds() places
 AUDIO_EXT=('.wav','.mp3','.m4a','.aif','.aiff','.flac','.ogg')
+# Mixkit sound effects: free for commercial videos, no credit needed. Their license does not allow sharing the raw
+# files, so they are downloaded to this Mac (models/sfx-mixkit, not in git) and only rendered videos carry them.
+SFX_FAMILIES={'whoosh':('Whoosh','zoom-ins, B-roll and full-screen cards'),'pop':('Pop','text pops and stickers'),
+ 'click':('Click','card items and steps'),'camera':('Camera','flashes'),'impact':('Impact','full-screen scenes arriving'),
+ 'riser':('Riser','builds into a big change'),'hit':('Hit','lands the big change after a riser'),'success':('Success','win moments Claude adds')}
+MIXKIT={
+ 'whoosh':[(1490,'Fast whoosh transition'),(1492,'Cinematic fast whoosh'),(166,'Fast small sweep'),(3115,'Fast transitions swoosh'),(1489,'Air woosh'),
+           (1461,'Short wind swoosh'),(3120,'Technology slide'),(2608,'Air zoom vacuum'),(1491,'Arrow whoosh')],
+ 'pop':[(2364,'Hard pop click'),(2358,'Long pop'),(3005,'Explainer light pop'),(2356,'Dry pop up'),(2354,'Message pop'),(2357,'Bubble pop up'),
+        (2925,'Soap bubble'),(1124,'Plastic bubble click')],
+ 'click':[(2568,'Cool interface click'),(1109,'Select click'),(3124,'Modern tech select'),(2577,'Interface device click'),(1120,'Click box check'),
+          (2997,'Clear mouse clicks'),(900,'Sci-fi click'),(2573,'Interface option select'),(1117,'Classic click')],
+ 'camera':[(1432,'Digital shutter'),(1430,'Hard shutter click'),(1440,'Classic camera click'),(1433,'Lens shutter'),(1438,'Vintage shutter'),(1434,'Nikon shutter')],
+ 'impact':[(772,'Quick zoom impact'),(1143,'Deep whoosh impact'),(2902,'Intro presentation impact'),(2903,'Whoosh impact presentation'),
+           (2908,'Epic trailer impact'),(788,'Big cinematic impact'),(498,'Deep heartbeat'),(1021,'Glitch trailer hit')],
+ 'riser':[(790,'Trailer riser'),(1144,'Space stutter riser'),(2638,'Magic sweep riser'),(1093,'Glitch rewind'),(2295,'Pulsating bass'),(645,'Synth riser (long)')],
+ 'hit':[(2299,'Short bass hit'),(2180,'Exciting fast hit'),(2161,'Air hit'),(677,'Glass hit'),(565,'Horror drum hit'),(2907,'Blockbuster hit')],
+ 'success':[(2870,'Correct answer'),(951,'Positive notification'),(2867,'Confirmation tone'),(914,'Sci-fi confirmation'),(937,'Happy bells'),
+            (2344,'Magic ring'),(952,'Reward')]}
+SFX_DEFAULT={'whoosh':1490,'pop':2364,'click':2568,'camera':1432,'success':2870}
 
 def hosted_sound(name):
     path=SFX_CACHE/f'{name}.wav'
@@ -1279,13 +1406,76 @@ def hosted_sound(name):
         path.with_suffix('.part').write_bytes(r.content);path.with_suffix('.part').replace(path)
     return path
 
+def mixkit_sound(ident):
+    """A catalog sound as a local WAV, downloaded once."""
+    ident=int(ident)
+    if not any(ident==i for items in MIXKIT.values() for i,_ in items):raise ValueError(f'Unknown sound {ident}')
+    path=SFX_MIXKIT/f'{ident}.wav'
+    if not path.exists():
+        import httpx
+        SFX_MIXKIT.mkdir(parents=True,exist_ok=True)
+        base=f'https://assets.mixkit.co/active_storage/sfx/{ident}/{ident}'
+        r=httpx.get(base+'.wav',timeout=60,follow_redirects=True)
+        if r.status_code in (403,404):  # a few are offered as MP3 only
+            r=httpx.get(base+'.mp3',timeout=60,follow_redirects=True);r.raise_for_status()
+            mp3=path.with_suffix('.mp3');mp3.write_bytes(r.content)
+            try:write_wav(decode_audio(mp3),path.with_suffix('.part'))
+            finally:mp3.unlink(missing_ok=True)
+        else:
+            r.raise_for_status();path.with_suffix('.part').write_bytes(r.content)
+        path.with_suffix('.part').replace(path)
+    return path
+
+def own_sounds(fam):
+    """The creator's own files for a family: sfx-library/<family>/* or sfx-library/<family>*.wav."""
+    return sorted(p for d in [SFX_LIBRARY/fam,SFX_LIBRARY] for p in (d.glob('*') if d.is_dir() else []) if p.suffix.lower() in AUDIO_EXT and (d.name==fam or p.stem.lower().startswith(fam)))
+
+def sound_choices():
+    try:return json.loads((SFX_LIBRARY/'choices.json').read_text())
+    except (OSError,ValueError):return {}
+
+def sound_choice(fam):
+    """'mixkit:ID', 'own:FILE', 'builtin' or 'off' for a family."""
+    pick=sound_choices().get(fam)
+    if pick:return pick
+    own=own_sounds(fam)
+    if own:return 'own:'+own[0].relative_to(SFX_LIBRARY).as_posix()
+    if fam in SFX_DEFAULT:return f'mixkit:{SFX_DEFAULT[fam]}'
+    return 'builtin' if fam in FALLBACK else 'off'
+
+def choice_file(fam,pick):
+    """Local file for a choice (downloading a catalog sound if needed), or None for off."""
+    if pick.startswith('mixkit:'):return mixkit_sound(pick[7:])
+    if pick.startswith('own:'):
+        path=(SFX_LIBRARY/pick[4:]).resolve()
+        return path if path.is_relative_to(SFX_LIBRARY.resolve()) and path.exists() else None
+    if pick=='builtin' and fam in FALLBACK:return hosted_sound(FALLBACK[fam])
+    return None
+
+def set_sound_choice(fam,pick):
+    if fam not in SFX_FAMILIES:raise ValueError('Unknown sound family')
+    if pick!='off' and not choice_file(fam,pick):raise ValueError('That sound is not available')
+    SFX_LIBRARY.mkdir(exist_ok=True);data={**sound_choices(),fam:pick}
+    (SFX_LIBRARY/'choices.json').write_text(json.dumps(data,indent=1));return data
+
+def sound_catalog():
+    """Every family with its options for the studio's picker."""
+    out=[]
+    for fam,(label,use) in SFX_FAMILIES.items():
+        options=[{'id':f'mixkit:{i}','title':t,'ready':(SFX_MIXKIT/f'{i}.wav').exists()} for i,t in MIXKIT[fam]]
+        options+=[{'id':'own:'+p.relative_to(SFX_LIBRARY).as_posix(),'title':f'Yours: {p.stem}','ready':True} for p in own_sounds(fam)]
+        if fam in FALLBACK:options.append({'id':'builtin','title':'Built-in','ready':True})
+        out.append({'id':fam,'label':label,'use':use,'choice':sound_choice(fam),'options':options})
+    return out
+
 def sound_source(name):
     """File for a plan sound name, or None when nothing real is available for it."""
     fam=FAMILY.get(name)
     if fam:
-        own=sorted(p for d in [SFX_LIBRARY/fam,SFX_LIBRARY] for p in (d.glob('*') if d.is_dir() else []) if p.suffix.lower() in AUDIO_EXT and (d.name==fam or p.stem.lower().startswith(fam)))
-        if own:return own[0]
-        return hosted_sound(FALLBACK[fam]) if fam in FALLBACK else None
+        pick=sound_choice(fam)
+        try:return choice_file(fam,pick)
+        except Exception:  # offline before the pick was downloaded: the built-in recording stands in
+            return hosted_sound(FALLBACK[fam]) if fam in FALLBACK else None
     return hosted_sound(name) if name in HOSTED else None
 
 def sound_info(path):
@@ -1296,15 +1486,19 @@ def sound_info(path):
 def sound_kit(folder,names=None):
     """Copy the sounds this edit can use into the job's sfx/ folder; returns {name: (peak s, rms, length s)}."""
     out=Path(folder)/'sfx';out.mkdir(exist_ok=True);kit={}
+    try:used=json.loads((out/'sources.json').read_text())
+    except (OSError,ValueError):used={}
     for name in names or SOUNDS:
         try:src=sound_source(name)
         except Exception:src=None
         if src is None:continue
         dst=out/f'{name}.wav'
-        if not dst.exists():
+        if not dst.exists() or used.get(name)!=str(src):  # re-copy when the creator picked another sound
             if src.suffix.lower()=='.wav':shutil.copyfile(src,dst)
             else:write_wav(decode_audio(src),dst)
+            used[name]=str(src)
         kit[name]=sound_info(dst)
+    (out/'sources.json').write_text(json.dumps(used))
     return kit
 
 def render(folder,final=False,status=say):
@@ -1321,7 +1515,66 @@ def render(folder,final=False,status=say):
         done=re.match(r'(Rendered|Encoded) (\d+)/(\d+)',line)
         if done:status(label,(.85 if done[1]=='Rendered' else .15)*int(done[2])/max(1,int(done[3]))+(.85 if done[1]=='Encoded' else 0))
     if finished(proc,status):raise RuntimeError('Render failed:\n'+'\n'.join(tail))
+    bad=torn_frames(partial)
+    if bad and len(bad)<=TORN_MAX:
+        status(f'{label} · fixing {len(bad)} glitched {"frame" if len(bad)==1 else "frames"}',.99)
+        repair_frames(folder,partial,bad,final)
     partial.replace(folder/name);return folder/name,warnings
+
+TORN_MAX=30  # more than this is not the occasional glitch: leave the render as it is
+def _repeat(img):
+    """(how well the frame matches itself shifted down, contrast) on a small grey copy."""
+    a=np.asarray(img.convert('L').resize((90,160)),dtype=np.float32)
+    return min(np.abs(a[o:]-a[:160-o]).mean() for o in range(8,110,2)),a.std(),a
+
+def torn(img):
+    """Headless Chrome now and then saves a half-drawn frame: the picture repeated lower down, or only the wall
+    tiled in a grid, without the person or captions. Such a frame matches itself shifted down; real ones do not."""
+    rep,std,_=_repeat(img)
+    return bool(rep<1.5 or (rep<8 and std>12))
+
+def torn_frames(path):
+    """Glitched frames: self-repeating AND unlike both neighbours, so a plain stretch is never flagged."""
+    with av.open(str(path)) as c:small=[_repeat(f.to_image()) for f in c.decode(video=0)]
+    out=[]
+    for i,(rep,std,a) in enumerate(small):
+        if not (rep<1.5 or (rep<8 and std>12)):continue
+        near=[small[k][2] for k in (i-1,i+1) if 0<=k<len(small)]
+        odd=np.mean([np.abs(a-b).mean() for b in near]) if near else 99
+        base=np.abs(near[0]-near[1]).mean() if len(near)==2 else 0
+        if odd>3*base+2:out.append(i)
+    return out
+
+def repair_frames(folder,video,bad,final):
+    """Render each glitched frame again as a still and put it in place; the sound is copied unchanged."""
+    from PIL import Image
+    folder=Path(folder).resolve();stills={}
+    for n in bad:
+        png=folder/f'.still-{n}.png'
+        for _ in range(3):
+            cmd=['npx','remotion','still','src/index.ts','Shorts',str(png),'--props',str(folder/'render-props.json'),'--public-dir',str(folder),
+                 '--frame',str(n),'--log','error']+browser_args()+([] if final else ['--scale','0.5'])
+            ok=subprocess.run(cmd,cwd=MOTION,capture_output=True).returncode==0 and png.exists()
+            if ok and not torn(Image.open(png)):stills[n]=png;break
+    if not stills:return
+    fixed=video.with_name(video.stem+'-fixed.mp4')
+    with av.open(str(video)) as inp,av.open(str(fixed),'w') as out:
+        src=inp.streams.video[0];vs=out.add_stream('libx264',rate=FPS)
+        vs.width,vs.height,vs.pix_fmt=src.codec_context.width,src.codec_context.height,'yuv420p';vs.options={'crf':'18' if final else '23'}
+        aud=inp.streams.audio[0] if inp.streams.audio else None;outa=out.add_stream_from_template(aud) if aud else None
+        i=0
+        for pkt in inp.demux([s for s in (src,aud) if s]):
+            if pkt.stream is aud:
+                if pkt.dts is not None:pkt.stream=outa;out.mux(pkt)
+                continue
+            for f in pkt.decode():
+                # Remotion's encoder stores BT.601 full-range values: convert the still the same way, or it shows brighter.
+                frame=av.VideoFrame.from_image(Image.open(stills[i]).convert('RGB')).reformat(format='yuv420p',dst_colorspace=5,dst_color_range=2) if i in stills else f
+                frame.pts=i;frame.time_base=Fraction(1,FPS);i+=1
+                out.mux(vs.encode(frame if frame.format.name=='yuv420p' else frame.reformat(format='yuv420p')))
+        out.mux(vs.encode())
+    fixed.replace(video)
+    for png in stills.values():png.unlink(missing_ok=True)
 
 if __name__=='__main__':
     import argparse,uuid

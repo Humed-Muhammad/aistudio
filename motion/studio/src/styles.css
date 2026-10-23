@@ -1,5 +1,5 @@
 /* Every color comes from a theme token (theme.ts). Mixes derive hover/soft variants from them. */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Ethiopic:wdth,wght@62.5..100,400..900&family=Noto+Serif+Ethiopic:wght@500&family=Menbere:wght@700&family=Agbalumo&family=Abyssinica+SIL&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Ethiopic:wdth,wght@62.5..100,400..900&family=Noto+Serif+Ethiopic:wght@500&family=Menbere:wght@700&family=Agbalumo&family=Abyssinica+SIL&family=Montserrat:wght@800&display=swap");
 
 :root {
   --soft: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -166,6 +166,8 @@ input[type=color] { width: 36px; height: 30px; border: 1px solid var(--line); bo
 .look.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--soft); }
 .look .sw { height: 92px; border-radius: 8px; position: relative; overflow: hidden; }
 .look .sw::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 46%; height: 70%; translate: -50% 0; border-radius: 50% 50% 8px 8px / 38% 38% 8px 8px; background: #2b2b30; box-shadow: var(--person-glow, none); }
+.lights { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.lights .sw { height: auto; aspect-ratio: 9 / 14; }
 .look small { color: var(--muted); font-weight: 400; font-size: 11px; display: block; }
 .section { padding: 16px 0; border-top: 1px solid var(--line); }
 .section:first-of-type { border-top: 0; padding-top: 0; }
@@ -223,6 +225,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .cap-quiet { font: 500 15px "Noto Serif Ethiopic", Georgia, serif; }
 .cap-float { color: #e4dcff; text-shadow: 0 0 6px #b79cff, 0 0 14px #b79cff99; }
 .cap-stack { font-size: 22px; color: #ff6fae; }
+.cap-sweep { font-family: Montserrat, 'Noto Sans Ethiopic', sans-serif; font-weight: 800; background: linear-gradient(90deg, #fff 0%, #fff 55%, #8a8f99 80%, #5a5f68 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 6px rgba(255,255,255,.35)); }
 .cap-bold { font-size: 19px; text-transform: uppercase; }
 .cap-editorial { font: italic 400 17px Georgia, serif; }
 .cap-minimal { font: 600 13px Inter, sans-serif; }
@@ -251,3 +254,41 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .gs-noir { background: #000; font-weight: 500; } .gs-noir b { border: 1px solid rgba(255,255,255,.5); padding: 0 8px; } .gs-noir i { font: italic 400 22px Georgia, serif; color: #fff; }
 .gs-swiss { background: #ebeae6; color: #111; font: 800 16px Montserrat, Inter, sans-serif; text-align: left; } .gs-swiss b, .gs-swiss i { background: #fff; padding: 0 6px; } .gs-swiss i { color: #e5484d; }
 .gs-clay { background: #e8eaee; color: #2b2f36; } .gs-clay b, .gs-clay i { background: linear-gradient(145deg, #f6f7f9, #e2e5ea); border-radius: 14px; padding: 2px 10px; box-shadow: 5px 5px 12px rgba(120,130,150,.35), -4px -4px 10px #fff; } .gs-clay i { color: #3d86c9; margin-top: 4px; }
+
+/* ---------- word fixes ---------- */
+.fixes { display: grid; gap: 6px; max-height: 420px; overflow: auto; }
+.fix-row { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--sunken); cursor: pointer; }
+.fix-row input[type=checkbox] { margin-top: 4px; accent-color: var(--accent); }
+.fix-row .old { color: var(--muted); text-decoration: line-through; font-size: 13px; margin-bottom: 4px; }
+.fix-row input:not([type]) { padding: 7px 9px; }
+.fix-row small { display: block; margin-top: 4px; color: var(--accent); font-size: 11.5px; }
+.fix-row.off { opacity: .5; }
+
+.sounds { display: grid; gap: 6px; }
+.soundfam { border: 1px solid var(--line); border-radius: 10px; background: var(--sunken); overflow: hidden; }
+.soundfam.open { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.soundhead { display: grid; grid-template-columns: 90px 1fr auto; gap: 10px; align-items: center; width: 100%; padding: 9px 12px; background: none; border: 0; color: var(--text); cursor: pointer; text-align: left; font-size: 13px; }
+.soundhead small { color: var(--muted); font-size: 11.5px; }
+.soundlist { display: grid; gap: 2px; padding: 0 8px 8px; }
+.soundopt { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; padding: 5px 6px; border-radius: 8px; font-size: 12.5px; }
+.soundopt.on { background: var(--soft); }
+.playbtn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel, transparent); color: var(--text); cursor: pointer; font-size: 10px; padding: 0; }
+span.playbtn { border: 0; background: none; }
+
+.evwrap { border-radius: 10px; }
+.evwrap .ev { cursor: pointer; }
+.evwrap .ev:hover { background: var(--soft); }
+.evwrap.on { background: var(--sunken); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.evedit { display: grid; gap: 10px; padding: 4px 12px 14px; }
+.evedit .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.tpl { display: grid; gap: 2px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); color: var(--text); text-align: left; cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.tpl small { color: var(--muted); font-weight: 400; font-size: 10.5px; }
+.tpl.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--soft); }
+
+.redraft { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; margin: -6px 0 16px; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); font-size: 13px; }
+
+.posttext { display: grid; gap: 14px; }
+.postrow { display: grid; grid-template-columns: 20px 1fr auto; gap: 8px; align-items: center; padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; margin-top: 6px; cursor: pointer; font-size: 13.5px; }
+.postrow.on { border-color: var(--accent); background: var(--soft); }
+.postbox { white-space: pre-wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--sunken); font-size: 13.5px; line-height: 1.5; margin: 6px 0 8px; }

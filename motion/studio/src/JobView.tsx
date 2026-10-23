@@ -137,16 +137,26 @@ export const JobView: React.FC<{
     const a = job.action;
     if (a === "transcribe") post("transcribe");
     else if (a === "apply") post("cut/apply");
-    else if (a === "render") {
+    else if (a === "render" || (a === "auto" && job.status.startsWith("Render failed"))) {
+      // Edit it for me failing at its last step keeps Claude's cut and plan: only the draft renders again.
       const d = new FormData();
-      d.set("final", String(!!job.final));
+      d.set("final", String(a === "render" && !!job.final));
       post("render", d);
-    } else setTab(a === "plan" ? "graphics" : a === "autocut" ? "cut" : "review");
+    } else setTab(a === "plan" ? "graphics" : a === "autocut" || a === "fix" ? "cut" : "review");
   };
 
   const elapsed = now / 1000 - (job.started ?? now / 1000);
   const p = job.progress;
   const stopped = job.state === "cancelled";
+  // Draft out of date: the plan (look, captions, graphics) or the built edit changed after it was rendered.
+  const draftFile = job.files["shorts-draft.mp4"];
+  const changedSinceDraft = !!draftFile && Math.max(job.files["plan.json"] ?? 0, job.files["source.mp4"] ?? 0) > draftFile;
+  const cutChanged = !!job.files["source.mp4"] && (job.cut_mtime ?? 0) > job.files["source.mp4"];
+  const renderDraft = () => {
+    const d = new FormData();
+    d.set("final", "false");
+    post("render", d);
+  };
 
   return (
     <>
@@ -187,6 +197,26 @@ export const JobView: React.FC<{
           </button>
         ))}
       </div>
+
+      {!busy && job.tracking && job.plan ? (
+        cutChanged ? (
+          <div className="redraft">
+            <span>You changed the cut. Rebuild your edit to use it, then render a new draft.</span>
+            {current !== "cut" ? (
+              <button type="button" className="btn small" onClick={() => setTab("cut")}>
+                Go to Cut
+              </button>
+            ) : null}
+          </div>
+        ) : !draftFile || changedSinceDraft ? (
+          <div className="redraft">
+            <span>{draftFile ? "You changed things since your draft. The live preview already shows them." : "No draft video yet. The live preview shows your edit."}</span>
+            <button type="button" className="btn small" onClick={renderDraft}>
+              {draftFile ? "Render new draft" : "Render draft"}
+            </button>
+          </div>
+        ) : null
+      ) : null}
 
       {busy ? (
         <div className="activity">

@@ -74,7 +74,6 @@ const Result: React.FC<JobApi> = ({ job, busy, setup, post, goto }) => {
   const plan = job.plan;
   const look = plan?.background;
   const removed = job.cut?.removed ?? [];
-  const stale = !!draft && !!job.files["source.mp4"] && (job.files["plan.json"] ?? 0) > draft;
   const counts: Record<string, number> = {};
   for (const e of plan?.events ?? []) if (e.type !== "sfx") counts[e.type] = (counts[e.type] ?? 0) + 1;
   const NAMES: Record<string, [string, string]> = {
@@ -140,7 +139,6 @@ const Result: React.FC<JobApi> = ({ job, busy, setup, post, goto }) => {
         <div>
           <h2>{draft ? "Your draft is ready" : "Your edit is built"}</h2>
           <p className="lead">{draft ? "Watch it. If you like it, render the final. If not, say what to change." : "Graphics and a draft come next."}</p>
-          {stale ? <div className="stale">You changed things after this draft. The live preview shows the latest; render a new draft to update the file.</div> : null}
 
           <div className="facts">
             {job.cut_summary ? (

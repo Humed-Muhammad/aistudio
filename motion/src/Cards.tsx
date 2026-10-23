@@ -999,7 +999,7 @@ type Props = {
 export const Card: React.FC<Props> = ({
   event: e,
   duration,
-  accent,
+  accent: videoAccent,
   from,
   video,
   tracks,
@@ -1017,7 +1017,12 @@ export const Card: React.FC<Props> = ({
   });
   const fade = interpolate(frame, [duration - EXIT, duration], [1, 0], clamp);
   const kit = kitFor(style);
-  const theme = e.scene === "light" ? kit.light : kit.dark;
+  // The creator's colours for this card win over the style's and the video's.
+  const accent = e.accent || videoAccent;
+  const styled = e.scene === "light" ? kit.light : kit.dark;
+  const theme = e.ink
+    ? { ...styled, text: e.ink, ink: e.ink, sub: e.ink + "BF", inkSub: e.ink + "BF" }
+    : styled;
   // Timeline in frames from the card's start; without one, items cascade in quickly.
   const marks = e.timeline.map(
     ([t, a]) => [Math.round(t * fps) - from, a] as const,

@@ -64,6 +64,8 @@ export type Job = JobSummary & {
   transcript_check: { speech: number; missing: number } | null;
   stopping: boolean;
   captions_updated?: boolean;
+  word_fixes: { id: number; old: string; new: string; why: string }[];
+  post: { titles: string[]; caption: string; hashtags: string[]; best_time: string; notes: string } | null;
 };
 
 export type { BackgroundLook, Plan, ShortsProps };
@@ -106,6 +108,9 @@ export const ago = (s: number) => {
 export const ACTION: Record<string, string> = {
   transcribe: "Transcribing",
   autocut: "Claude is choosing what to keep",
+  fix: "Claude is checking the words",
+  post: "Claude is writing your post",
+  auto: "Editing for you",
   apply: "Building your edit",
   plan: "Claude is planning graphics",
   render: "Rendering",
@@ -113,6 +118,8 @@ export const ACTION: Record<string, string> = {
 export const FAIL: Record<string, string> = {
   transcribe: "We couldn't transcribe this video",
   autocut: "Auto-cut didn't finish",
+  fix: "The word check didn't finish",
+  post: "The post text didn't finish",
   apply: "We couldn't build your edit",
   plan: "Auto-plan didn't finish",
   render: "The render failed",

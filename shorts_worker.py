@@ -35,19 +35,22 @@ class OneEuro:
   dx=(x-s.x)*s.fps;s.dx+=a(1.)*(dx-s.dx);s.x+=a(s.mincut+s.beta*abs(s.dx))*(x-s.x);return s.x
 
 class Matte:
- """RVM alpha and edge-cleaned colours per frame at a working size (long side 960, refined at half of that), upscaled; recurrent state resets at cuts."""
+ """RVM alpha and edge-cleaned colours per frame, refined at full resolution (up to 1920 px); recurrent state resets at cuts."""
  def __init__(s,W,H):
   import onnxruntime as ort
   if not RVM.exists():
    tmp=RVM.with_suffix('.download');urllib.request.urlretrieve(RVM_URL,str(tmp));tmp.replace(RVM)
   o=ort.SessionOptions();o.intra_op_num_threads=4  # leave cores free so the Mac stays responsive
   s.sess=ort.InferenceSession(str(RVM),sess_options=o,providers=['CPUExecutionProvider'])
-  f=min(1,960/max(W,H));s.size=(round(W*f/2)*2,round(H*f/2)*2);s.W,s.H=W,H;s.reset()
+  f=min(1,1920/max(W,H));s.size=(round(W*f/2)*2,round(H*f/2)*2);s.W,s.H=W,H;s.reset()
+  # The coarse pass always sees ~480 px (what RVM is trained on); the refiner then works at full resolution,
+  # so hair and shoulder edges are computed sharp instead of being enlarged from a small matte.
+  s.ratio=min(1.,480/max(s.size))
  def reset(s):s.rec=[np.zeros((1,1,1,1),np.float32)]*4
  def __call__(s,rgb):
   im=rgb if s.size==(s.W,s.H) else np.asarray(Image.fromarray(rgb).resize(s.size,Image.Resampling.BILINEAR))
   src=(im.astype(np.float32)/255).transpose(2,0,1)[None]
-  fgr,pha,*s.rec=s.sess.run(None,{'src':src,'r1i':s.rec[0],'r2i':s.rec[1],'r3i':s.rec[2],'r4i':s.rec[3],'downsample_ratio':np.array([.5],np.float32)})
+  fgr,pha,*s.rec=s.sess.run(None,{'src':src,'r1i':s.rec[0],'r2i':s.rec[1],'r3i':s.rec[2],'r4i':s.rec[3],'downsample_ratio':np.array([s.ratio],np.float32)})
   a=np.clip((pha[0,0]-.12)/.88,0,1)  # slight choke: drops the faint fringe of the old room around hair
   f=fgr[0].transpose(1,2,0)
   if a.shape!=(s.H,s.W):
@@ -130,8 +133,12 @@ with mp.tasks.vision.GestureRecognizer.create_from_options(gesture_opts) as gest
    if matte:matte.reset()
   previous=small
   if i%fps==0 and i//fps%2==0:Image.fromarray(rgb).resize((360,round(360*H/W))).save(root/f'keyframes/{i/fps:07.2f}.jpg',quality=80)
-  result=gestures.recognize_for_video(image,ms)
-  hands=[hand_record(lm,(g[0].category_name if g else ''),W,H) for lm,g in zip(result.hand_landmarks,result.gestures)]
+  # MediaPipe sometimes rejects a frame whose pixels are shared ("Packet isn't the sole owner"): give it its
+  # own copy, and skip that one frame's hands rather than failing the whole build.
+  try:
+   result=gestures.recognize_for_video(mp.Image(image_format=mp.ImageFormat.SRGB,data=rgb.copy()),ms)
+   hands=[hand_record(lm,(g[0].category_name if g else ''),W,H) for lm,g in zip(result.hand_landmarks,result.gestures)]
+  except RuntimeError:hands=[]
   current=assign(hands,last);raw_hands.append(current);last={k:current[k] or (None if i in cuts else last[k]) for k in last}
   faces.append(find_face(detector,rgb,W,H))
   colour=rgb

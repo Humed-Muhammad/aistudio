@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PlayerRef } from "@remotion/player";
 import type { ShortEvent } from "../../../src/types";
 import { api, clock, fileUrl, jobUrl, sendJSON } from "../api";
 import type { JobApi } from "../JobView";
 import { Preview } from "../Preview";
+import { BLANK, EventEditor, problem } from "./EventEditor";
+import { Sounds } from "./Sounds";
 
 const describe = (e: ShortEvent): [string, string] => {
   if (e.type === "text") return ["Text", `“${e.text}”${e.behind_subject ? " behind you" : ""}`];
@@ -26,10 +29,11 @@ const describe = (e: ShortEvent): [string, string] => {
     const scene = { overlay: "over you", dim: "background dimmed", dark: "dark full screen", light: "light full screen", split: "split with you below" }[e.scene];
     const what =
       e.template === "stat" ? e.value : e.template === "steps" ? `${e.active} of ${e.items.length}: ${e.items[e.active - 1] || ""}` : (e.text || e.items.join(", ")).replace(/\*/g, "");
-    return [e.template, `${what} · ${scene}`];
+    return [e.template, `${what} · ${scene}${e.behind_subject && e.scene === "overlay" ? " · behind you" : ""}`];
   }
   if (e.type === "no_captions") return ["No captions", "captions hidden for these words"];
   if (e.type === "look") return ["Look", `switch to ${e.look === "original" ? "your real room" : e.look}`];
+  if (e.type === "flash") return ["Effect", e.effect ? (EFFECTS.find(([id]) => id === e.effect)?.[1] ?? e.effect) : "same as the video"];
   if (e.type === "sfx") return ["Sound", e.sound];
   return [e.type, ""];
 };
@@ -39,6 +43,23 @@ const seconds = (v: string) => {
   if (!v) return NaN;
   const [m, s] = v.includes(":") ? v.split(":") : ["0", v];
   return Number(m) * 60 + Number(s);
+};
+
+const EFFECTS: [NonNullable<NonNullable<JobApi["job"]["plan"]>["transition"]>, string, string][] = [
+  ["bloom", "Soft bloom", "A warm glow, like a lens catching light"],
+  ["leak", "Light leak", "Orange-pink film light sweeping across"],
+  ["blur", "Blur punch", "Quick zoom with a blur"],
+  ["whip", "Whip", "Fast whip-pan slide"],
+  ["dip", "Dip to black", "A short fade through black"],
+  ["flash", "White flash", "The classic camera flash"],
+  ["none", "None", "Looks just cross-fade"],
+];
+
+/** Moments where the look changes: each look switch's start, and its end unless another switch starts there. */
+const lookChanges = (events: ShortEvent[]) => {
+  const looks = events.filter((e) => e.type === "look");
+  const at = looks.flatMap((e) => [e.start, ...(looks.some((x) => Math.abs(x.start - e.end) < 0.05) ? [] : [e.end])]);
+  return [...new Set(at.map((t) => Math.round(t * 100) / 100))].sort((a, b) => a - b);
 };
 
 const STYLES: [NonNullable<NonNullable<JobApi["job"]["plan"]>["graphics_style"]>, string, string, React.ReactNode][] = [
@@ -87,13 +108,89 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
       toast((e as Error).message, true);
     }
   };
-  const events = p.events.map((e, i) => [e, i] as const);
+  const player = useRef<PlayerRef>(null);
+  const [looks, setLooks] = useState<string[]>([]);
+  // The graphic being edited: changes play in the preview at once and save after a short pause.
+  const [editing, setEditing] = useState<{ i: number; e: ShortEvent } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const timer = useRef<number>(undefined);
+  useEffect(() => {
+    api<{ id: string }[]>("/shorts/looks").then((l) => setLooks(l.map((x) => x.id)), () => {});
+  }, []);
+  const shown = useMemo(() => {
+    if (!editing) return undefined;
+    const list = [...p.events];
+    if (editing.i >= list.length) list.push(editing.e);
+    else list[editing.i] = editing.e;
+    return { events: list };
+  }, [p.events, editing]);
+  const seek = (t: number) => {
+    const fps = 30;
+    player.current?.seekTo(Math.max(0, Math.round(t * fps)));
+  };
+  const pending = useRef<{ i: number; e: ShortEvent } | null>(null);
+  const flush = async () => {
+    window.clearTimeout(timer.current);
+    const next = pending.current;
+    pending.current = null;
+    if (!next) return;
+    const q = structuredClone(p);
+    if (next.i >= q.events.length) q.events.push(next.e);
+    else q.events[next.i] = next.e;
+    await savePlan(q);
+    setSaving(false);
+  };
+  const others = (i: number) => p.events.filter((_, k) => k !== i);
+  const edit = (i: number, e: ShortEvent) => {
+    setEditing({ i, e });
+    window.clearTimeout(timer.current);
+    // Saving an incomplete graphic would drop it from the plan: keep it as a draft until it is complete.
+    if (problem(e, others(i))) {
+      pending.current = null;
+      setSaving(false);
+      return;
+    }
+    setSaving(true);
+    pending.current = { i, e };
+    timer.current = window.setTimeout(flush, 700);
+  };
+  // Saving sorts graphics by time (and merges identical back-to-back cards): find the edited one again.
+  useEffect(() => {
+    if (!editing || pending.current) return;
+    let best = -1;
+    p.events.forEach((x, k) => {
+      if (x.type === editing.e.type && (best < 0 || Math.abs(x.start - editing.e.start) < Math.abs(p.events[best].start - editing.e.start))) best = k;
+    });
+    // Keep the local draft (e.g. an empty row just typed) while it is open; only follow its new position.
+    if (best < 0) setEditing(null);
+    else if (best !== editing.i) setEditing({ i: best, e: editing.e });
+  }, [p.events]); // eslint-disable-line react-hooks/exhaustive-deps
+  const open = async (i: number) => {
+    if (editing?.i === i) {
+      await flush();
+      setEditing(null);
+      return;
+    }
+    await flush();
+    setEditing({ i, e: p.events[i] });
+    seek(p.events[i].start + 0.3);
+  };
+  const add = (kind: "text" | "card") => {
+    const at = Math.round(((player.current?.getCurrentFrame() ?? 0) / 30) * 10) / 10;
+    const e: ShortEvent =
+      kind === "text"
+        ? { ...BLANK, type: "text", start: at, end: at + 2, text: "New text" }
+        : { ...BLANK, type: "card", start: at, end: at + 3, template: "list", text: "My *list*", items: ["First", "Second", "Third"], scene: "overlay", y: 0.3 };
+    edit(p.events.length, e);
+    seek(at + 0.4);
+  };
+  const events = p.events.map((e, i) => [editing?.i === i ? editing.e : e, i] as const);
 
   return (
     <div className="card">
       <div className="studio">
         <div className="stage">
-          <Preview id={job.id} version={JSON.stringify(p) + job.files["source.mp4"]} />
+          <Preview ref={player} id={job.id} version={JSON.stringify(p) + job.files["source.mp4"]} override={shown} />
           <span className="hint">{p.graphics_auto === false ? "Style: your choice · Claude keeps it" : "Style chosen by Claude"} · scrub to a card to compare</span>
         </div>
         <div>
@@ -159,6 +256,60 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
           </div>
 
           <div className="section" style={{ marginTop: 16 }}>
+            <h3>Switch effect</h3>
+            <p className="hint" style={{ marginTop: -4 }}>
+              What plays when the look changes, for the whole video. Click one to watch it in the preview. To give one switch its own
+              effect, click it in the list below.
+            </p>
+            <div className="templates">
+              {EFFECTS.map(([id, name, note]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={"tpl" + ((p.transition ?? "bloom") === id ? " on" : "")}
+                  disabled={busy}
+                  onClick={async () => {
+                    await savePlan({ ...p, transition: id });
+                    const first = p.events.find((e) => e.type === "flash");
+                    if (first) {
+                      seek(first.start - 0.6);
+                      player.current?.play();
+                    }
+                  }}
+                >
+                  {name}
+                  <small>{note}</small>
+                </button>
+              ))}
+            </div>
+            {(() => {
+              const flashes = p.events.filter((e) => e.type === "flash");
+              const missing = lookChanges(p.events).filter((t) => !flashes.some((f) => Math.abs(f.start - t) < 0.15));
+              return missing.length ? (
+                <div className="row" style={{ marginTop: 10 }}>
+                  <span className="hint">
+                    {flashes.length ? `${missing.length} look changes have no effect.` : "No effects in this video yet."}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    disabled={busy}
+                    onClick={() =>
+                      savePlan({ ...p, events: [...p.events, ...missing.map((t) => ({ ...BLANK, type: "flash" as const, start: t, end: t + 0.3 }))] }).then(() =>
+                        toast(`Effect added at ${missing.length} look ${missing.length === 1 ? "change" : "changes"}.`),
+                      )
+                    }
+                  >
+                    Add at every look change
+                  </button>
+                </div>
+              ) : null;
+            })()}
+          </div>
+
+          <Sounds busy={busy} toast={toast} />
+
+          <div className="section" style={{ marginTop: 16 }}>
             <h3>Images & screen recordings</h3>
             <label className="dropzone" style={{ padding: 18 }}>
               <strong style={{ fontSize: 14 }}>{uploading || "＋ Add images or screen recordings"}</strong>
@@ -215,36 +366,67 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
             </div>
           </div>
 
-          <h3>
-            Planned graphics <span className="hint">· {p.events.length}</span>
-          </h3>
+          <div className="row" style={{ justifyContent: "space-between", marginTop: 16 }}>
+            <h3 style={{ margin: 0 }}>
+              Planned graphics <span className="hint">· {p.events.length}{saving ? " · saving…" : ""}</span>
+            </h3>
+            <div className="row">
+              <button type="button" className="btn secondary small" disabled={busy} onClick={() => add("text")}>
+                ＋ Text
+              </button>
+              <button type="button" className="btn secondary small" disabled={busy} onClick={() => add("card")}>
+                ＋ Card
+              </button>
+            </div>
+          </div>
+          <p className="hint" style={{ marginTop: 4 }}>Click a graphic to change it. New ones start where the preview is paused.</p>
           {p.notes ? <p className="hint">Claude: {p.notes}</p> : null}
           <div className="events">
             {!p.events.length ? <div className="empty">No graphics yet. Captions are always added.</div> : null}
             {events.map(([e, i]) => {
               const [kind, text] = describe(e);
+              const on = editing?.i === i;
               return (
-                <div key={i} className="ev">
-                  <time>
-                    {clock(e.start)}
-                    {e.end - e.start > 0.5 ? "–" + clock(e.end) : ""}
-                  </time>
-                  <span>
-                    <span className="kind">{kind}</span>
-                    {text}
-                  </span>
-                  <button
-                    type="button"
-                    title="Remove"
-                    disabled={busy}
-                    onClick={() => {
-                      const q = structuredClone(p);
-                      q.events.splice(i, 1);
-                      savePlan(q);
-                    }}
-                  >
-                    ×
-                  </button>
+                <div key={i} className={"evwrap" + (on ? " on" : "")}>
+                  <div className="ev" role="button" tabIndex={0} onClick={() => open(i)} onKeyDown={(k) => k.key === "Enter" && open(i)}>
+                    <time>
+                      {clock(e.start)}
+                      {e.end - e.start > 0.5 ? "–" + clock(e.end) : ""}
+                    </time>
+                    <span>
+                      <span className="kind">{kind}</span>
+                      {text}
+                    </span>
+                    <button
+                      type="button"
+                      title="Remove"
+                      disabled={busy}
+                      onClick={(x) => {
+                        x.stopPropagation();
+                        window.clearTimeout(timer.current);
+                        pending.current = null;
+                        setEditing(null);
+                        setSaving(false);
+                        const q = structuredClone(p);
+                        q.events.splice(i, 1);
+                        savePlan(q);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  {on ? (
+                    <EventEditor
+                      event={editing.e}
+                      issue={problem(editing.e, others(i))}
+                      video={p.transition ?? "bloom"}
+                      palette={Object.entries(setup.palette)}
+                      looks={looks}
+                      images={job.assets}
+                      clips={job.clips.map((c) => c.name)}
+                      onChange={(next) => edit(i, next)}
+                    />
+                  ) : null}
                 </div>
               );
             })}

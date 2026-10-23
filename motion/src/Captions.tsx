@@ -15,6 +15,8 @@ import {
   Float,
   Karaoke,
   Pill,
+  Sweep,
+  waveLetter,
   Quiet,
   Stack,
   Typewriter,
@@ -41,6 +43,7 @@ const PAGE_MS = {
   bold: 450,
   boxed: 800,
   minimal: 1400,
+  sweep: 1300,
 } as const;
 
 // Rise: each word slides up from behind its own baseline as it is spoken (expo-out, no blur).
@@ -61,6 +64,7 @@ const STYLES = {
   quiet: Quiet,
   float: Float,
   stack: Stack,
+  sweep: Sweep,
 };
 
 /** Split a page into two lines of similar length (line 1 a little shorter, like a headline). */
@@ -96,6 +100,7 @@ const Duo: React.FC<{
     scale: 1,
   };
   const motion = plan.caption_motion ?? "pop";
+  const slow = plan.caption_speed ?? 1; // the creator's animation speed: >1 slower, <1 faster
   const now = page.startMs + (frame / fps) * 1000;
   const size = 86 * k * face.scale;
   const lines = twoLines(page.tokens);
@@ -103,7 +108,7 @@ const Duo: React.FC<{
     frame,
     fps,
     config: { damping: 11, stiffness: 240 },
-    durationInFrames: 10,
+    durationInFrames: Math.round(10 * slow),
   });
   const exit = interpolate(
     frame,
@@ -120,7 +125,7 @@ const Duo: React.FC<{
     );
     const p =
       motion === "rise"
-        ? interpolate(now - t.fromMs + RISE_LEAD_MS, [0, RISE_MS], [0, 1], {
+        ? interpolate(now - t.fromMs + RISE_LEAD_MS, [0, RISE_MS * slow], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
             easing: RISE,
@@ -132,7 +137,7 @@ const Duo: React.FC<{
                 frame: local,
                 fps,
                 config: { damping: 12, stiffness: 300 },
-                durationInFrames: 7,
+                durationInFrames: Math.round(7 * slow),
               })
           : 1;
     // Glass: gradient fill clipped to the letters, a thin light rim, and a shine band that sweeps across
@@ -161,6 +166,17 @@ const Duo: React.FC<{
               color: "transparent",
               WebkitTextStroke: `${Math.max(1, size * 0.018)}px rgba(255,255,255,.45)`,
             };
+    // Lift: the word's letters rise one after another as it is spoken, each carrying the fill.
+    if (motion === "lift")
+      return (
+        <span key={i} style={{ display: "inline-block", whiteSpace: "nowrap" }}>
+          {Array.from(t.text.trim()).map((c, j) => (
+            <span key={j} style={{ ...fill, ...waveLetter(now, t.fromMs, j, slow) }}>
+              {c}
+            </span>
+          ))}
+        </span>
+      );
     const inner = (
       <span
         style={{
@@ -401,7 +417,7 @@ const Page: React.FC<{
           const accent = stress.size ? stress.has(norm(word)) : /\d/.test(word);
           const p = interpolate(
             now - t.fromMs + RISE_LEAD_MS,
-            [0, RISE_MS],
+            [0, RISE_MS * (plan.caption_speed ?? 1)],
             [0, 1],
             {
               extrapolateLeft: "clamp",

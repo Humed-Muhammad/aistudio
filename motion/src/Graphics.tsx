@@ -118,7 +118,7 @@ export const TextPop: React.FC<{
               letterSpacing: theme.tracking,
               textTransform: theme.upper ? "uppercase" : undefined,
               fontSize: size * (plain ? 1 : 0.8),
-              color: badge ? ink : "white",
+              color: badge ? ink : (event.ink || "white"),
               textShadow: badge ? "none" : halo,
               ...(accented && (!badge || !solid)
                 ? accentCss(theme, colour, size * 0.8)

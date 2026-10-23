@@ -5,7 +5,7 @@ import { Preview } from "../Preview";
 
 type Captions = Pick<
   Plan,
-  "caption_preset" | "caption_font" | "caption_motion" | "caption_fill" | "highlight_color" | "caption_y" | "caption_place" | "caption_case" | "captions_auto"
+  "caption_preset" | "caption_font" | "caption_motion" | "caption_fill" | "highlight_color" | "caption_y" | "caption_place" | "caption_case" | "caption_speed" | "captions_auto"
 >;
 
 const STYLES: [Plan["caption_preset"], string, string][] = [
@@ -16,6 +16,7 @@ const STYLES: [Plan["caption_preset"], string, string][] = [
   ["quiet", "Quiet", "Calm serif line"],
   ["float", "Float", "Soft glow, drifting"],
   ["stack", "Stack", "One big word per line"],
+  ["sweep", "Light sweep", "Lit as you speak, smooth lift"],
   ["clean", "Clean box", "White on a dark box"],
   ["editorial", "Editorial", "Serif accent words"],
   ["rise", "Rise", "Words slide up"],
@@ -27,6 +28,7 @@ const STYLES: [Plan["caption_preset"], string, string][] = [
 // Names match the families loaded in styles.css, so each option shows in its own letters.
 const FONTS: [NonNullable<Plan["caption_font"]>, string, React.CSSProperties][] = [
   ["noto_black", "Noto Black", { fontFamily: "'Noto Sans Ethiopic', sans-serif", fontWeight: 900 }],
+  ["wide", "Wide bold", { fontFamily: "Montserrat, 'Noto Sans Ethiopic', sans-serif", fontWeight: 800 }],
   ["noto_condensed", "Noto Condensed", { fontFamily: "'Noto Sans Ethiopic', sans-serif", fontWeight: 900, fontStretch: "62.5%" }],
   ["noto_bold", "Noto ExtraBold", { fontFamily: "'Noto Sans Ethiopic', sans-serif", fontWeight: 800 }],
   ["menbere", "Menbere", { fontFamily: "Menbere, sans-serif", fontWeight: 700 }],
@@ -44,6 +46,7 @@ const MOTIONS: [NonNullable<Plan["caption_motion"]>, string][] = [
   ["pop", "Pop in"],
   ["word", "Word by word"],
   ["rise", "Rise"],
+  ["lift", "Smooth lift"],
 ];
 
 const pick = (p: Plan): Captions => ({
@@ -55,6 +58,7 @@ const pick = (p: Plan): Captions => ({
   caption_y: p.caption_y,
   caption_place: p.caption_place ?? "face",
   caption_case: p.caption_case ?? "capital",
+  caption_speed: p.caption_speed ?? 1,
   captions_auto: p.captions_auto ?? true,
 });
 
@@ -162,6 +166,26 @@ export const CaptionsTab: React.FC<JobApi> = ({ job, busy, setup, savePlan }) =>
                   </button>
                 ))}
               </div>
+            </div>
+          ) : null}
+
+          {["duo", "rise", "sweep"].includes(draft.caption_preset) ? (
+            <div className="section">
+              <h3>Animation speed</h3>
+              <label className="slider">
+                Faster
+                <input
+                  type="range"
+                  min={0.6}
+                  max={2}
+                  step={0.1}
+                  value={draft.caption_speed ?? 1}
+                  disabled={busy}
+                  onChange={(e) => change({ caption_speed: Number(e.target.value) })}
+                />
+                <output>{(draft.caption_speed ?? 1) === 1 ? "Normal" : `${(draft.caption_speed ?? 1).toFixed(1)}×`}</output>
+              </label>
+              <p className="hint" style={{ marginTop: 6 }}>Drag right for a slower, softer entrance. Words still appear when you say them.</p>
             </div>
           ) : null}
 

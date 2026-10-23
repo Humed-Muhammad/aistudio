@@ -9,7 +9,7 @@ ROOT=Path(__file__).resolve().parent;RUNS=ROOT/'runs'
 router=APIRouter();active={};cancels={};lock=threading.Lock()
 IMAGES=['.png','.jpg','.jpeg','.webp','.gif']
 # What each background action is called in the UI, and how to retry it.
-ACTIONS={'auto':'Editing for you','transcribe':'Transcribing','autocut':'Auto-cut','apply':'Building your edit','plan':'Auto-plan','render':'Rendering'}
+ACTIONS={'auto':'Editing for you','fix':'Checking the words','post':'Writing your post','transcribe':'Transcribing','autocut':'Auto-cut','apply':'Building your edit','plan':'Auto-plan','render':'Rendering'}
 
 def folder(ident):
     if len(ident)!=32 or any(c not in '0123456789abcdef' for c in ident):raise HTTPException(404)
@@ -43,10 +43,12 @@ def start(path,action,message,work,**extra):
             shorts.save_status(path,'running',m,progress=p,**info)
         status.cancelled=stop
         def run():
-            try:shorts.save_status(path,'done',work(status) or 'Done',finished=time.time(),**info)
+            try:end=shorts.save_status(path,'done',work(status) or 'Done',finished=time.time(),**info)
             except Exception as e:
-                if stop.is_set():shorts.save_status(path,'cancelled','Stopped. Start this step again whenever you like.',finished=time.time(),**info)
-                else:shorts.save_status(path,'error',str(e),finished=time.time(),**info)
+                if stop.is_set():end=shorts.save_status(path,'cancelled','Stopped. Start this step again whenever you like.',finished=time.time(),**info)
+                else:end=shorts.save_status(path,'error',str(e),finished=time.time(),**info)
+            # Every finished step is kept, so an error is not lost when the next step overwrites status.json.
+            with open(path/'history.jsonl','a') as log:log.write(json.dumps(end)+'\n')
         cancels[path.name]=stop;active[path.name]=threading.Thread(target=run,daemon=True);active[path.name].start()
 
 def status_of(path):
@@ -86,6 +88,27 @@ def classic():return FileResponse(ROOT/'static/shorts.html')
 
 @router.get('/shorts/setup')
 def setup():return {'planner_available':bool(shorts.setting('ANTHROPIC_API_KEY')),'strong_noise_available':bool(shorts.setting('ELEVENLABS_API_KEY')),'palette':shorts.PALETTE}
+
+@router.get('/shorts/sounds')
+def sounds():return shorts.sound_catalog()
+
+@router.put('/shorts/sounds/{family}')
+def pick_sound(family:str,body:dict=Body(...)):
+    """The creator's sound for a family, used in every video from the next render (catalog sounds download once)."""
+    try:shorts.set_sound_choice(family,str(body.get('choice','')))
+    except ValueError as e:raise HTTPException(400,str(e))
+    except Exception:raise HTTPException(502,'Could not download that sound. Check your internet connection.')
+    return shorts.sound_catalog()
+
+@router.get('/shorts/sounds/{family}/play')
+def play_sound(family:str,choice:str):
+    """One option as audio, so the creator can listen before choosing."""
+    if family not in shorts.SFX_FAMILIES:raise HTTPException(404,'Unknown sound family')
+    try:path=shorts.choice_file(family,choice)
+    except ValueError as e:raise HTTPException(400,str(e))
+    except Exception:raise HTTPException(502,'Could not download that sound. Check your internet connection.')
+    if not path:raise HTTPException(404,'No sound')
+    return FileResponse(path)
 
 @router.post('/shorts/jobs/{ident}/revise')
 def revise(ident:str,notes:str=Form(...),scope:str=Form('graphics')):
@@ -216,7 +239,7 @@ def state(ident:str):
      'transcript':{'language':captions.get('language'),'text':''.join(c['text'] for c in captions.get('captions',[])).strip()},
      'cut_mtime':(path/'cut.json').stat().st_mtime if cut else None,'planner_available':bool(shorts.setting('ANTHROPIC_API_KEY')),
      'noise':shorts.job_noise(path),'voice':shorts.job_voice(path),'strong_noise_available':bool(shorts.setting('ELEVENLABS_API_KEY')),
-     'language':shorts.job_language(path),'transcript_check':check(path),
+     'language':shorts.job_language(path),'word_fixes':read(path,'word-fixes.json',{'fixes':[]})['fixes'],'post':read(path,'post.json',None),'transcript_check':check(path),
      'stopping':bool(cancels.get(ident) and cancels[ident].is_set() and busy(ident))}
 
 @router.post('/shorts/jobs/{ident}/assets')
@@ -291,6 +314,41 @@ def put_unit(ident:str,unit:int,body:dict=Body(...)):
     try:updated=shorts.edit_part(path,unit,str(body.get('text','')))
     except ValueError as e:raise invalid(e)
     return {**state(ident),'captions_updated':updated}
+
+@router.post('/shorts/jobs/{ident}/fixes')
+def fixes(ident:str,notes:str=Form('')):
+    """Claude proofreads the transcript and suggests corrections; the creator reviews them before anything changes."""
+    path=folder(ident)
+    if not (path/'units.json').exists():raise HTTPException(409,'Wait for the transcript first.')
+    if not shorts.setting('ANTHROPIC_API_KEY'):raise HTTPException(400,'Set ANTHROPIC_API_KEY in .env, or ask Claude Code to fix the words.')
+    def work(status):
+        status('Claude is reading your transcript for misheard words…');n=len(shorts.suggest_fixes(path,notes,status=status))
+        return f'{n} suggested fixes · review them, then apply' if n else 'No fixes needed: the words look right'
+    start(path,'fix','Checking the words',work);return state(ident)
+
+@router.post('/shorts/jobs/{ident}/post')
+def write_post(ident:str,notes:str=Form('')):
+    """Claude writes title options, the description and hashtags from the edit's words (one call)."""
+    path=folder(ident)
+    if not (path/'captions.json').exists():raise HTTPException(409,'Build your edit first.')
+    if not shorts.setting('ANTHROPIC_API_KEY'):raise HTTPException(400,'Set ANTHROPIC_API_KEY in .env, or ask Claude Code for the post text.')
+    def work(status):
+        status('Claude is writing your title, description and hashtags…');shorts.post_copy(path,notes,status=status)
+        return 'Post text ready · copy it on the Export tab'
+    start(path,'post','Writing your post',work);return state(ident)
+
+@router.post('/shorts/jobs/{ident}/fixes/apply')
+def apply_fixes(ident:str,body:dict=Body(...)):
+    path=folder(ident);edits=body.get('edits') or {}
+    if busy(ident):raise HTTPException(409,'This video is still busy. Wait for the current step to finish.')
+    if not edits:raise HTTPException(422,'Choose at least one fix.')
+    try:in_place=shorts.apply_fixes(path,edits)
+    except (ValueError,KeyError) as e:raise invalid(e)
+    return {**state(ident),'captions_updated':in_place}
+
+@router.delete('/shorts/jobs/{ident}/fixes')
+def discard_fixes(ident:str):
+    path=folder(ident);(path/'word-fixes.json').unlink(missing_ok=True);return state(ident)
 
 @router.post('/shorts/jobs/{ident}/cut/auto')
 def auto_cut(ident:str,notes:str=Form('')):

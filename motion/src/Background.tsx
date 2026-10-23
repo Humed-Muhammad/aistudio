@@ -8,8 +8,9 @@ import {
 } from "remotion";
 import { mix } from "./colors";
 import { useMedia } from "./media";
-import { faceAt, type Reframe } from "./tracking";
+import { faceAt, faceHome, type Reframe } from "./tracking";
 import type { BackgroundLook, Tracks } from "./types";
+import { wallLayers } from "./wallLights";
 
 /** Mirrors Background in shorts.py; plans saved before backgrounds existed have none. */
 export const DEFAULT_LOOK: BackgroundLook = {
@@ -33,6 +34,8 @@ export const DEFAULT_LOOK: BackgroundLook = {
   grade: 0,
   grain: 0,
   tube: "none",
+  lamp: "tube",
+  pattern: "pool",
 };
 
 /** The colour the "room" casts on the speaker: what wraps their edges and tints their shadows. */
@@ -79,12 +82,13 @@ export const footageStyle = (
     : undefined;
 
 /** Replacement background plus any LED light tubes standing on it. */
-export const Backdrop: React.FC<{ bg: BackgroundLook; reframe?: Reframe }> = ({
-  bg,
-  reframe,
-}) => (
+export const Backdrop: React.FC<{
+  bg: BackgroundLook;
+  tracks: Tracks;
+  reframe?: Reframe;
+}> = ({ bg, tracks, reframe }) => (
   <>
-    <Wall bg={bg} />
+    <Wall bg={bg} anchor={faceHome(tracks)} />
     <Tubes bg={bg} reframe={reframe} />
   </>
 );
@@ -109,7 +113,96 @@ const Tubes: React.FC<{ bg: BackgroundLook; reframe?: Reframe }> = ({
   const glow = mix(wall, "#ffffff", 0.6);
   const breathe = 0.94 + Math.sin(frame / 45) * 0.04;
   const w = (34 * k) / r.s;
-  const tube = (x: number, top: number, bottom: number) => (
+  const lamp = bg.lamp ?? "tube";
+  // Light the lamp throws on the wall around it: a soft pool centred on it.
+  const pool = (x: number, y: number, wide: number, tall: number, a = 0.32) => (
+    <div
+      style={{
+        position: "absolute",
+        left: `${unX(x) * 100}%`,
+        top: `${unY(y) * 100}%`,
+        width: `${(wide / r.s) * 100}%`,
+        height: `${(tall / r.s) * 100}%`,
+        translate: "-50% -50%",
+        background: `radial-gradient(closest-side, ${alpha(glow, a * breathe)}, transparent)`,
+      }}
+    />
+  );
+  const bloom = (size: number, c = glow) => `0 0 ${size * 0.6}px ${c}, 0 0 ${size * 2}px ${alpha(c, 0.85)}, 0 0 ${size * 5}px ${alpha(c, 0.5)}`;
+  const at = (x: number, y: number): React.CSSProperties => ({ position: "absolute", left: `${unX(x) * 100}%`, top: `${unY(y) * 100}%`, translate: "-50% -50%" });
+  /** One lamp of the chosen design, standing at x (0-1) between top and bottom on the wall. */
+  const other = (x: number, top: number, bottom: number) => {
+    const mid = (top + bottom) / 2;
+    const span = (bottom - top) / r.s;
+    if (lamp === "twin")
+      return (
+        <div key={x}>
+          {tube(x - 0.025, top + 0.03, bottom)}
+          {tube(x + 0.025, top, bottom - 0.04, 0.7)}
+        </div>
+      );
+    if (lamp === "neon") {
+      // A short LED bar mounted on the wall, fully in frame (moved in from the edge), its light falling down the wall.
+      const cx = x < 0.5 ? x + 0.1 : x - 0.1;
+      const cy = top + 0.08;
+      return (
+        <div key={x}>
+          {pool(cx, cy + 0.035, 0.42, 0.2, 0.42)}
+          <div style={{ ...at(cx, cy), width: `${(0.2 / r.s) * 100}%`, height: w * 0.42, borderRadius: w, background: `linear-gradient(180deg, ${glow}, #fff 40%, #fff 60%, ${glow})`, opacity: breathe, boxShadow: bloom(w * 0.7) }} />
+        </div>
+      );
+    }
+    if (lamp === "globe") {
+      // A pendant bulb hanging on a cord from the ceiling, warm white.
+      const warm = mix(glow, "#FFE7C4", 0.6);
+      const d = (90 * k) / r.s;
+      return (
+        <div key={x}>
+          {pool(x, mid - 0.06, 0.55, 0.38, 0.38)}
+          <div style={{ position: "absolute", left: `${unX(x) * 100}%`, top: 0, width: Math.max(1, 3 * k), height: `${unY(mid - 0.06) * 100}%`, translate: "-50% 0", background: "rgba(10,10,14,.75)" }} />
+          <div style={{ ...at(x, mid - 0.06), width: d, height: d * 1.1, borderRadius: "50% 50% 46% 46%", background: `radial-gradient(circle at 45% 40%, #fff, ${warm} 55%, ${alpha(warm, 0.8)})`, opacity: breathe, boxShadow: bloom(d * 0.6, warm) }} />
+        </div>
+      );
+    }
+    if (lamp === "ring") {
+      // A round LED ring lamp on the wall.
+      const d = (230 * k) / r.s;
+      return (
+        <div key={x}>
+          {pool(x, mid - 0.04, 0.5, 0.3, 0.3)}
+          <div style={{ ...at(x, mid - 0.04), width: d, height: d, borderRadius: "50%", border: `${w * 0.55}px solid #fff`, opacity: breathe, boxShadow: `${bloom(w)}, inset ${bloom(w)}` }} />
+        </div>
+      );
+    }
+    if (lamp === "arch") {
+      // A neon arch outline, like a doorway of light.
+      const wd = (200 * k) / r.s;
+      return (
+        <div key={x}>
+          {pool(x, mid, 0.5, (bottom - top) * 1.4, 0.3)}
+          <div style={{ ...at(x, mid), width: wd, height: `${span * 100}%`, borderRadius: `${wd / 2}px ${wd / 2}px 0 0`, border: `${w * 0.45}px solid #fff`, borderBottom: "none", opacity: breathe, boxShadow: `${bloom(w * 0.8)}, inset ${bloom(w * 0.8)}` }} />
+        </div>
+      );
+    }
+    if (lamp === "hex") {
+      // Three hexagon light panels, like a gaming setup.
+      const hw = (120 * k) / r.s;
+      const hex = "polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%)";
+      const cell = (dx: number, dy: number, a: number) => (
+        <div style={{ position: "absolute", left: `calc(${unX(x) * 100}% + ${dx * hw}px)`, top: `calc(${unY(mid - 0.05) * 100}% + ${dy * hw}px)`, translate: "-50% -50%", width: hw, height: hw * 0.87, clipPath: hex, background: `radial-gradient(circle, #fff 0%, ${glow} 70%)`, opacity: a * breathe }} />
+      );
+      return (
+        <div key={x} style={{ position: "absolute", inset: 0, filter: `drop-shadow(0 0 ${w}px ${glow}) drop-shadow(0 0 ${w * 3}px ${alpha(glow, 0.7)})` }}>
+          {pool(x, mid - 0.05, 0.55, 0.3, 0.4)}
+          {cell(0, 0, 1)}
+          {cell(0.78, 0.45, 0.85)}
+          {cell(0, 0.92, 0.7)}
+        </div>
+      );
+    }
+    return tube(x, top, bottom);
+  };
+  const tube = (x: number, top: number, bottom: number, a = 1) => (
     <div key={x}>
       {/* Light the tube throws on the wall around it. */}
       <div
@@ -129,26 +222,63 @@ const Tubes: React.FC<{ bg: BackgroundLook; reframe?: Reframe }> = ({
           left: `${unX(x) * 100}%`,
           top: `${unY(top) * 100}%`,
           height: `${((bottom - top) / r.s) * 100}%`,
-          width: w,
+          width: w * 1.15,
           translate: "-50% 0",
-          borderRadius: w / 2,
-          background: `linear-gradient(90deg, ${glow}, #ffffff 40%, #ffffff 60%, ${glow})`,
-          opacity: breathe,
-          boxShadow: `0 0 ${w * 0.6}px ${glow}, 0 0 ${w * 2}px ${alpha(glow, 0.85)}, 0 0 ${w * 5}px ${alpha(glow, 0.5)}`,
+          // A real LED bar: nearly square ends, a thin brushed-silver aluminium housing with slightly darker end
+          // caps, and the lit diffuser inside.
+          borderRadius: w * 0.14,
+          borderStyle: "solid",
+          borderWidth: `${Math.max(1, w * 0.3)}px ${Math.max(1, w * 0.12)}px`,
+          borderColor: "#9a9fa7 #c9cdd3 #9a9fa7 #b4b8bf",
+          background: `linear-gradient(90deg, ${glow}, #ffffff 35%, #ffffff 65%, ${glow})`,
+          opacity: breathe * a,
+          boxShadow: `inset 0 0 0 ${Math.max(0.5, w * 0.03)}px rgba(60,64,72,.35), ${bloom(w)}`,
         }}
       />
     </div>
   );
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
-      {bg.tube === "left" || bg.tube === "both" ? tube(0.1, 0.17, 0.56) : null}
-      {bg.tube === "right" || bg.tube === "both" ? tube(0.9, 0.22, 0.55) : null}
+      {bg.tube === "left" || bg.tube === "both" ? other(0.1, 0.17, 0.56) : null}
+      {bg.tube === "right" || bg.tube === "both" ? other(0.9, 0.22, 0.55) : null}
     </AbsoluteFill>
   );
 };
 
 /** Replacement wall (covers the footage) for every mode except original and blur. */
-const Wall: React.FC<{ bg: BackgroundLook }> = ({ bg }) => {
+/** Fixed fine noise over a wall (no animation): hides gradient banding, the way real paint and camera noise do. */
+const Dither: React.FC = () => {
+  const id = "dither" + useId().replace(/[^a-zA-Z0-9]/g, "");
+  return (
+    <svg
+      width="100%"
+      height="100%"
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: 0,
+        opacity: 0.05,
+        mixBlendMode: "overlay",
+      }}
+    >
+      <filter id={id}>
+        <feTurbulence
+          type="fractalNoise"
+          baseFrequency="0.9"
+          numOctaves={2}
+          seed={7}
+        />
+        <feColorMatrix type="saturate" values="0" />
+      </filter>
+      <rect width="100%" height="100%" filter={`url(#${id})`} />
+    </svg>
+  );
+};
+
+const Wall: React.FC<{ bg: BackgroundLook; anchor: [number, number] }> = ({
+  bg,
+  anchor,
+}) => {
   const media = useMedia();
   const frame = useCurrentFrame();
   const { width } = useVideoConfig();
@@ -163,25 +293,23 @@ const Wall: React.FC<{ bg: BackgroundLook }> = ({ bg }) => {
         }}
       />
     );
-  if (bg.mode === "studio") {
-    // Lit studio wall: a soft pool of color2 behind the speaker's head, falling off to a darker wall at the
-    // edges, with a faint diagonal light sweep so the colour never reads as flat paint.
-    const drift = Math.sin(frame / 70) * 2;
+  if (bg.mode === "studio")
+    // Lit studio wall (light designs in wallLights.ts). A fixed fine noise stops the smooth gradients banding.
     return (
       <AbsoluteFill
         style={{
+          overflow: "hidden",
           // Brightness slider (dim): 0.5 = as designed, 0 = brighter, 1 = darker.
           filter:
             bg.dim !== 0.5 ? `brightness(${1.35 - bg.dim * 0.7})` : undefined,
-          background: [
-            `linear-gradient(115deg, transparent 30%, ${alpha("#ffffff", 0.04)} 45%, transparent 60%)`,
-            `radial-gradient(55% 38% at ${58 + drift}% 34%, ${alpha(bg.color2, 0.9)}, ${alpha(bg.color2, 0)} 100%)`,
-            `radial-gradient(130% 90% at 55% 40%, ${bg.color} 35%, ${mix(bg.color, "#000000", 0.5)} 100%)`,
-          ].join(", "),
         }}
-      />
+      >
+        {wallLayers(bg, anchor, Math.sin(frame / 70), k).map((style, i) => (
+          <div key={i} style={{ position: "absolute", inset: 0, ...style }} />
+        ))}
+        <Dither />
+      </AbsoluteFill>
     );
-  }
   if (bg.mode === "grid")
     return (
       <AbsoluteFill
@@ -286,9 +414,12 @@ export const Subject: React.FC<{
       `drop-shadow(0 0 ${3 * k}px ${alpha(bg.light_color, 0.9 * bg.rim)})`,
       `drop-shadow(0 0 ${18 * k}px ${alpha(bg.light_color, 0.6 * bg.rim)})`,
     );
+  // A real key light in front casts the speaker's shadow to one side onto the wall (soft, offset, faint),
+  // plus a thin contact shadow that seats the edge. No even dark halo all round: that reads as a cut-out.
   if (bg.shadow > 0)
     filters.push(
-      `drop-shadow(0 ${24 * k}px ${48 * k}px rgba(0,0,0,${0.7 * bg.shadow}))`,
+      `drop-shadow(0 ${2 * k}px ${3 * k}px rgba(0,0,0,${0.35 * bg.shadow}))`,
+      `drop-shadow(${26 * k}px ${14 * k}px ${30 * k}px rgba(0,0,0,${0.38 * bg.shadow}))`,
     );
   return (
     <AbsoluteFill
@@ -313,7 +444,7 @@ export const Subject: React.FC<{
           >
             <feGaussianBlur
               in="SourceAlpha"
-              stdDeviation={14 * k}
+              stdDeviation={7 * k}
               result="blur"
             />
             <feComposite
@@ -324,7 +455,7 @@ export const Subject: React.FC<{
             />
             <feFlood
               floodColor={mix(wall!, "#ffffff", 0.25)}
-              floodOpacity={Math.min(1, 1.1 * wrap)}
+              floodOpacity={Math.min(1, 0.85 * wrap)}
               result="wallc"
             />
             <feComposite in="wallc" in2="edge" operator="in" result="wrapc" />

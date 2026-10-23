@@ -1,6 +1,7 @@
 import { loadFont as loadAbyssinica } from "@remotion/google-fonts/AbyssinicaSIL";
 import { loadFont as loadAgbalumo } from "@remotion/google-fonts/Agbalumo";
 import { loadFont as loadMenbere } from "@remotion/google-fonts/Menbere";
+import { loadFont as loadMontserrat } from "@remotion/google-fonts/Montserrat";
 import {
   loadFont as loadNoto,
   loadVariableFont as loadNotoVariable,
@@ -39,6 +40,14 @@ const LOADERS: Record<Exclude<CaptionFontId, "classic">, () => CaptionFace> = {
       weights: ["800"],
       subsets: ["ethiopic", "latin"],
     }).fontFamily,
+    weight: 800,
+    scale: 1,
+  }),
+  wide: () => ({
+    // Wide geometric Latin (Montserrat) with Noto's Ethiopic for Amharic letters, like big creator titles.
+    family: `${loadMontserrat("normal", { weights: ["800"], subsets: ["latin"] }).fontFamily}, ${
+      loadNoto("normal", { weights: ["800"], subsets: ["ethiopic", "latin"] }).fontFamily
+    }`,
     weight: 800,
     scale: 1,
   }),

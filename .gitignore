@@ -21,4 +21,3 @@ graphics-kit/node_modules
 .claude/skills/
 # Shorts studio build (motion/studio, rebuilt by make shorts)
 static/studio/
-clients.json

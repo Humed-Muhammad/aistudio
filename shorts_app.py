@@ -4,7 +4,7 @@ import threading,uuid,shutil,json,re,time
 from fastapi import APIRouter,UploadFile,File,Form,HTTPException,Body
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
-import shorts
+import shorts,clients
 ROOT=Path(__file__).resolve().parent;RUNS=ROOT/'runs'
 router=APIRouter();active={};cancels={};lock=threading.Lock()
 IMAGES=['.png','.jpg','.jpeg','.webp','.gif']
@@ -72,11 +72,72 @@ def stage(path):
         if done:return label
     return 'New'
 
+DELIVERY=['','sent','delivered']  # set by hand: sent to the client for review, then delivered
+
 def summary(path):
     s=status_of(path);info=read(path,'manifest.json') or read(path,'source-info.json') or {}
     thumb=next((f'/runs/{path.name}/{n}' for n in ['thumb.jpg','keyframes/0000.00.jpg'] if (path/n).exists()),None)
+    job=read(path,'job.json') or {}
     return {'id':path.name,**meta(path),'duration':info.get('duration'),'stage':stage(path),'thumb':thumb,
-            'state':s['state'],'action':s.get('action'),'progress':s.get('progress'),'status':s.get('status','')}
+            'state':s['state'],'action':s.get('action'),'progress':s.get('progress'),'status':s.get('status',''),
+            'client':job.get('client') or None,'delivery':job.get('delivery',''),
+            'updated':max([p.stat().st_mtime for p in (path/'status.json',path/'plan.json',path/'job.json') if p.exists()] or [meta(path)['created']])}
+
+def set_job(path,**fields):
+    (path/'job.json').write_text(json.dumps({**read(path,'job.json',{}),**meta(path),**fields}))
+
+def client_view(c,jobs=None):
+    jobs=jobs if jobs is not None else all_jobs()
+    kit=c.get('kit')
+    return {**c,'videos':sum(1 for j in jobs if (read(j,'job.json') or {}).get('client')==c['id']),
+            'kit_summary':{'look':(kit['background'].get('look') or kit['background'].get('mode')),'captions':kit['caption_preset'],
+                           'graphics':kit['graphics_style'],'effect':kit.get('transition')} if kit else None}
+
+def all_jobs():return [p for p in RUNS.iterdir() if p.is_dir() and (read(p,'workflow-mode.json') or {}).get('mode')=='shorts' and is_job(p)]
+
+@router.get('/shorts/clients')
+def list_clients():
+    jobs=all_jobs();return [client_view(c,jobs) for c in clients.load()]
+
+@router.post('/shorts/clients')
+def new_client(body:dict=Body(...)):
+    try:return client_view(clients.create(body.get('name',''),body.get('color',''),body.get('notes','')))
+    except ValueError as e:raise HTTPException(422,str(e))
+
+@router.patch('/shorts/clients/{cid}')
+def edit_client(cid:str,body:dict=Body(...)):
+    try:return client_view(clients.update(cid,**{k:body[k] for k in ('name','color','notes') if k in body}))
+    except KeyError:raise HTTPException(404,'No such client')
+    except ValueError as e:raise HTTPException(422,str(e))
+
+@router.delete('/shorts/clients/{cid}')
+def remove_client(cid:str):
+    """Delete a client; their videos stay, without a client."""
+    for p in all_jobs():
+        if (read(p,'job.json') or {}).get('client')==cid:set_job(p,client=None)
+    clients.delete(cid);return {'ok':True}
+
+@router.put('/shorts/clients/{cid}/kit')
+def save_kit(cid:str,body:dict=Body(...)):
+    """Save one video's style as the client's brand kit; their next videos start from it."""
+    path=folder(str(body.get('job','')))
+    if not (path/'plan.json').exists():raise HTTPException(409,'Build this video first, then save its style.')
+    try:return client_view(clients.update(cid,kit=shorts.kit_from(path)))
+    except KeyError:raise HTTPException(404,'No such client')
+
+@router.delete('/shorts/clients/{cid}/kit')
+def drop_kit(cid:str):
+    try:return client_view(clients.update(cid,kit=None))
+    except KeyError:raise HTTPException(404,'No such client')
+
+@router.post('/shorts/jobs/{ident}/kit')
+def use_kit(ident:str):
+    """Apply the video's client brand kit to it now (look, captions, graphic style, effects); graphics stay."""
+    path=folder(ident);c=clients.get((read(path,'job.json') or {}).get('client'))
+    if not c or not c.get('kit'):raise HTTPException(409,'This client has no brand kit yet.')
+    if not (path/'plan.json').exists():raise HTTPException(409,'Build this video first.')
+    if busy(ident):raise HTTPException(409,'Wait for the current step to finish.')
+    set_job(path,kit=c['kit']);shorts.apply_kit(path,c['kit']);return state(ident)
 
 STUDIO=ROOT/'static'/'studio'/'index.html'  # React app (motion/studio), built by `make shorts`
 
@@ -143,11 +204,11 @@ def props(ident:str):
 
 @router.get('/shorts/jobs')
 def list_jobs():
-    jobs=[summary(p) for p in RUNS.iterdir() if p.is_dir() and (read(p,'workflow-mode.json') or {}).get('mode')=='shorts' and is_job(p)]
+    jobs=[summary(p) for p in all_jobs()]
     return sorted(jobs,key=lambda j:-j['created'])
 
 @router.post('/shorts/jobs')
-def create(video:list[UploadFile]=File(...),preset:str=Form('bold'),title:str=Form(''),noise:str=Form('off'),language:str=Form(''),auto:bool=Form(False),notes:str=Form('')):
+def create(video:list[UploadFile]=File(...),preset:str=Form('bold'),title:str=Form(''),noise:str=Form('off'),language:str=Form(''),auto:bool=Form(False),notes:str=Form(''),client:str=Form('')):
     if preset not in shorts.PRESETS+['auto']:raise HTTPException(400,'Unknown caption style')
     if noise not in shorts.NOISE:raise HTTPException(400,'Unknown noise setting')
     if language and language not in shorts.LANGUAGES:raise HTTPException(400,'Unknown language')
@@ -162,8 +223,11 @@ def create(video:list[UploadFile]=File(...),preset:str=Form('bold'),title:str=Fo
             safe=re.sub(r'[^\w.-]+','_',Path(v.filename or f'part{k+1}.mp4').name)[-60:]
             with (path/'parts'/f'{k+1:02d}-{safe}').open('wb') as out:shutil.copyfileobj(v.file,out)
     name=title.strip() or re.sub(r'[_-]+',' ',Path(video[0].filename or '').stem).strip() or 'Untitled video'
-    (path/'job.json').write_text(json.dumps({'title':name[:80],'created':time.time()}))
-    (path/'workflow-mode.json').write_text(json.dumps({'mode':'shorts','preset':preset,'noise':noise,'language':language or shorts.job_language(path)}))
+    who=clients.get(client);kit=(who or {}).get('kit')  # the client's brand kit, copied so later kit edits don't change this video
+    (path/'job.json').write_text(json.dumps({'title':name[:80],'created':time.time(),'client':who['id'] if who else None,'kit':kit}))
+    mode={'mode':'shorts','preset':preset,'noise':noise,'language':language or (kit or {}).get('language') or shorts.job_language(path)}
+    if kit and kit.get('voice'):mode['voice']=kit['voice']
+    (path/'workflow-mode.json').write_text(json.dumps(mode))
     if auto:(path/'auto.json').write_text(json.dumps({'notes':notes.strip()[:2000]}))
     transcribe(path.name);return state(path.name)
 
@@ -215,6 +279,13 @@ def rename(ident:str,body:dict=Body(...)):
         title=str(body.get('title','')).strip()[:80]
         if not title:raise HTTPException(422,'Give the video a name.')
         (path/'job.json').write_text(json.dumps({**read(path,'job.json',{}),**meta(path),'title':title}))
+    if 'client' in body:
+        cid=body['client'] or None
+        if cid and not clients.get(cid):raise HTTPException(422,'No such client')
+        set_job(path,client=cid)
+    if 'delivery' in body:
+        if body['delivery'] not in DELIVERY:raise HTTPException(422,'Unknown delivery stage')
+        set_job(path,delivery=body['delivery'])
     return state(ident)
 
 @router.delete('/shorts/jobs/{ident}')

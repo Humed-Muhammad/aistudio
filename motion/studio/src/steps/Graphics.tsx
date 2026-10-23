@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PlayerRef } from "@remotion/player";
 import type { ShortEvent } from "../../../src/types";
-import { api, clock, fileUrl, jobUrl, sendJSON } from "../api";
+import { api, clock, fileUrl, jobUrl } from "../api";
 import type { JobApi } from "../JobView";
-import { Preview } from "../Preview";
 import { BLANK, EventEditor, problem } from "./EventEditor";
-import { Sounds } from "./Sounds";
 
 const describe = (e: ShortEvent): [string, string] => {
   if (e.type === "text") return ["Text", `“${e.text}”${e.behind_subject ? " behind you" : ""}`];
@@ -76,7 +73,7 @@ const STYLES: [NonNullable<NonNullable<JobApi["job"]["plan"]>["graphics_style"]>
   ["clay", "Clay", "Soft 3D grey · calm how-tos", <><b>The</b> <i>problem</i></>],
 ];
 
-export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, savePlan, toast }) => {
+export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, savePlan, toast, preview }) => {
   const p = job.plan!;
   const [notes, setNotes] = useState("");
   const [json, setJson] = useState(JSON.stringify(p, null, 1));
@@ -108,7 +105,7 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
       toast((e as Error).message, true);
     }
   };
-  const player = useRef<PlayerRef>(null);
+  const player = preview.player;
   const [looks, setLooks] = useState<string[]>([]);
   // The graphic being edited: changes play in the preview at once and save after a short pause.
   const [editing, setEditing] = useState<{ i: number; e: ShortEvent } | null>(null);
@@ -124,6 +121,8 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
     else list[editing.i] = editing.e;
     return { events: list };
   }, [p.events, editing]);
+  useEffect(() => () => preview.set(undefined), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => preview.set(shown), [shown]); // eslint-disable-line react-hooks/exhaustive-deps
   const seek = (t: number) => {
     const fps = 30;
     player.current?.seekTo(Math.max(0, Math.round(t * fps)));
@@ -187,15 +186,10 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
   const events = p.events.map((e, i) => [editing?.i === i ? editing.e : e, i] as const);
 
   return (
-    <div className="card">
-      <div className="studio">
-        <div className="stage">
-          <Preview ref={player} id={job.id} version={JSON.stringify(p) + job.files["source.mp4"]} override={shown} />
+    <div className="inspector">
           <span className="hint">{p.graphics_auto === false ? "Style: your choice · Claude keeps it" : "Style chosen by Claude"} · scrub to a card to compare</span>
-        </div>
-        <div>
           <h2>Graphics</h2>
-          <p className="lead">Claude plans these. Pick a design for every card and text pop; ask for content changes on the Review tab.</p>
+          <p className="lead">Claude plans these. Pick a design for every card and text pop; click any graphic below to change it, or ask Claude on the Overview.</p>
           <div className="section">
             <h3>Style</h3>
             <div className="looks">
@@ -227,30 +221,6 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
               <select value={String(p.progress_bar)} disabled={busy} onChange={(e) => savePlan({ ...p, progress_bar: e.target.value === "true" })}>
                 <option value="false">Off</option>
                 <option value="true">On (top of video)</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Voice volume</span>
-              <select
-                value={job.voice}
-                disabled={busy}
-                onChange={async (e) => {
-                  try {
-                    show(await sendJSON(jobUrl(job.id), "PATCH", { voice: e.target.value }));
-                  } catch (err) {
-                    toast((err as Error).message, true);
-                  }
-                }}
-              >
-                <option value="level">Even & loud (recommended)</option>
-                <option value="off">As recorded</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Sound design</span>
-              <select value={String(p.auto_sound !== false)} disabled={busy} onChange={(e) => savePlan({ ...p, auto_sound: e.target.value === "true" })}>
-                <option value="true">Automatic</option>
-                <option value="false">Only sounds in the plan</option>
               </select>
             </label>
           </div>
@@ -307,7 +277,6 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
             })()}
           </div>
 
-          <Sounds busy={busy} toast={toast} />
 
           <div className="section" style={{ marginTop: 16 }}>
             <h3>Images & screen recordings</h3>
@@ -493,8 +462,6 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
               <span className="hint">Times are seconds in your edit. Hand left/right = screen side.</span>
             </div>
           </details>
-        </div>
-      </div>
     </div>
   );
 };

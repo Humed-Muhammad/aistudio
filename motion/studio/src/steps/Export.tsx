@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fileUrl } from "../api";
+import { fileUrl, jobUrl, sendJSON } from "../api";
 import type { JobApi } from "../JobView";
 
 const OUTPUTS: [string, string, string, string][] = [
@@ -7,30 +7,34 @@ const OUTPUTS: [string, string, string, string][] = [
   ["shorts-final.mp4", "Final", "Full quality, ready to post", "final"],
 ];
 
-export const Export: React.FC<JobApi> = ({ job, busy, setup, post, toast }) => {
-  const ready = OUTPUTS.filter(([f]) => job.files[f]);
-  const [shown, setShown] = useState(ready.at(-1)?.[0] ?? null);
-  const current = ready.find(([f]) => f === shown)?.[0] ?? ready.at(-1)?.[0];
+export const Export: React.FC<JobApi> = ({ job, busy, setup, post, toast, show }) => {
   const render = (final: boolean) => {
     const d = new FormData();
     d.set("final", String(final));
     post("render", d);
   };
+  const stage = async (delivery: "" | "sent" | "delivered") => {
+    try {
+      show(await sendJSON(jobUrl(job.id), "PATCH", { delivery }));
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  };
   return (
-    <div className="card">
-      <h2>Export</h2>
-      <p className="lead">Everything renders on this Mac. Render a draft to check timing, then the final.</p>
+    <div className="inspector">
+      <h2>Deliver</h2>
+      <p className="lead">Render on this Mac, send the file, and track where it is with the client.</p>
       <div className="exports">
         {OUTPUTS.map(([file, title, hint, kind]) => (
           <div key={file} className={"export" + (job.files[file] ? " ready" : "")}>
             <h3>{title}</h3>
             <span className="hint">{hint}</span>
             <div className="row">
-              <button type="button" className={"btn" + (kind === "draft" ? " secondary" : "")} disabled={busy} onClick={() => render(kind === "final")}>
-                {job.files[file] ? `Re-render ${kind}` : `Render ${kind}`}
+              <button type="button" className={"btn small" + (kind === "draft" ? " secondary" : "")} disabled={busy} onClick={() => render(kind === "final")}>
+                {job.files[file] ? `Re-render` : `Render ${kind}`}
               </button>
               {job.files[file] ? (
-                <a href={fileUrl(job.id, file, job.files[file])} download>
+                <a className="btn secondary small" href={fileUrl(job.id, file, job.files[file])} download={`${job.title}${kind === "draft" ? " (draft)" : ""}.mp4`}>
                   Download ↓
                 </a>
               ) : null}
@@ -38,22 +42,26 @@ export const Export: React.FC<JobApi> = ({ job, busy, setup, post, toast }) => {
           </div>
         ))}
       </div>
-      <PostText job={job} busy={busy} setup={setup} post={post} toast={toast} />
 
-      {current ? (
-        <>
-          <div className="seg" style={{ marginBottom: 10 }}>
-            {ready.map(([f, title]) => (
-              <button key={f} type="button" className={f === current ? "on" : ""} onClick={() => setShown(f)}>
-                {title}
-              </button>
-            ))}
-          </div>
-          <div className="phone" style={{ maxWidth: 380 }}>
-            <video key={current} src={fileUrl(job.id, current, job.files[current])} controls playsInline preload="metadata" />
-          </div>
-        </>
-      ) : null}
+      <div className="section">
+        <h3>With the client</h3>
+        <div className="seg">
+          {(
+            [
+              ["", "Not sent"],
+              ["sent", "Sent for review"],
+              ["delivered", "Delivered ✓"],
+            ] as const
+          ).map(([id, name]) => (
+            <button key={id} type="button" className={job.delivery === id ? "on" : ""} onClick={() => stage(id)}>
+              {name}
+            </button>
+          ))}
+        </div>
+        <p className="hint" style={{ marginTop: 6 }}>Shown on the Videos page, so you always know what is waiting on whom.</p>
+      </div>
+
+      <PostText job={job} busy={busy} setup={setup} post={post} toast={toast} />
     </div>
   );
 };

@@ -1,13 +1,16 @@
 import { useRef, useState } from "react";
 import type { Setup } from "../App";
-import type { Job } from "../api";
+import type { Client, Job } from "../api";
 
 // Same order as the server: natural file-name order, which follows the phone's recording order.
 const naturalSort = (fs: File[]) =>
   [...fs].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
 
-export const Upload: React.FC<{ setup: Setup; onCreated: (id: string) => void }> = ({ setup, onCreated }) => {
+export const Upload: React.FC<{ setup: Setup; clients: Client[]; client: string | null; onCreated: (id: string) => void }> = ({ setup, clients, client: initial, onCreated }) => {
   const [files, setFiles] = useState<File[]>([]);
+  const [client, setClient] = useState(initial ?? "");
+  const who = clients.find((c) => c.id === client);
+  const kit = who?.kit_summary;
   const [title, setTitle] = useState("");
   const [auto, setAuto] = useState(true);
   const [over, setOver] = useState(false);
@@ -133,18 +136,29 @@ export const Upload: React.FC<{ setup: Setup; onCreated: (id: string) => void }>
 
         <div className="grid" style={{ marginTop: 14 }}>
           <label className="field">
+            <span>Client</span>
+            <select name="client" value={client} onChange={(e) => setClient(e.target.value)}>
+              <option value="">No client (my own video)</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
             <span>Title</span>
             <input name="title" value={title} maxLength={80} placeholder="e.g. Telegram bot pitch" onChange={(e) => setTitle(e.target.value)} />
           </label>
           <label className="field">
             <span>Spoken language</span>
-            <select name="language" defaultValue="am">
+            <select name="language" defaultValue="am" key={client}>
               <option value="am">Amharic (with English words)</option>
               <option value="en">English only</option>
               <option value="auto">Detect automatically</option>
             </select>
           </label>
-          <label className="field">
+          <label className="field" hidden={!!kit}>
             <span>Caption style</span>
             <select name="preset" defaultValue="duo">
               <option value="duo">Two-line glass (default)</option>
@@ -176,6 +190,20 @@ export const Upload: React.FC<{ setup: Setup; onCreated: (id: string) => void }>
           </label>
         </div>
 
+        {kit ? (
+          <div className="kitnote" style={{ ["--c" as string]: who!.color }}>
+            <b>{who!.name}'s brand kit is used</b>
+            <span className="hint">
+              Look {kit.look.replace(/_/g, " ")} · {kit.captions} captions · {kit.graphics} graphics
+              {kit.effect ? ` · ${kit.effect} effect` : ""}. Claude also reads {who!.name}'s notes.
+            </span>
+          </div>
+        ) : who ? (
+          <div className="kitnote" style={{ ["--c" as string]: who.color }}>
+            <span className="hint">{who.name} has no brand kit yet: this video uses the defaults. Save its style as their kit when you like it.</span>
+          </div>
+        ) : null}
+
         {progress ? (
           <div className="activity" style={{ marginTop: 16 }}>
             <div className="spinner" />
@@ -205,14 +233,6 @@ export const Upload: React.FC<{ setup: Setup; onCreated: (id: string) => void }>
           </button>
         </div>
       </form>
-      <div className="howto">
-        <div><b>1 · Transcribe</b>Speech to text</div>
-        <div><b>2 · Cut</b>Retakes, dead air out</div>
-        <div><b>3 · Track</b>Face, hands, cutout</div>
-        <div><b>4 · Look</b>Background & light</div>
-        <div><b>5 · Graphics</b>Captions, cards, zooms</div>
-        <div><b>6 · Draft</b>You review</div>
-      </div>
     </div>
   );
 };

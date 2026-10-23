@@ -880,7 +880,7 @@ def apply_cut(folder,status=say):
     """Step 2: build the edited video from the cut, then track it."""
     folder=Path(folder);check_tools();src=folder/'upload.mp4';audio=job_audio(folder,status)
     try:before=load_plan(folder)  # the look and caption choices are kept across rebuilds; graphics are reset
-    except (OSError,ValueError):before=Plan()
+    except (OSError,ValueError):before=kit_plan(job_kit(folder)) or Plan()  # a client's video starts from their brand kit
     captions=json.loads((folder/'full-captions.json').read_text())['captions'];units=json.loads((folder/'units.json').read_text())
     cut=load_cut(folder);info=json.loads((folder/'source-info.json').read_text())
     for stale in ['tracks.json','foreground.webm','tracking-preview.mp4','shorts-draft.mp4','shorts-final.mp4','plan.json','plan-warnings.json']:(folder/stale).unlink(missing_ok=True)
@@ -902,7 +902,7 @@ def apply_cut(folder,status=say):
     run_with_progress([str(ROOT/'.venv-face/bin/python'),str(ROOT/'shorts_worker.py'),str(folder)],status,'Step 2 of 2 · Tracking face, hands and you (for graphics)')
     preset=json.loads((folder/'workflow-mode.json').read_text()).get('preset','bold')
     preset=preset if preset in PRESETS else 'duo'
-    keep={k:getattr(before,k) for k in ['caption_font','caption_motion','caption_fill','caption_place','caption_case','caption_speed','captions_auto','background','transition']}
+    keep={k:getattr(before,k) for k in ['caption_font','caption_motion','caption_fill','caption_place','caption_case','caption_speed','captions_auto','background','transition','progress_bar','auto_sound']}
     if not before.graphics_auto:keep.update(graphics_style=before.graphics_style,graphics_auto=False)
     if not before.captions_auto:keep.update(caption_preset=before.caption_preset,highlight_color=before.highlight_color,caption_y=before.caption_y)
     save_plan(folder,Plan(**{'caption_preset':preset,'highlight_color':ACCENT,**keep}))
@@ -926,9 +926,45 @@ def cut_context(folder,notes=''):
     if notes.strip():lines.append('\nCreator instructions (follow these first):\n'+notes.strip())
     return '\n'.join(lines)
 
+def with_client(folder,notes=''):
+    """The creator's notes for this step plus the client's standing notes for Claude (spellings, style, audience)."""
+    import clients
+    return '\n'.join(x for x in [notes.strip(),clients.notes_for(folder)] if x)
+
+# Brand kit: a client's saved style, copied from one of their videos and applied to their new ones.
+KIT_PLAN=['background','caption_preset','caption_font','caption_motion','caption_fill','caption_case','caption_place','caption_y',
+          'caption_speed','highlight_color','graphics_style','transition','progress_bar','auto_sound']
+KIT_MODE=['noise','voice','language']
+
+def kit_from(folder):
+    """A brand kit from a video's current look, captions, graphic style, effects and audio settings."""
+    folder=Path(folder);plan=load_plan(folder).model_dump();mode=json.loads((folder/'workflow-mode.json').read_text())
+    return {**{k:plan[k] for k in KIT_PLAN},**{k:mode[k] for k in KIT_MODE if k in mode}}
+
+def kit_plan(kit):
+    """A starting plan from a brand kit, every choice marked as the creator's so Claude keeps it; None without a kit."""
+    if not kit:return None
+    plan=Plan.model_validate({k:kit[k] for k in KIT_PLAN if k in kit})
+    plan.background.auto=False;plan.captions_auto=False;plan.graphics_auto=False
+    return plan
+
+def job_kit(folder):
+    try:return json.loads((Path(folder)/'job.json').read_text()).get('kit')
+    except (OSError,ValueError):return None
+
+def apply_kit(folder,kit):
+    """Put a brand kit on an existing video: its style replaces the current one, the graphics stay."""
+    folder=Path(folder);start=kit_plan(kit);plan=load_plan(folder)
+    for k in KIT_PLAN:setattr(plan,k,getattr(start,k))
+    plan.captions_auto=plan.graphics_auto=False
+    mode=json.loads((folder/'workflow-mode.json').read_text())
+    if kit.get('voice') in VOICE:(folder/'workflow-mode.json').write_text(json.dumps({**mode,'voice':kit['voice']}))
+    return save_plan(folder,plan)
+
 def cut_auto(folder,notes='',status=None):
     """Ask Claude which transcript parts matter."""
     import anthropic
+    notes=with_client(folder,notes)
     client=anthropic.Anthropic(api_key=setting('ANTHROPIC_API_KEY') or None)
     response=interruptible(lambda:client.beta.messages.parse(
         model=setting('SHORTS_PLANNER_MODEL','claude-opus-5-5'),max_tokens=16000,
@@ -962,7 +998,7 @@ Return only the parts that change, each as the complete corrected part text."""
 def suggest_fixes(folder,notes='',status=None):
     """Ask Claude to proofread the transcript; saves suggestions to word-fixes.json for the creator to review (nothing is applied)."""
     import anthropic
-    folder=Path(folder);units=json.loads((folder/'units.json').read_text())
+    folder=Path(folder);units=json.loads((folder/'units.json').read_text());notes=with_client(folder,notes)
     text='Transcript parts, [id] text:\n'+'\n'.join(f"[{i}] {u['text']}" for i,u in enumerate(units))
     if notes.strip():text+='\n\nCreator notes:\n'+notes.strip()
     client=anthropic.Anthropic(api_key=setting('ANTHROPIC_API_KEY') or None)
@@ -994,7 +1030,7 @@ class PostCopy(BaseModel):
 def post_copy(folder,notes='',status=None):
     """Title options, description and hashtags for posting, from the edit's own words. Saved to post.json."""
     import anthropic
-    folder=Path(folder);caps=json.loads((folder/'captions.json').read_text())['captions']
+    folder=Path(folder);caps=json.loads((folder/'captions.json').read_text())['captions'];notes=with_client(folder,notes)
     text='What is said in the final video:\n'+''.join(c['text'] for c in caps).strip()
     plan=load_plan(folder) if (folder/'plan.json').exists() else None
     if plan and plan.notes:text+='\n\nEditor notes on the video:\n'+plan.notes
@@ -1229,7 +1265,7 @@ def plan_auto(folder,notes='',preset=None,status=None):
     The plan schema is too large for enforced structured output (the compiled grammar is refused), so the
     planner writes JSON against the schema in its instructions and the editor validates it, asking once to fix broken JSON."""
     import anthropic
-    text,images=planner_context(folder,notes)
+    text,images=planner_context(folder,with_client(folder,notes))
     mode=json.loads((Path(folder)/'workflow-mode.json').read_text()).get('preset')
     if preset or mode not in (None,'auto'):text+=f"\nCaption preset chosen by the creator: {preset or mode}"
     client=anthropic.Anthropic(api_key=setting('ANTHROPIC_API_KEY') or None)

@@ -32,7 +32,47 @@ export type JobSummary = {
   action: string | null;
   progress: number | null;
   status: string;
+  client: string | null;
+  delivery: "" | "sent" | "delivered";
+  updated: number;
 };
+
+export type Client = {
+  id: string;
+  name: string;
+  color: string;
+  notes: string;
+  kit: Record<string, unknown> | null;
+  kit_summary: { look: string; captions: string; graphics: string; effect: string } | null;
+  videos: number;
+};
+
+/** One status for a video in client work: where it is, and a tone for its pill. */
+export type Status = { key: "editing" | "attention" | "new" | "review" | "draft" | "final" | "sent" | "delivered"; label: string };
+export const statusOf = (j: JobSummary): Status =>
+  j.state === "running"
+    ? { key: "editing", label: `${ACTION[j.action ?? ""] ?? "Working"}${j.progress != null ? " " + Math.round(j.progress * 100) + "%" : "…"}` }
+    : j.state === "error"
+      ? { key: "attention", label: "Needs attention" }
+      : j.delivery === "delivered"
+        ? { key: "delivered", label: "Delivered" }
+        : j.delivery === "sent"
+          ? { key: "sent", label: "Sent to client" }
+          : j.stage === "Final ready"
+            ? { key: "final", label: "Final ready" }
+            : j.stage === "Draft ready"
+              ? { key: "draft", label: "Draft ready" }
+              : j.stage === "New"
+                ? { key: "new", label: "Transcribing" }
+                : { key: "review", label: j.state === "cancelled" ? "Stopped" : j.stage };
+export const STATUS_FILTERS: [string, string][] = [
+  ["all", "All"],
+  ["active", "In progress"],
+  ["draft", "Draft ready"],
+  ["final", "Final ready"],
+  ["sent", "Sent"],
+  ["delivered", "Delivered"],
+];
 export type Job = JobSummary & {
   started?: number;
   finished?: number;

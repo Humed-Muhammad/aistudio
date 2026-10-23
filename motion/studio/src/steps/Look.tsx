@@ -4,7 +4,6 @@ import { LIGHT_PATTERNS, wallLayers } from "../../../src/wallLights";
 import { api, clock, type BackgroundLook } from "../api";
 import type { ShortEvent } from "../../../src/types";
 import type { JobApi } from "../JobView";
-import { Preview } from "../Preview";
 
 type Preset = BackgroundLook & { id: string; note: string; look: string };
 
@@ -77,7 +76,7 @@ const swatch = (p: BackgroundLook): React.CSSProperties => {
   };
 };
 
-export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast }) => {
+export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast, preview }) => {
   const saved: Look = { ...DEFAULT_LOOK, ...job.plan?.background };
   const [presets, setPresets] = useState<Preset[]>([]);
   const [look, setLook] = useState<Look>(saved);
@@ -86,7 +85,10 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast }) => {
 
   useEffect(() => {
     api<Preset[]>("/shorts/looks").then(setPresets).catch(() => {});
-  }, []);
+    return () => preview.set(undefined);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // The shared preview shows the look as it is being changed, before it is saved.
+  useEffect(() => preview.set({ background: look }), [look]); // eslint-disable-line react-hooks/exhaustive-deps
   // Take server updates (e.g. after Ask Claude) unless the creator is mid-change.
   useEffect(() => {
     if (!dirty) setLook({ ...DEFAULT_LOOK, ...job.plan?.background });
@@ -157,10 +159,7 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast }) => {
   const cutout = !!job.tracking;
 
   return (
-    <div className="card">
-      <div className="studio">
-        <div className="stage">
-          <Preview id={job.id} version={String(job.files["source.mp4"]) + JSON.stringify(job.plan?.events ?? [])} override={{ background: look }} />
+    <div className="inspector">
           <div className="compare">
             <span className="hint">{dirty ? "Saving…" : look.auto === false ? "Your choice · Claude keeps it" : "Chosen by Claude"}</span>
             {look.auto === false ? (
@@ -169,8 +168,6 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast }) => {
               </button>
             ) : null}
           </div>
-        </div>
-        <div>
           <h2>Background & lighting</h2>
           <p className="lead">
             You are cut out of your video and placed on a new background, with light around you. Claude picks one
@@ -315,8 +312,6 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast }) => {
               {slider("scale", "Size", 1.2, 1, 0.01)}
             </div>
           </details>
-        </div>
-      </div>
     </div>
   );
 };

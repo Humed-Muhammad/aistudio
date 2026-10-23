@@ -65,7 +65,7 @@ export const Cut: React.FC<JobApi> = (ctx) => {
     ((job.cut_mtime ?? 0) > job.files["source.mp4"] || (!!job.manifest && (job.manifest.noise || "off") !== job.noise));
 
   return (
-    <div className="card">
+    <div className="inspector">
       <h2>Keep what matters</h2>
       <p className="lead">Unchecked parts are cut. Retakes, repeated points and dead air go; the length follows the content.</p>
       <div className="numbers">

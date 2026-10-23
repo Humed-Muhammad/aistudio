@@ -102,6 +102,36 @@ class ShortsApiTests(unittest.TestCase):
     r=client.post(f'/shorts/jobs/{ident}/assets',files={'images':('My Logo!.PNG',b'\x89PNG')})
     self.assertEqual(r.json()['assets'],['my-logo.png'])
 
+class ClientTests(unittest.TestCase):
+ def test_clients_kits_and_delivery(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app,clients
+  client=TestClient(app.app);ident='b'*32
+  with tempfile.TemporaryDirectory() as d:
+   (Path(d)/ident).mkdir();p=job(Path(d)/ident);(p/'upload.mp4').write_bytes(b'x');(p/'foreground.webm').write_bytes(b'x')
+   with patch.object(shorts_app,'RUNS',Path(d)),patch.object(clients,'CLIENTS',Path(d)/'clients.json'):
+    self.assertEqual(client.post('/shorts/clients',json={'name':' '}).status_code,422)
+    c=client.post('/shorts/clients',json={'name':'Hana Tech','notes':'Say ፖድካስት, not podcast.'}).json()
+    self.assertEqual((c['name'],c['videos'],c['kit']),('Hana Tech',0,None))
+    # A video's style becomes the client's kit.
+    plan={'caption_preset':'sweep','caption_font':'wide','graphics_style':'noir','transition':'dip','caption_speed':1.4,
+          'background':{**shorts.look('studio_haze').model_dump(),'auto':False},'events':[]}
+    self.assertEqual(client.put(f'/shorts/jobs/{ident}/plan',json=plan).status_code,200)
+    self.assertEqual(client.patch(f'/shorts/jobs/{ident}',json={'client':c['id'],'delivery':'sent'}).json()['delivery'],'sent')
+    self.assertEqual(client.patch(f'/shorts/jobs/{ident}',json={'delivery':'paid'}).status_code,422)
+    kc=client.put(f"/shorts/clients/{c['id']}/kit",json={'job':ident}).json()
+    self.assertEqual((kc['videos'],kc['kit_summary']['captions'],kc['kit_summary']['look']),(1,'sweep','studio_haze'))
+    # Claude hears the client's notes; a new video starts from the kit with every choice kept.
+    self.assertIn('ፖድካስት',shorts.with_client(p,'keep the ending'));self.assertIn('keep the ending',shorts.with_client(p,'keep the ending'))
+    start=shorts.kit_plan(clients.get(c['id'])['kit'])
+    self.assertEqual((start.caption_preset,start.graphics_style,start.transition,start.background.pattern,start.captions_auto,start.background.auto),('sweep','noir','dip','side',False,False))
+    # Applying the kit to a video keeps its graphics.
+    shorts.save_plan(p,{'caption_preset':'bold','events':[{'type':'flash','start':1,'end':1.3}]})
+    r=client.post(f'/shorts/jobs/{ident}/kit').json()
+    self.assertEqual((r['plan']['caption_preset'],len(r['plan']['events'])),('sweep',1))
+    # Deleting the client keeps the video.
+    client.delete(f"/shorts/clients/{c['id']}");self.assertIsNone(client.get(f'/shorts/jobs/{ident}').json()['client'])
+
 def words(*spec):
  """spec: (text,start_s,end_s) -> whisper-style captions."""
  return [{'text':' '+t,'startMs':round(a*1000),'endMs':round(b*1000),'timestampMs':None,'confidence':None} for t,a,b in spec]

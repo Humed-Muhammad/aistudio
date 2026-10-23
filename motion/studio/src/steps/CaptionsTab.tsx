@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Plan } from "../api";
 import type { JobApi } from "../JobView";
-import { Preview } from "../Preview";
 
 type Captions = Pick<
   Plan,
@@ -62,7 +61,7 @@ const pick = (p: Plan): Captions => ({
   captions_auto: p.captions_auto ?? true,
 });
 
-export const CaptionsTab: React.FC<JobApi> = ({ job, busy, setup, savePlan }) => {
+export const CaptionsTab: React.FC<JobApi> = ({ job, busy, setup, savePlan, preview }) => {
   const plan = job.plan!;
   const [draft, setDraft] = useState<Captions>(pick(plan));
   const [dirty, setDirty] = useState(false);
@@ -81,14 +80,13 @@ export const CaptionsTab: React.FC<JobApi> = ({ job, busy, setup, savePlan }) =>
       setDirty(false);
     }, 500);
   };
+  useEffect(() => () => preview.set(undefined), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => preview.set(draft), [draft]); // eslint-disable-line react-hooks/exhaustive-deps
   const duo = draft.caption_preset === "duo";
   const palette = Object.entries(setup.palette);
 
   return (
-    <div className="card">
-      <div className="studio">
-        <div className="stage">
-          <Preview id={job.id} version={String(job.files["source.mp4"]) + JSON.stringify(plan.events)} override={draft} />
+    <div className="inspector">
           <div className="compare">
             <span className="hint">
               {dirty ? "Saving…" : draft.captions_auto ? "Colour and style chosen by Claude" : "Your choice · Claude keeps it"}
@@ -99,8 +97,6 @@ export const CaptionsTab: React.FC<JobApi> = ({ job, busy, setup, savePlan }) =>
               </button>
             ) : null}
           </div>
-        </div>
-        <div>
           <h2>Captions</h2>
           <p className="lead">Every choice plays in the preview right away. Press play or scrub to a spoken part.</p>
 
@@ -247,8 +243,6 @@ export const CaptionsTab: React.FC<JobApi> = ({ job, busy, setup, savePlan }) =>
               </p>
             )}
           </div>
-        </div>
-      </div>
     </div>
   );
 };

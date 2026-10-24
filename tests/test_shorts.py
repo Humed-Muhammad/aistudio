@@ -77,6 +77,22 @@ class ShortsPlanTests(unittest.TestCase):
    self.assertEqual([(e.type,e.template) for e in plan.events],[('card','list'),('zoom','list')])
    self.assertEqual(sum('left out' in w for w in warnings),2)
 
+ def test_planner_adds_look_switches_only_when_asked(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d);block=lambda s:Mock(text=s)
+   reply=lambda:Mock(stop_reason='end_turn',content=[block(json.dumps({'caption_preset':'minimal','caption_y':.7,'highlight_color':'#6EC1FF','progress_bar':False,'emphasis':[],'notes':'n','look':'studio_blue',
+    'events':[{'type':'look','start':0,'end':3.4,'look':'original'},{'type':'zoom','start':5,'end':6,'scale':1.2,'focus':'face'}]}))])
+   def plan(notes,asked=None):
+    client=Mock();client.beta.messages.create.return_value=reply()
+    with patch('anthropic.Anthropic',return_value=client),patch('shorts.setting',lambda name,default='':default):return shorts.plan_auto(p,notes,asked=asked)[0]
+   kinds=lambda pl:sorted(e.type for e in pl.events if e.type!='sfx')
+   self.assertEqual(kinds(plan('')),['zoom'])  # Claude's own idea: dropped
+   self.assertEqual(kinds(plan('show my real room at the start')),['look','zoom'])
+   shorts.save_plan(p,{'events':[{'type':'look','start':1,'end':2,'look':'original'}]})  # the creator's own switch
+   kept=plan('Current plan: … look … background …',asked='more zooms please')
+   self.assertEqual([(e.start,e.end) for e in kept.events if e.type=='look'],[(1,2)])  # theirs kept, Claude's new one dropped
+   self.assertEqual(kinds(plan('',asked='ክፍሉን አሳይ (show the room)')),['look','zoom'])
+
  def test_render_props_bundle_plan_tracks_and_captions(self):
   with tempfile.TemporaryDirectory() as d:
    p=job(d);shorts.save_plan(p,{'events':[{'type':'flash','start':1,'end':1.2}]})

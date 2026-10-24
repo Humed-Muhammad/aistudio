@@ -188,7 +188,7 @@ def revise(ident:str,notes:str=Form(...),scope:str=Form('graphics')):
             current=shorts.load_plan(path);current.background.auto=True  # the creator asked Claude to change things
             shorts.save_plan(path,current)
             ask=f"Current plan (keep everything that the request does not touch):\n{current.model_dump_json(exclude_none=True)}\n\nRequested change: {notes.strip()}"
-            shorts.plan_auto(path,ask,status=status)
+            shorts.plan_auto(path,ask,status=status,asked=notes)
             shorts.render(path,False,lambda m,p=None:status('Step 2 of 2 · '+m,p));return 'New draft ready with your changes'
     start(path,'auto','Making your changes',work);return state(ident)
 

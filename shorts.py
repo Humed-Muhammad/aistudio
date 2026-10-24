@@ -1267,10 +1267,14 @@ def json_from_text(text):
     if a<0 or b<a:raise ValueError('no JSON object in the reply')
     return json.loads(text[a:b+1])
 
-def plan_auto(folder,notes='',preset=None,status=None):
+# Words that ask for a different background for part of the video (English and Amharic).
+ASKS_FOR_SWITCH=re.compile(r'\b(look|background|backdrop|room|wall|studio)s?\b|ባክግራውንድ|ጀርባ|ክፍል',re.I)
+
+def plan_auto(folder,notes='',preset=None,status=None,asked=None):
     """Ask Claude for a plan from transcript, tracking summary, frames and uploaded images.
     The plan schema is too large for enforced structured output (the compiled grammar is refused), so the
-    planner writes JSON against the schema in its instructions and the editor validates it, asking once to fix broken JSON."""
+    planner writes JSON against the schema in its instructions and the editor validates it, asking once to fix broken JSON.
+    asked: the creator’s own words, when notes also carry other context (a revision sends the current plan)."""
     import anthropic
     text,images=planner_context(folder,with_client(folder,notes))
     mode=json.loads((Path(folder)/'workflow-mode.json').read_text()).get('preset')
@@ -1289,6 +1293,7 @@ def plan_auto(folder,notes='',preset=None,status=None):
             if attempt:raise RuntimeError(f'The planner did not return a readable plan ({response.stop_reason}: {e}).')
             messages+=[{'role':'assistant','content':reply},{'role':'user','content':f'That was not valid JSON ({e}). Reply with the corrected JSON object only.'}]
     plan,dropped=plan_from_json(data)
+    before=None
     try:
         before=load_plan(folder);mine=before.background
         if not mine.auto:plan.background=mine  # the creator chose a look: keep it
@@ -1299,6 +1304,10 @@ def plan_auto(folder,notes='',preset=None,status=None):
         if not before.captions_auto:plan.caption_preset,plan.highlight_color,plan.caption_y=before.caption_preset,before.highlight_color,before.caption_y
     except (OSError,ValueError):pass
     if (preset or mode not in (None,'auto')) and plan.captions_auto:plan.caption_preset=preset or mode
+    # Look switches are the creator's call: Claude may add them only when the creator's words ask for one.
+    # Otherwise the switches already in the plan stay as they were.
+    if not ASKS_FOR_SWITCH.search(notes if asked is None else asked):
+        plan.events=[e for e in plan.events if e.type!='look']+([e for e in before.events if e.type=='look'] if before else [])
     plan,warnings=save_plan(folder,plan)
     if dropped:
         warnings=[f'Planner item not understood and left out: {d}' for d in dropped]+warnings

@@ -174,6 +174,7 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast, preview }) 
             automatically; pick here only if you want a different one.
           </p>
           {!cutout ? <div className="stale">Build your edit first: the cutout is made while tracking.</div> : null}
+          {job.plan ? <InSwitch job={job} busy={busy} savePlan={savePlan} preview={preview} /> : null}
 
           <div className="section">
             <h3>Looks</h3>
@@ -312,6 +313,49 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast, preview }) 
               {slider("scale", "Size", 1.2, 1, 0.01)}
             </div>
           </details>
+    </div>
+  );
+};
+
+/**
+ * A look switch overrides the look you pick for its part of the video. When the preview stands inside one,
+ * say so: otherwise picking a wall there seems to do nothing.
+ */
+const InSwitch: React.FC<Pick<JobApi, "job" | "busy" | "savePlan" | "preview">> = ({ job, busy, savePlan, preview }) => {
+  const fps = 30;
+  const [at, setAt] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => setAt((preview.player.current?.getCurrentFrame() ?? 0) / fps), 250);
+    return () => window.clearInterval(t);
+  }, [preview.player]);
+  const plan = job.plan!;
+  const i = plan.events.findIndex((e) => e.type === "look" && at >= e.start && at < e.end);
+  if (i < 0) return null;
+  const e = plan.events[i];
+  const after = Math.min(e.end + 0.3, (job.manifest?.duration ?? e.end + 1) - 0.1);
+  return (
+    <div className="stale" role="status">
+      <b>
+        {clock(e.start)}–{clock(e.end)} switches to {e.look === "original" ? "your real room" : (TITLES[e.look ?? ""] ?? e.look)}.
+      </b>{" "}
+      The look you pick shows everywhere else in the video, just not in this part.
+      <div className="row" style={{ marginTop: 8 }}>
+        <button type="button" className="btn secondary small" onClick={() => preview.player.current?.seekTo(Math.round(after * fps))}>
+          Jump past it
+        </button>
+        <button
+          type="button"
+          className="btn secondary small"
+          disabled={busy}
+          onClick={() => {
+            const q = structuredClone(plan);
+            q.events.splice(i, 1);
+            savePlan(q);
+          }}
+        >
+          Remove this switch
+        </button>
+      </div>
     </div>
   );
 };

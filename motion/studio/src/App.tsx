@@ -79,16 +79,17 @@ export const App: React.FC = () => {
   const editing = route.page === "job";
 
   return (
-    <div className={"shell" + (editing ? " editing" : "")}>
+    <div className="shell">
       <aside className="rail" aria-label="Main">
-        <button type="button" className="brand" onClick={() => go({ page: "videos" })} title="Genjustsu Studio">
+        <button type="button" className="brand" onClick={() => go({ page: "videos" })} title="Humed’s AI Studio">
           <i />
-          <span>Studio</span>
+          <span>Humed’s AI Studio</span>
         </button>
         <button type="button" className="btn newbtn" onClick={() => go({ page: "new", client: null })}>
           ＋<span> New video</span>
         </button>
-        <nav className="railnav">
+        <nav className="railnav" aria-label="Shorts">
+          <span className="raillabel">Shorts</span>
           <button type="button" className={route.page === "videos" || editing ? "on" : ""} onClick={() => go({ page: "videos" })}>
             <span className="ico">▦</span>
             <span>Videos</span>
@@ -98,29 +99,33 @@ export const App: React.FC = () => {
             <span>Clients</span>
           </button>
         </nav>
-        <details className="moretools">
-          <summary>
-            <span className="ico">⋯</span>
-            <span>More tools</span>
-          </summary>
-          <a href="/cleaner">Audio cleaner</a>
-          <a href="/graphics">Motion graphics</a>
-          <a href="/">Character workflow</a>
-          <a href="/shorts/classic">Classic editor</a>
-        </details>
-        <div className="themes" role="radiogroup" aria-label="Editor theme">
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="radio"
-              aria-checked={theme === t.id}
-              title={t.name}
-              className={theme === t.id ? "on" : ""}
-              style={{ background: `linear-gradient(135deg, ${t.tokens.panel} 55%, ${t.tokens.accent} 55%)` }}
-              onClick={() => pickTheme(t.id)}
-            />
-          ))}
+        <nav className="railnav tools" aria-label="Other tools">
+          <span className="raillabel">Tools</span>
+          <a href="/graphics" title="Motion graphics: promos and ads written as code">
+            <span className="ico">✦</span>
+            <span>Motion graphics</span>
+          </a>
+          <a href="/cleaner" title="Audio cleaner: remove noise and transcribe">
+            <span className="ico">♪</span>
+            <span>Audio cleaner</span>
+          </a>
+        </nav>
+        <div className="railfoot">
+          <span className="raillabel">Theme</span>
+          <div className="themes" role="radiogroup" aria-label="Theme">
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="radio"
+                aria-checked={theme === t.id}
+                title={t.name}
+                className={theme === t.id ? "on" : ""}
+                style={{ background: `linear-gradient(135deg, ${t.tokens.panel} 55%, ${t.tokens.accent} 55%)` }}
+                onClick={() => pickTheme(t.id)}
+              />
+            ))}
+          </div>
         </div>
       </aside>
       <main className="main">

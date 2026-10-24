@@ -2,7 +2,7 @@
 from pathlib import Path
 import threading,uuid,shutil,json,re,time
 from fastapi import APIRouter,UploadFile,File,Form,HTTPException,Body
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse,HTMLResponse
 from pydantic import ValidationError
 import shorts,clients
 ROOT=Path(__file__).resolve().parent;RUNS=ROOT/'runs'
@@ -141,11 +141,12 @@ def use_kit(ident:str):
 
 STUDIO=ROOT/'static'/'studio'/'index.html'  # React app (motion/studio), built by `make shorts`
 
-@router.get('/shorts')
-def page():return FileResponse(STUDIO if STUDIO.exists() else ROOT/'static/shorts.html')
+NOT_BUILT='<!doctype html><meta charset="utf-8"><title>Humed’s AI Studio</title><body style="font:16px system-ui;background:#F4F4F6;color:#16181F;display:grid;place-items:center;height:100vh;margin:0"><p>The studio isn’t built yet. Run <b>make shorts</b> in the project folder, then reload this page.</p>'
 
-@router.get('/shorts/classic')
-def classic():return FileResponse(ROOT/'static/shorts.html')
+@router.get('/shorts')
+def page():
+    if STUDIO.exists():return FileResponse(STUDIO)
+    return HTMLResponse(NOT_BUILT,status_code=503)
 
 @router.get('/shorts/setup')
 def setup():return {'planner_available':bool(shorts.setting('ANTHROPIC_API_KEY')),'strong_noise_available':bool(shorts.setting('ELEVENLABS_API_KEY')),'palette':shorts.PALETTE}

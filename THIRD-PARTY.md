@@ -1,9 +1,21 @@
 # Third-party notices
 
-Python dependencies retain their respective licenses. Rubber Band is an external executable with its own licensing; obtain it from its official distribution/package manager. Hosted Demucs, depth, SAM and Seedance models are not redistributed in this package and remain subject to their providers' terms.
+Humed’s AI Studio's own code is MIT licensed (see `LICENSE`). It installs or downloads the following on your machine; none of them are copied into this repository, and each keeps its own license.
 
-TEIN branding and companion illustrations are included from the existing user-authorized UI. Those assets are excluded from the MIT license covering this project’s code and documentation; this package grants no new rights to them. Google Fonts are requested by CSS, not vendored here. Two user-selected videos are included under `examples/`; see its README for media rights and usage notes. No license to third-party footage, music or likenesses is granted by this package.
+| What | Used for | License / terms |
+| --- | --- | --- |
+| [Remotion](https://www.remotion.dev) and the Remotion Player | Shorts rendering and live preview | Remotion License: free for individuals and companies of up to 3 people. **Larger companies need a paid Remotion company license.** |
+| [HyperFrames](https://github.com/heygen-com/hyperframes), GSAP | Motion graphics | Their own licenses, installed by npm in `graphics-kit/` |
+| [Robust Video Matting](https://github.com/PeterL1n/RobustVideoMatting) weights | Person cutout | GPL-3.0 project; weights downloaded from the official release into `models/` on first use, not redistributed |
+| [MediaPipe](https://github.com/google-ai-edge/mediapipe) and its models | Hand, face and gesture tracking | Apache-2.0 |
+| [ONNX Runtime](https://github.com/microsoft/onnxruntime) | Runs the cutout model | MIT |
+| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | Local transcription | MIT |
+| RNNoise model ([GregorR/rnnoise-models](https://github.com/GregorR/rnnoise-models), run by FFmpeg's `arnndn`) | Light noise removal | Its own license; downloaded into `models/` on first use, not redistributed |
+| [Mixkit](https://mixkit.co/free-sound-effects/) sound effects | Default sound effects | Mixkit free license (commercial use, no credit). Downloaded once into `models/sfx-mixkit/`; never redistributed as raw files |
+| FFmpeg (ffmpeg-static), FFprobe | Video encoding | LGPL/GPL builds, installed by npm |
+| Python and npm packages | Everything else | Their respective licenses |
+| Google Fonts (Inter, Noto Sans Ethiopic, Montserrat …) | Captions and UI | SIL Open Font License, loaded from Google Fonts |
 
-Cloudflared is an optional external executable distributed by Cloudflare. Quick Tunnels are a development service; this package does not redistribute the binary.
+Cloud services are optional and used only with your own keys: the Claude API (Anthropic), ElevenLabs (Scribe and Voice Isolator). Their terms apply to anything you send them.
 
-The shorts editor downloads Robust Video Matting weights (`rvm_resnet50_fp32.onnx`, or `rvm_mobilenetv3_fp32.onnx` with `SHORTS_MATTE=fast`) from the official PeterL1n/RobustVideoMatting GitHub release into `models/` on first use and runs them with ONNX Runtime (MIT). The project's code is GPL-3.0; none of it is included here and the weights are not redistributed. The shorts studio UI uses Remotion and the Remotion Player (Remotion License: free for individuals and companies of up to 3 people) and Vite (MIT), installed by npm in `motion/`.
+No rights to anyone's footage, music, voice or likeness are granted by this project.

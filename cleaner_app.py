@@ -60,7 +60,7 @@ def list_jobs():
     jobs=[]
     for p in cleaner.RUNS.iterdir():
         job=cleaner.read(p,'job.json')
-        if job:s=status_of(p);jobs.append({'id':p.name,'title':job['title'],'created':job['created'],'duration':job.get('duration'),'state':s['state'],'progress':s.get('progress'),'status':s.get('status','')})
+        if job:s=status_of(p);jobs.append({'id':p.name,'title':job['title'],'created':job['created'],'duration':job.get('duration'),'video':bool(job.get('video')),'state':s['state'],'progress':s.get('progress'),'status':s.get('status','')})
     return sorted(jobs,key=lambda j:-j['created'])
 
 @router.post('/cleaner/jobs')

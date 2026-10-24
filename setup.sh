@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
+# One-time base install: Python environment, packages and an empty .env. Tools are added with make shorts / make graphics.
 set -euo pipefail
 cd "$(dirname "$0")"
-PYTHON="${PYTHON:-python3}"
-if ! command -v "$PYTHON" >/dev/null 2>&1; then
-  echo "Install Python 3.12+ first. See docs/SETUP-AGENT.md."; exit 1
-fi
-"$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3,12) else "Python 3.12+ required. Set PYTHON to a compatible interpreter.")'
-if ! command -v rubberband >/dev/null 2>&1; then
-  echo "Rubber Band CLI is missing. macOS: brew install rubberband; Ubuntu/WSL: sudo apt install rubberband-cli"
-  echo "See docs/SETUP-AGENT.md for agent-led installation."; exit 1
-fi
-if [ ! -d .venv ]; then "$PYTHON" -m venv .venv; fi
-.venv/bin/python -m pip install -r requirements.txt
-if [ ! -f .env ]; then cp .env.example .env; chmod 600 .env; fi
+PY="${PYTHON:-python3}"
+command -v "$PY" >/dev/null || { echo "Python 3.12 or newer is needed: https://www.python.org/downloads/"; exit 1; }
+"$PY" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else "Python 3.12 or newer is needed (set PYTHON=/path/to/python3.12).")'
+[ -d .venv ] || "$PY" -m venv .venv
+.venv/bin/python -m pip install -q --upgrade pip
+.venv/bin/python -m pip install -q -r requirements.txt
+if [ ! -f .env ]; then cp .env.example .env; chmod 600 .env; echo "Created .env: add your own keys there (all optional)."; fi
 .venv/bin/python doctor.py
-printf '\nNext: fill .env with your own keys, run bash start.command, then .venv/bin/python doctor.py --require-keys in another terminal\n'
+echo
+echo "Next: make shorts (Shorts editor), make graphics (Motion graphics), then make run"

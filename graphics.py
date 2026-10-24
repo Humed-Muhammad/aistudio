@@ -387,7 +387,7 @@ def claude_edit(folder,kind,task,finish,model,status,minutes,request=None):
              f'Bash({cmd("check")})',f'Bash({cmd("snapshot")}:*)',f'Bash({cmd("content")}:*)',f'Bash({cmd("render")})']
     denied=[f'Read({root}/.env*)','Bash(cat:*)','Bash(head:*)','Bash(tail:*)','Bash(less:*)','Bash(grep:*)']  # keys stay out of the transcript
     started=time.time()
-    with open(folder/'build.log','a') as log:log.write(json.dumps({'type':'genjustsu','kind':kind,'request':request,'started':started})+'\n')
+    with open(folder/'build.log','a') as log:log.write(json.dumps({'type':'aistudio','kind':kind,'request':request,'started':started})+'\n')
     result=run_claude([ask,'--model',model,'--tools','Read,Write,Edit,Glob,Bash,Skill','--allowedTools',*allowed,'--disallowedTools',*denied,'--permission-mode','dontAsk'],
                       ROOT,status,'Claude Code is starting',log=folder/'build.log',timeout=int(minutes*60))
     summary=(result.get('result') or '').strip()

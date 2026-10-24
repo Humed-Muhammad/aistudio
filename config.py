@@ -1,26 +1,23 @@
-"""Project-local credentials only; environment values take precedence."""
+"""Settings come from the shell first, then from this folder's .env (never from a parent folder).
+Values from .env are copied into the environment so helper processes (tracking, rendering) see them too."""
 import os
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 
 def load_env():
-    path=ROOT/'.env'
-    if path.exists():
-        for line in path.read_text().splitlines():
-            if not line.strip() or line.lstrip().startswith('#'):continue
-            key,sep,value=line.partition('=')
-            if sep:os.environ.setdefault(key.strip(),value.strip().strip('\"').strip("'"))
+    try:lines=(ROOT/'.env').read_text().splitlines()
+    except OSError:return
+    for raw in lines:
+        line=raw.strip()
+        if not line or line.startswith('#') or '=' not in line:continue
+        key,value=line.split('=',1)
+        os.environ.setdefault(key.strip(),value.strip().strip('"\''))
 
 def setting(name,default=''):
     load_env()
-    value=os.getenv(name,default)
-    if name=='ENHANCOR_WEBHOOK_URL' and not value:
-        import json
-        try:value=json.loads((ROOT/'.runtime-webhook.json').read_text())['url']
-        except (OSError,ValueError,KeyError):pass
-    return value
+    return os.environ.get(name,default)
 
 def credential(name):
     value=setting(name)
-    if not value:raise ValueError(f'Set {name} in this project’s .env file.')
+    if not value:raise ValueError(f'Add {name} to the .env file in this folder.')
     return value

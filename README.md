@@ -1,214 +1,108 @@
-<p align="center">
-  <a href="https://tein.ai"><img src="docs/branding/tein-ai-banner.svg" width="960" alt="TEIN AI — Open-source AI workflows. Click to join the waitlist." /></a>
-</p>
-<p align="center"><a href="https://tein.ai"><strong>Join TEIN AI →</strong></a></p>
+# Humed’s AI Studio
 
-<p align="center">
-  <a href="examples/advanced-black-nodes-v8-audio.mp4"><img src="examples/previews/workflow.gif" width="28%" alt="Workflow animation — click for full video with audio" /></a>
-  <a href="examples/1006%20%281%29.mp4"><img src="examples/previews/example-1.gif" width="34%" alt="Example 1 — click for full video with audio" /></a>
-  <a href="examples/1006%20%281%29%283%29.mp4"><img src="examples/previews/example-2.gif" width="34%" alt="Example 2 — click for full video with audio" /></a>
-</p>
-<p align="center"><em>Click any preview to open its full video with audio.</em></p>
+**A free, local video studio for TikTok, Reels and Shorts, built for Amharic and English creators.**
 
-<h1 align="center"> Genjustsu — Open Source Workflow</h1>
-<p align="center">Your scene. New characters.</p>
-<p align="center">
-  <a href="https://tein.ai"><strong>Join TEIN AI</strong></a> ·
-  <a href="https://enhancor.ai"><strong>Get the Seedance API</strong></a> ·
-  <a href="docs/SETUP-AGENT.md">Agent setup</a> ·
-  <a href="examples/README.md">Examples</a> ·
-  <a href="LICENSE">MIT license</a>
-</p>
+Upload a talking video, and Humed’s AI Studio cuts the retakes and pauses, adds animated captions, text pops, zooms, B-roll, sound effects and a studio background, then renders a ready-to-post 9:16 video on your own Mac. It also makes motion-graphics ads from your photos and cleans noisy audio.
 
-A local UI and agent-assisted workflow for replacing video subjects using colored depth, SAM 3 masks and Seedance through Enhancor. Draft first; approve before 1080p. The final export restores the **entire original source audio**, not generated audio.
+<!-- Demo: add a short screen recording or GIF here, e.g. docs/demo.gif -->
 
-## Get access
+## What's inside
 
-- **[Sign up at TEIN.ai](https://tein.ai)** for early access: “The cheapest APIs, open source workflows, and more.”
-- **[Get the Seedance API at Enhancor.ai](https://enhancor.ai)** — this workflow uses its Seedance integration with human-face support (`pass_faces: true`), draft previews, and approved 1080p generation. Get your own key from the [API dashboard](https://app.enhancor.ai/api-dashboard). Current the lowest price in the market; with unrestricted use.
+| Tool | What it does |
+| --- | --- |
+| **Shorts editor** (`/shorts`) | Cut → captions → graphics → look → sound → render. "Edit it for me" does the whole edit in one click; you review and ask for changes in your own words. Clients and brand kits for editing for other people. |
+| **Motion graphics** (`/graphics`) | Promos, explainers and ads from your images. Describe it, Claude Code builds the animation, then change any word, price or color and re-render in seconds. |
+| **Audio cleaner** (`/cleaner`) | Removes fans, hum, hiss and room noise from audio or video, and writes a transcript with subtitles (SRT). |
 
-## Easiest setup: let your coding agent install it
+All three share one app, one sidebar and four color themes.
 
-Extract the ZIP, open **this folder** in Codex or another coding agent with terminal/file access, and paste:
+### Shorts editor highlights
 
-> Set up this TEIN Genjustsu — Open Source Workflow project for me. Read `docs/SETUP-AGENT.md` and follow it end to end. Detect my OS, install missing Python/Rubber Band/cloudflared prerequisites using the supported package manager, create the main virtual environment, install dependencies, install Python 3.12 and run `bash setup-face-mesh.sh` for both mesh modes, and create `.env` without overwriting it. Open `.env` so I can enter my own keys privately. Run the local tests, launch the app and its callback-only tunnel, run the strict readiness check on a free localhost port, verify the UI and companion images, and give me the working URL. Work independently through setup, respecting system permission prompts. Do not submit paid generations. If keys are missing, launch the UI and clearly tell me generation is waiting for them.
+- **Smart cut**: drops retakes, false starts, filler words and long pauses; keeps every point and the payoff. Speech is only ever cut, never regenerated.
+- **Captions** in Amharic (Ethiopic script) and English, many styles (duo, light sweep, word-by-word lift …), placed just under the chin and kept clear of the platform buttons.
+- **Graphics**: text pops, cards (steps, lists, stats, quotes), zoom punch-ins, transitions, emoji or images that follow your hand, text behind you.
+- **Looks**: put yourself on a studio wall (16 looks, lamps, light patterns, color grade) using a local person cutout. No green screen needed.
+- **B-roll**: drop in screen recordings; they play over the edit while you keep talking.
+- **Sound**: volume levelled to −14 LUFS, optional noise removal, and sound effects that you can audition and pick.
+- **Post text**: three title options, a description and hashtags written from your own words.
+- **Clients**: notes and brand kits per client, so every video for them starts in their style.
 
-The launcher starts a callback-only Quick Tunnel when no custom webhook is configured. Keep it running with the app. The agent uses the included [setup runbook](docs/SETUP-AGENT.md). You only need to supply your own provider keys and approve any required system installation. No separate agent install is required. Native Windows users should use WSL2; macOS/Linux launch scripts are included.
+## What it costs
 
-## Manual setup
+The software is free (MIT). Everything renders on your Mac. Two optional services use **your own** keys and are paid per use:
 
-1. Install Python 3.12+ (the development runtime was Python 3.14) and Rubber Band CLI:
-   - macOS: `brew install rubberband cloudflared`
-   - Ubuntu/Debian or WSL: `sudo apt install rubberband-cli python3-venv`
-   - Install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) too, unless you already have a public HTTPS webhook receiver. On launch it creates a temporary callback-only tunnel; the UI and media stay on localhost.
-2. In this folder, run `bash setup.sh`. This creates an isolated `.venv`, installs `requirements.txt`, creates a blank `.env`, and checks dependencies. To enable all three modes, install Python 3.12 and run `bash setup-face-mesh.sh`, then `.venv/bin/python doctor.py --mesh`. On macOS, install the worker interpreter with `brew install python@3.12` if needed.
-3. Fill `.env` with **your own** `ENHANCOR_API_KEY` and `REPLICATE_API_TOKEN`. Get them from [Enhancor](https://app.enhancor.ai/api-dashboard) and [Replicate](https://replicate.com/account/api-tokens). Fund/enable the relevant API accounts. `HF_TOKEN` is optional for the Hugging Face depth alternative.
-4. Run `./start.command` (or `bash start.command`). Open **http://127.0.0.1:8770**. Use `PORT=8771 bash start.command` if the port is occupied.
-   - Once running, check `.venv/bin/python doctor.py --require-keys`. Enhancor requires a webhook URL: `launch.py` supplies one through cloudflared, or you can set `ENHANCOR_WEBHOOK_URL` yourself. Keep the app/tunnel running.
-5. Upload your own MP4/MOV, prepare it, inspect the entire mask and prepared video, approve that exact mask, provide your own character references, review the prompt, and create a draft.
-6. When you like the draft, click the 1080p approval button. The completed draft and HD result remain separate; both final previews use source audio.
+| Service | Needed for | Without it |
+| --- | --- | --- |
+| [Claude API](https://console.anthropic.com) (`ANTHROPIC_API_KEY`) | One-click "Edit it for me", auto-planning, post text | Plan the edit by asking Claude Code, or edit by hand in the UI |
+| [ElevenLabs](https://elevenlabs.io) (`ELEVENLABS_API_KEY`) | **Amharic transcripts** (Scribe) and "Strong" noise removal | English transcripts run locally with whisper.cpp; Light noise removal is local |
 
-No local model weights or GPU are needed for the default hosted setup. Python packages and the Rubber Band executable are required locally. No API keys, signed media URLs, or old jobs are included. Four user-selected demonstration videos are included in `examples/`. The bundled TEIN companion artwork is part of the UI.
+Motion graphics builds use your Claude Code plan (not an API key).
 
-## What happens
+## Requirements
 
-1. Save the source unchanged; extract audio and separate vocals/music with Demucs on Replicate.
-2. Pitch isolated vocals **+3 semitones**, maintaining duration with Rubber Band.
-3. Normalize the working video to 24 fps, up to 960 pixels; obtain colored depth with `lucataco/depth-anything-video`. Preserve returned colors.
-4. Use SAM 3 raw PNG masks on depth. Check alignment, coverage and background spill. An agent can retry segmentation on the original RGB if depth loses detail.
-5. Composite the depth subject over the original background. Mandatory full-clip visual mask review gates every generation. Approval is bound to hashes of the current artifacts.
-6. Embed the pitched vocals into the composite MP4. Send this video, **no standalone audio**, with character references.
-7. Enhancor Seedance **Edit** for image references; **Omni / multi_reference** for a video identity reference. Generate a draft by default.
-8. Poll for completion, download the result, discard its audio and copy the complete original soundtrack into the final MP4.
-9. After explicit HD approval, complete the accepted draft at 1080p and restore the soundtrack again.
+- A Mac with Apple Silicon (M1 or newer). Rendering is local, so 16 GB RAM is comfortable.
+- [Python 3.12+](https://www.python.org/downloads/)
+- [Node.js 22+](https://nodejs.org) (Shorts editor works with 18+; Motion graphics needs 22+)
+- [Google Chrome](https://www.google.com/chrome/)
+- [Claude Code](https://claude.com/claude-code) (only for Motion graphics builds, or to have Claude edit for you)
 
-## Autonomous agent operation
+Disk: about 3 GB after full setup, plus your videos. The person-cutout model (~107 MB) downloads on first use.
 
-Open this folder in your coding agent and ask it to follow `AGENTS.md` and `.agents/skills/tein-video-workflow/SKILL.md`. No particular agent vendor or model is required, but it must be able to inspect video and files, run Python, and access the network. An agent service is **not** bundled or silently started. The UI/server automates processing and result collection; the agent or user performs visual QA and creative review.
-
-Example: “Use the Genjustsu workflow for my clip and references. Prepare and inspect the entire mask, repair it if needed, show the prompt, submit the authorized draft, and retrieve the final preview. Wait for my approval before HD.”
-
-See [agent operations](docs/AGENT-OPERATIONS.md), [API integration](docs/ENHANCOR-API.md), [models](docs/MODELS.md), [media hosting](docs/MEDIA-HOSTING.md), and [troubleshooting](docs/TROUBLESHOOTING.md).
-
-## Recovery and checks
+## Setup
 
 ```bash
-.venv/bin/python doctor.py --require-keys
-.venv/bin/python test_composite.py
-.venv/bin/python -m unittest discover -s tests
-.venv/bin/python workflow.py status LOCAL_JOB_ID
-.venv/bin/python workflow.py resume LOCAL_JOB_ID
-.venv/bin/python workflow.py resume LOCAL_JOB_ID --hd
+git clone <this repo> ai-studio && cd ai-studio
+make setup       # Python environment and packages, creates .env
+make shorts      # Shorts editor + Audio cleaner (tracking, Remotion, whisper.cpp, studio UI)
+make graphics    # Motion graphics (HyperFrames, local FFmpeg; ~200 MB inside graphics-kit/)
+make doctor      # checks everything; prints no key values
+make run         # opens on http://127.0.0.1:8770
 ```
 
-The server resumes saved Seedance/HD **collection** on restart. It does not re-submit those requests. Preparation interrupted during a remote model call requires agent inspection of saved prediction metadata; do not blindly restart billed stages. Keep one server/collector per job. This is a local single-user application, not a multi-user hosted service. Bind to localhost; add authentication and a durable worker queue before public hosting.
+Then open `.env` and add the keys you want (all optional, see above). Restart with `make run` after changing it.
 
-## Tested release
+Prefer a coding agent? Open the folder in Claude Code and say: *"Set up Humed’s AI Studio for me following the README. Don't spend any API credit."*
 
-Clean installation tested on macOS ARM64 with Python 3.14.6. Thirteen automated tests passed, plus a live draft → approved 1080p run and actual browser download. The test caught and fixed the Tmpfiles URL and required-webhook setup issues. Final source audio was verified byte-for-byte. See [validation and remaining limits](docs/VALIDATION.md). Other OS installations and the optional Catbox route have not been live-tested.
+## Using it
 
-## Sharing
+1. **Shorts**: click **New video**, drop in one or more recordings (they are joined in name order), pick the spoken language (**Amharic** by default; avoid auto-detect for Amharic), and tick **Edit it for me**. Watch the draft, then ask for changes in plain words or adjust any tab by hand. Render the final and copy the post text from **Deliver**.
+2. **Motion graphics**: create a project with your images, describe the ad, let Claude draft the 4-part brief, build, then tweak text and colors and render.
+3. **Audio cleaner**: drop a file, choose Light (free) or Strong (ElevenLabs), choose the language, and compare Original ↔ Cleaned with one switch.
 
-Share the original clean ZIP, or remove `.env`, `.venv`, `runs`, logs and caches before repackaging. Runs contain private media and provider URLs. Dependencies and hosted models retain their own licenses and service terms. See `THIRD-PARTY.md`.
+Command-line versions exist for everything: `python shorts.py --help`, `python graphics.py --help`, `python cleaner.py --help`.
 
-## Watch the workflow and examples
+### Working with Claude Code
 
-Animated previews below are silent. Click a preview or its video link to open the full MP4 with audio.
+`AGENTS.md` tells coding agents how each workflow runs. You can ask Claude Code to cut, plan, revise or write post text for a video by hand, which uses your Claude plan instead of API credit.
 
-### Workflow walkthrough
+## Privacy
 
-[![Animated workflow walkthrough](examples/previews/workflow.gif)](examples/advanced-black-nodes-v8-audio.mp4)
+Humed’s AI Studio listens on `127.0.0.1` only. Your videos stay in `runs/` on your Mac. Audio is sent to ElevenLabs only when you choose Amharic transcription or Strong noise removal; transcripts, keyframes and uploaded images are sent to Anthropic only when you use the Claude API features. Don't expose the app to the internet: it has no login.
 
-[Watch the full workflow video with audio](examples/advanced-black-nodes-v8-audio.mp4)
+## Troubleshooting
 
-### Example 1
+| Problem | Fix |
+| --- | --- |
+| A tool says it isn't installed | Run the `make` target it names, then `make doctor`. |
+| Amharic words missing from captions | Set the language to Amharic (not auto) and make sure `ELEVENLABS_API_KEY` is set. |
+| Render fails or Chrome crashes | Set `SHORTS_BROWSER` in `.env` to your Chrome path. |
+| UI looks out of date after an update | Run `cd motion && npm run studio:build`, then hard-refresh (Cmd+Shift+R). |
+| The Mac gets hot or slow | Use `SHORTS_MATTE=fast` for the lighter cutout model. |
 
-[![Animated preview of example 1](examples/previews/example-1.gif)](examples/1006%20%281%29.mp4)
+## Project layout
 
-[Watch the full example 1 video](examples/1006%20%281%29.mp4)
-
-### Example 2
-
-[![Animated preview of example 2](examples/previews/example-2.gif)](examples/1006%20%281%29%283%29.mp4)
-
-[Watch the full example 2 video](examples/1006%20%281%29%283%29.mp4)
-
-Previews show up to the first six seconds. See [all example files](examples/README.md). Examples are optional and not needed for setup.
-
-## Before publishing on GitHub
-
-Use this clean project folder, not a working installation containing jobs or credentials. `.gitignore` excludes secrets, environments, generated jobs and logs; it cannot remove files already committed to Git history. Keep `.env.example` blank for secrets. Do not commit `.env`, runtime webhook URLs, provider responses or run folders. No repository history is included in this ZIP.
-
-The code and documentation are licensed under MIT; example videos and TEIN artwork are excluded and require separate redistribution rights. This app is designed for localhost use, not unauthenticated public deployment.
+```
+app.py              one server for all tools
+shorts.py           Shorts engine (cut, plan, render)      shorts_app.py    its API
+graphics.py         Motion graphics engine                 graphics_app.py  its API
+cleaner.py          Audio cleaner engine                   cleaner_app.py   its API
+clients.py          clients and brand kits
+motion/             Remotion compositions (motion/src) and the studio UI (motion/studio)
+static/             Motion graphics and Audio cleaner pages, shared sidebar (tools.css, tools.js)
+docs/               caption/graphics style guide, motion-graphics guide
+tests/              offline tests: make test (no paid calls)
+```
 
 ## License
 
-Code and documentation: [MIT](LICENSE), copyright © 2026 Sirio Berati.
-
-TEIN names, logos, companion artwork, and all example media are excluded from the MIT grant. No permission to reuse those assets is granted here; their respective owners retain their rights. Third-party dependencies and services retain their own licenses and terms. See [third-party notices](THIRD-PARTY.md).
-
-
-## Fast alternative: face mesh
-
-Choose **Fast · Face mesh** in the UI, or use `workflow.py prepare VIDEO --mode face_mesh`. Install the optional worker once with `bash setup-face-mesh.sh` (Python 3.12 required; isolated `.venv-face`). The model downloads from Google's official storage on first use.
-
-This path keeps the original video, tracks and saves facial landmarks, draws the mesh, isolates vocals and embeds the +3 pitched vocals. It makes **no depth or SAM calls**. It is currently designed for a single centered speaker; inspect all frames and stop on tracking gaps or incorrect face alignment. Do not claim mask review in this mode: review facial tracking and audio instead. Saved artifact hashes gate submission.
-
-Use the same character references, draft-first submission, collection, original-audio restoration and explicitly approved HD upgrade. In the prompt, explain that mesh lines are motion guidance and must disappear, replace the complete original identity including hair, and preserve all dialogue and timing. Image reference uses Edit; video identity uses Omni. Keep advanced depth mode available. Do not submit automatically during setup.
-
-
-### Combined depth + face mesh
-
-Select **Advanced + Face mesh** in the UI or use `workflow.py prepare VIDEO --mode depth_mesh`. This runs the original depth/SAM pipeline, preserves its depth composite, then tracks the face from the original frames and overlays the mesh onto that composite. Landmarks are saved in `face-landmarks.json`. Review BOTH mask coverage and face tracking before approval. All artifacts, including depth, mask, mesh and embedded audio, are bound to review approval. Follow the same draft → approved HD → original-audio restoration flow.
-
-For setup with all three preparation modes, also install Python 3.12 and run `bash setup-face-mesh.sh`. This creates an isolated mesh environment; the main app can retain its existing Python version. A Google Face Landmarker model is downloaded at first use. No SAM/depth inference is used by fast mode. Mesh modes are experimental and currently optimized for one centered speaker.
-
-
-## Shorts editor: captions and motion graphics
-
-Open **Shorts editor** (`/shorts`) to turn a raw vertical recording (up to 10 minutes) into a tight, polished short. Everything except the optional Claude auto-cut and auto-plan runs on your computer. Your voice is only cut, never regenerated.
-
-- **Cut to what matters**: the full recording is transcribed and split into parts. Auto-cut removes retakes, repeated points, tangents and dead air, with a reason shown for each removed part. You can toggle any part, and filler words and long pauses are trimmed automatically. The length follows the content.
-
-- **Motion templates**: step trackers, sliders, counting stat cards with glowing charts, app-icon tiles, lists, chips, quotes and titles, over the video, on a dimmed background, full screen (dark glow or light grid) or split; Editorial captions with serif accent words; automatic sound design (whooshes, clicks, risers, hits) generated locally. See `docs/shorts-style.md`
-- **Background noise**: per video, Off, Light (free, local RNNoise for fans, hum and hiss) or Strong (ElevenLabs Voice Isolator, paid); the original upload is kept
-- **Several recordings**: select them together on upload; they are joined in file-name order (the phone's recording order) before transcription
-- **Amharic + English**: set `ELEVENLABS_API_KEY` to transcribe with ElevenLabs Scribe (cloud, paid per minute), which supports Amharic; captions and text use Noto Sans Ethiopic. Without it, local whisper.cpp is used (English and other major languages only)
-- **Captions** from word timings, in Bold (1–3 big words with the spoken word highlighted), Boxed, or Minimal style
-- **Motion graphics**: hook titles, text pops, typewriter and pill labels, zoom punch-ins on your face, shakes, flashes, a progress bar and sound effects
-- **Text behind you**, using a local person cutout
-- **Screen recordings (B-roll)**: upload a phone screen recording and it cuts in while you keep talking. Layouts: full screen, split (recording on top, you below), your face in a bubble, or you cut out in front of it.
-- **Images that follow your hands**: upload a PNG (logo, product, icon) and it can sit above your palm, follow your fingertip, or pop in when you open your palm, pinch or point. It can also sit above your head or stay fixed on screen.
-
-Steps: upload → cut (auto or by hand) → review the cut and its tracking → add images and describe what you want → **Auto-plan with Claude** (needs `ANTHROPIC_API_KEY`), or ask Claude Code to write the plan, or edit the JSON → render a draft → render the final. Install once with `make shorts` (Node.js 18+ required). CLI: `python shorts.py prepare|cut|plan|render`.
-
-## Audio cleaner and transcriber
-
-Open **Audio cleaner** (`/cleaner`) to remove background noise from any audio or video file and/or get its transcript. Your original file is never changed.
-
-- **Light** noise removal runs on your computer (free): fans, hum, hiss and room noise. **Strong** uses ElevenLabs Voice Isolator (cloud, paid per minute) and also removes music, background voices and echo.
-- Download the cleaned audio as MP3 or lossless WAV; a video comes back with its picture unchanged and the cleaned sound.
-- Transcripts come as plain text, SRT subtitles and timed words (JSON). Amharic and Afaan Oromoo need `ELEVENLABS_API_KEY` (Scribe); without it, local whisper.cpp handles English. Oromo is best effort (ElevenLabs doesn't officially list it) and **Detect** recognises it from the transcript words.
-
-CLI: `python cleaner.py recording.m4a --noise light --language am` (`om` for Oromo, `auto` to detect) (add `--no-transcript` to only clean).
-
-## Motion graphics: promos, explainers and ads as code
-
-Open **Motion graphics** (`/graphics`) to make short promos, explainers and ads that Claude writes as code (HTML + GSAP) and [HyperFrames](https://github.com/heygen-com/hyperframes) renders to MP4 on your computer. There is no video model and no cloud render.
-
-- **Your images, animated:** slow push-ins, wipes and iris reveals, floating 3D product shots, light sweeps, tiles that assemble, slideshows, parallax. A PNG with a transparent background floats as a cut-out. Make photoreal images with any image tool first, then animate them here.
-- **Edit without regenerating:** every word, price, color and picture sits in one content block. Change "$25" to "$30" in the Content form, render again, and everything else stays identical.
-- **Plan with the 4-part brief:** who/where/how long, the look (hex colors, fonts, mood), scene by scene with seconds, and rules (what it must never do). Type what you want in your own words and press **Draft the brief** (Claude looks at your images and leaves `[placeholders]` for prices or numbers you didn't give), or write the four parts yourself. Edit, save, then **Build with Claude Code**: it writes the animation, checks it, reviews its frames and renders a draft, using your Claude plan (the API key is not used), working only inside the project folder. For a design tweak later ("make the price bigger", "slow down scene 2"), **Ask Claude for a change** edits only that part in about a minute instead of rebuilding. **Undo** steps back one build or change at a time.
-- Starts from a 12-second template (hero → product → detail → call to action) in 9:16, 1:1 or 16:9, so you can render with your own images and words before writing a brief. Amharic text uses bundled Noto Sans Ethiopic.
-
-Install once with `make graphics` (Node.js 22+; about 200 MB inside `graphics-kit/`, including its own FFmpeg; uses your installed Google Chrome; HyperFrames telemetry turned off; adds the HyperFrames skills for Claude Code in `.claude/skills/`). Check with `python doctor.py --graphics`.
-
-CLI: `python graphics.py new "Fade House promo" --image hero.jpg --image product.png`, then `content JOB --set price='$30'`, `check`, `snapshot`, `render [--final]`. Authoring guide: [docs/motion-graphics.md](docs/motion-graphics.md).
-
-## Tech stack
-
-| Layer | Technology and purpose |
-| --- | --- |
-| Local app | Python 3.12+, FastAPI, Uvicorn; HTML, CSS and vanilla JavaScript UI |
-| Video/audio processing | PyAV, NumPy, Pillow, OpenCV and SciPy; local encoding, compositing and audio restoration |
-| Vocal isolation | Hosted Demucs / htdemucs through Replicate |
-| Pitch | Rubber Band CLI; isolated vocals +3 semitones without changing duration |
-| Colored depth | Replicate `lucataco/depth-anything-video`; optional Hugging Face Video Depth Anything or `chenxwh/depth-any-video` |
-| Segmentation | Replicate `lucataco/sam3-video`; raw per-frame masks and mandatory visual review |
-| Face mesh | Local Google MediaPipe Face Landmarker; saved landmarks and overlay, isolated Python 3.12 worker environment |
-| Motion graphics | HyperFrames (HTML + GSAP compositions, headless Chrome capture, project-local FFmpeg); motion kit for image animation; HyperFrames skills for Claude Code |
-| Shorts editor | Local MediaPipe gesture/face tracking and selfie segmentation, whisper.cpp or ElevenLabs Scribe captions, Remotion (React) rendering; optional Claude planner |
-| Generation | Enhancor Seedance; Edit for image references, Omni for video references; draft first, approved 1080p upgrade |
-| Media hosting | Tmpfiles primary; configurable Catbox fallback; direct-link checks before generation |
-| Completion | Persisted job files and polling; callback-only Cloudflare Quick Tunnel for the provider callback requirement |
-| Agent workflow | Included AGENTS.md, setup runbook, skill and CLI; a user-supplied coding agent performs visual QA |
-
-Fast face mesh skips both depth and SAM. Combined mode uses depth + SAM + facial landmarks. All modes embed pitched vocals before generation and restore the original source soundtrack afterward.
-
-## Hosting and failure recovery
-
-The default `.env.example` uses `MEDIA_HOST=tmpfiles` and `MEDIA_HOST_FALLBACKS=catbox`. Each host gets two attempts with a short delay. If temporary hosting fails, the uploader tries Catbox and reports that change. **Both hosts expose media through public URLs; Catbox is persistent.** Set `MEDIA_HOST_FALLBACKS=` to disable fallback, or select Catbox as primary. `CATBOX_USERHASH` is optional.
-
-The uploader checks direct URLs for HTTP errors, empty responses and HTML download pages. These checks cannot guarantee later provider access or codec compatibility. Tmpfiles references expire: for an explicitly authorized regeneration, upload fresh copies instead of reusing old request URLs. A failed upload never triggers a generation call.
-
-Paid generation requests are not automatically retried: on a timeout or unclear response, inspect the saved request/provider status first to avoid duplicate charges. On an explicit media-format failure, validate the local videos and re-upload before retrying. Polling remains the source of truth if callbacks are delayed. See [hosting details](docs/MEDIA-HOSTING.md).
+[MIT](LICENSE) © 2026 Humed Muhammad. Third-party tools and models keep their own licenses. See [THIRD-PARTY.md](THIRD-PARTY.md). Note: **Remotion is free for individuals and companies of up to 3 people; larger companies need a Remotion company license.**

@@ -1,67 +1,72 @@
-"""Offline checks; never prints credential values or starts paid calls."""
-import argparse,importlib,shutil,sys
-from config import setting
+"""Readiness check for Humed’s AI Studio. Runs offline, never makes paid calls and never prints key values.
+
+  python doctor.py              base install (Python packages)
+  python doctor.py --shorts     Shorts editor + Audio cleaner
+  python doctor.py --graphics   Motion graphics
+  python doctor.py --all        everything, plus which optional keys are set
+"""
+import argparse,importlib,shutil,subprocess,sys
+from pathlib import Path
+from config import ROOT,setting
+
+def report(title,checks):
+    print('\n'+title)
+    for name,(ok,fix) in checks.items():print(f'  {"OK     " if ok else "MISSING"} {name}'+('' if ok else f'  ({fix})'))
+    return all(ok for ok,_ in checks.values())
+
+def runs(cmd):
+    try:return subprocess.run(cmd,capture_output=True).returncode==0
+    except OSError:return False
+
+def base():
+    checks={'Python 3.12+':(sys.version_info>=(3,12),'install Python 3.12 or newer')}
+    for module in ['fastapi','uvicorn','multipart','av','numpy','PIL','scipy','httpx','anthropic']:
+        try:importlib.import_module(module);ok=True
+        except Exception:ok=False
+        checks[module]=(ok,'run make setup')
+    return report('Base',checks)
+
+def shorts_ready():
+    from shorts import transcriber
+    worker=ROOT/'.venv-face/bin/python';whisper=ROOT/'motion/whisper.cpp'
+    ok=report('Shorts editor + Audio cleaner',{
+        'Tracking (MediaPipe)':(worker.exists() and runs([str(worker),'-c','import mediapipe,av,PIL,numpy']),'run make shorts'),
+        'Person cutout (ONNX Runtime)':(worker.exists() and runs([str(worker),'-c','import onnxruntime']),'run make shorts'),
+        'Node.js':(bool(shutil.which('node')),'install Node.js 18+ from nodejs.org'),
+        'Remotion':((ROOT/'motion/node_modules/remotion').exists(),'run make shorts'),
+        'Local whisper.cpp':((whisper/'main').exists() and any(whisper.glob('ggml-*.bin')),'run make shorts'),
+        'Studio UI build':((ROOT/'static/studio/index.html').exists(),'run make shorts'),
+    })
+    if not (ROOT/'models/rvm_resnet50_fp32.onnx').exists():print('  note    the person-cutout model (~107 MB) downloads on first use')
+    print('  note    transcription: '+('ElevenLabs Scribe (cloud, paid per minute, supports Amharic)' if transcriber()=='elevenlabs' else 'local whisper.cpp (free; no Amharic; add ELEVENLABS_API_KEY for Amharic)'))
+    return ok
+
+def graphics_ready():
+    import graphics
+    return report('Motion graphics',{
+        'Node.js 22+':(runs(['node','-e','process.exit(+process.versions.node.split(".")[0]>=22?0:1)']),'install Node.js 22+ from nodejs.org'),
+        'HyperFrames':(graphics.HF.exists(),'run make graphics'),
+        'FFmpeg (local)':(graphics.FFMPEG.exists(),'run make graphics'),
+        'FFprobe (local)':(graphics.FFPROBE.exists(),'run make graphics'),
+        'Google Chrome':(Path('/Applications/Google Chrome.app').exists(),'install Google Chrome'),
+        'Claude Code skills':((ROOT/'.claude/skills/hyperframes/SKILL.md').exists(),'run make graphics'),
+    })
+
+def keys():
+    print('\nOptional keys (in .env)')
+    for name,use in [('ANTHROPIC_API_KEY','Edit it for me, auto-plan and post text (Claude API)'),('ELEVENLABS_API_KEY','Amharic transcripts and Strong noise removal')]:
+        value=setting(name).strip()
+        print(f'  {"set    " if value else "not set"} {name}: {use}')
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--require-keys',action='store_true');parser.add_argument('--mesh',action='store_true');parser.add_argument('--shorts',action='store_true');parser.add_argument('--graphics',action='store_true');args=parser.parse_args()
-    failed=sys.version_info<(3,12)
-    print('Python:',sys.version.split()[0], '(3.12+ required)')
-    for name in ['av','numpy','PIL','requests','fastapi','uvicorn','multipart','gradio_client','scipy']:
-        try:importlib.import_module(name);print(name+': OK')
-        except Exception as exc:print(name+': FAILED ('+type(exc).__name__+')');failed=True
-    binary=shutil.which('rubberband');print('rubberband:', 'OK' if binary else 'MISSING — see docs/SETUP-AGENT.md');failed=failed or not binary
-    if args.mesh:
-        from pathlib import Path
-        import subprocess
-        worker=Path(__file__).resolve().parent/'.venv-face/bin/python'
-        ready=worker.exists() and subprocess.run([str(worker),'-c','import mediapipe,av,PIL,numpy'],capture_output=True).returncode==0
-        print('Face mesh worker: '+('OK' if ready else 'MISSING — run bash setup-face-mesh.sh'))
-        failed=failed or not ready
-    if args.shorts:
-        from pathlib import Path
-        from shorts import transcriber as shorts_transcriber
-        import subprocess
-        root=Path(__file__).resolve().parent;worker=root/'.venv-face/bin/python'
-        checks={'Tracking worker':worker.exists() and subprocess.run([str(worker),'-c','import mediapipe,av,PIL,numpy'],capture_output=True).returncode==0,
-         'Node.js':bool(shutil.which('node')),'Remotion':(root/'motion/node_modules/remotion').exists(),
-         'whisper.cpp':(root/'motion/whisper.cpp/main').exists() and any((root/'motion/whisper.cpp').glob('ggml-*.bin')),
-         'Studio UI':(root/'static/studio/index.html').exists()}
-        for name,ok in checks.items():print(name+': '+('OK' if ok else 'MISSING — run make shorts'))
-        matte=worker.exists() and subprocess.run([str(worker),'-c','import onnxruntime'],capture_output=True).returncode==0
-        print('Person cutout: '+('Robust Video Matting'+(' (model downloads on first use, ~107 MB)' if not (root/'models/rvm_resnet50_fp32.onnx').exists() else '') if matte else 'MediaPipe (rougher edges; run make shorts for Robust Video Matting)'))
-        print('Transcription: '+('ElevenLabs Scribe (cloud; supports Amharic)' if shorts_transcriber()=='elevenlabs' else 'local whisper.cpp (no Amharic; set ELEVENLABS_API_KEY for Amharic)'))
-        print('Shorts planner: '+('Claude API key configured' if setting('ANTHROPIC_API_KEY') else 'no ANTHROPIC_API_KEY — plan with Claude Code or edit the plan JSON'))
-        if not all(checks.values()):print('SHORTS EDITOR NOT READY');return 1
-        print('SHORTS EDITOR READY (local; no paid calls needed)');return 0
-    if args.graphics:
-        from pathlib import Path
-        import graphics
-        root=Path(__file__).resolve().parent
-        checks={'Node.js 22+':bool(shutil.which('node')) and graphics.subprocess.run(['node','-e','process.exit(+process.versions.node.split(".")[0]>=22?0:1)']).returncode==0,
-         'HyperFrames':graphics.HF.exists(),'FFmpeg (local)':graphics.FFMPEG.exists(),'FFprobe (local)':graphics.FFPROBE.exists(),
-         'Google Chrome':Path('/Applications/Google Chrome.app').exists(),'Claude Code skills':(root/'.claude/skills/hyperframes/SKILL.md').exists()}
-        for name,ok in checks.items():print(name+': '+('OK' if ok else 'MISSING — run make graphics'))
-        if not all(checks.values()):print('MOTION GRAPHICS NOT READY');return 1
-        print('MOTION GRAPHICS READY (local; renders on this Mac, no paid calls)');return 0
-    missing=[]
-    from seedance_bridge import provider
-    try:generator=provider()
-    except ValueError as exc:print(exc);return 1
-    print('Generation provider:',generator)
-    for key in ['ENHANCOR_API_KEY','REPLICATE_API_TOKEN'] if generator=='enhancor' else ['REPLICATE_API_TOKEN']:
-        value=setting(key).strip()
-        valid=bool(value) and not any(x in value.lower() for x in ['your_key','your_api','replace_me','placeholder'])
-        print(key+': '+('configured (not verified remotely)' if valid else 'MISSING'))
-        if not valid:missing.append(key)
-    if setting('MEDIA_HOST','tmpfiles') not in ['tmpfiles','catbox']:
-        print('MEDIA_HOST must be tmpfiles or catbox');failed=True
-    if generator=='enhancor' and not setting('ENHANCOR_WEBHOOK_URL'):
-        print('WEBHOOK: not running/configured — install cloudflared and launch the app, or set your own HTTPS callback')
-        missing.append('ENHANCOR_WEBHOOK_URL')
-    if failed:print('DEPENDENCIES NOT READY');return 1
-    if missing:
-        print('LOCAL UI READY; GENERATION BLOCKED until keys and the required callback are configured.')
-        return 2 if args.require_keys else 0
-    print('LOCAL SETUP READY; provider access/balance has not been verified by this offline check.')
-    return 0
+    parser=argparse.ArgumentParser(description='Check what Humed’s AI Studio needs. Offline; prints no key values.')
+    for flag in ['shorts','graphics','all']:parser.add_argument('--'+flag,action='store_true')
+    args=parser.parse_args()
+    ok=base()
+    if args.shorts or args.all:ok=shorts_ready() and ok
+    if args.graphics or args.all:ok=graphics_ready() and ok
+    if args.all:keys()
+    print('\n'+('READY' if ok else 'NOT READY: follow the hints above'))
+    return 0 if ok else 1
+
 if __name__=='__main__':sys.exit(main())

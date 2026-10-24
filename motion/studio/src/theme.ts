@@ -99,17 +99,18 @@ export const THEMES: Theme[] = [
 ];
 
 const KEY = "studio-theme";
+const DEFAULT = "daylight";
 
 export const savedTheme = (): string => {
   try {
-    return localStorage.getItem(KEY) || THEMES[0].id;
+    return localStorage.getItem(KEY) || DEFAULT;
   } catch {
-    return THEMES[0].id;
+    return DEFAULT;
   }
 };
 
 export const applyTheme = (id: string) => {
-  const theme = THEMES.find((t) => t.id === id) ?? THEMES[0];
+  const theme = THEMES.find((t) => t.id === id) ?? THEMES.find((t) => t.id === DEFAULT)!;
   const root = document.documentElement;
   for (const [k, v] of Object.entries(theme.tokens))
     root.style.setProperty(`--${k}`, v);

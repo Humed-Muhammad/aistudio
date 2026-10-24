@@ -77,7 +77,7 @@ export type Job = JobSummary & {
   started?: number;
   finished?: number;
   final?: boolean;
-  manifest: { duration: number; width: number; height: number; frames: number; noise?: string } | null;
+  manifest: { duration: number; width: number; height: number; frames: number; noise?: string; tracking?: "full" | "fast" | "off" } | null;
   plan: Plan | null;
   warnings: string[];
   assets: string[];
@@ -98,6 +98,8 @@ export type Job = JobSummary & {
   cut_mtime: number | null;
   planner_available: boolean;
   noise: "off" | "light" | "strong";
+  /** Tracking used at the next build: full (with cutout), fast (face and hands), off (screen recordings). */
+  track_mode: "full" | "fast" | "off";
   voice: "level" | "off";
   strong_noise_available: boolean;
   language: "am" | "en" | "auto";

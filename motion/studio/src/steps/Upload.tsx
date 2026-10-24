@@ -188,6 +188,14 @@ export const Upload: React.FC<{ setup: Setup; clients: Client[]; client: string 
               </option>
             </select>
           </label>
+          <label className="field" title="Full: face, hands and your cutout (studio looks, text behind you), about 5× the video length. Fast: face and hands, about 1×. Off: nothing tracked, for screen recordings.">
+            <span>Tracking</span>
+            <select name="track_mode" defaultValue="full">
+              <option value="full">Full · studio looks</option>
+              <option value="fast">Fast · no cutout</option>
+              <option value="off">Off · screen recording</option>
+            </select>
+          </label>
         </div>
 
         {kit ? (

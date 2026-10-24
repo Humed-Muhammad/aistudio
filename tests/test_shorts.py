@@ -481,6 +481,23 @@ class NoiseTests(unittest.TestCase):
    self.assertEqual(got.shape,ref.shape);self.assertTrue(np.array_equal(got[:,48000:96000],ref[:,48000:96000]))
    self.assertFalse((p/'isolate-in.wav').exists())
 
+ def test_tracking_setting_via_api_and_planner(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app
+  client=TestClient(app.app);ident='d'*32
+  with tempfile.TemporaryDirectory() as d, patch.object(shorts_app,'RUNS',Path(d)):
+   p=job(Path(d)/ident);(p/'upload.mp4').write_bytes(b'x');(p/'job.json').write_text('{"title":"T","created":1}')
+   self.assertEqual(shorts.job_tracking(p),'full')  # older videos have no setting: full, as before
+   self.assertEqual(client.patch(f'/shorts/jobs/{ident}',json={'track_mode':'sometimes'}).status_code,422)
+   j=client.patch(f'/shorts/jobs/{ident}',json={'track_mode':'off'}).json()
+   self.assertEqual(j['track_mode'],'off');self.assertEqual(j['tracking']['frames'],90)  # the tracked summary is a separate field
+   self.assertEqual(json.loads((p/'workflow-mode.json').read_text())['preset'],'bold')
+   m=json.loads((p/'manifest.json').read_text());(p/'manifest.json').write_text(json.dumps({**m,'tracking':'off'}))
+   text,_=shorts.planner_context(p)
+   self.assertIn('No person cutout (tracking off)',text);self.assertIn('no gesture triggers',text)
+   plan,warnings=shorts.save_plan(p,{'background':{'mode':'gradient','look':'studio_blue'},'events':[]})
+   self.assertEqual(plan.background.mode,'original');self.assertTrue(any('tracking is set to off' in w for w in warnings))
+
  def test_off_means_original_audio(self):
   with tempfile.TemporaryDirectory() as d:
    self.assertIsNone(shorts.job_audio(Path(d)))

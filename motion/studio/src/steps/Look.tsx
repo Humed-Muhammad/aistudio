@@ -156,7 +156,7 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast, preview }) 
   );
 
   const images = job.assets;
-  const cutout = !!job.tracking;
+  const cutout = !!job.tracking && (job.manifest?.tracking ?? "full") === "full";
 
   return (
     <div className="inspector">
@@ -173,7 +173,13 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast, preview }) 
             You are cut out of your video and placed on a new background, with light around you. Claude picks one
             automatically; pick here only if you want a different one.
           </p>
-          {!cutout ? <div className="stale">Build your edit first: the cutout is made while tracking.</div> : null}
+          {!cutout ? (
+            <div className="stale">
+              {job.tracking
+                ? `Tracking was ${job.manifest?.tracking === "off" ? "off" : "fast"} for this edit, so there is no cutout: only Original works. Set Tracking to Full in Cut and rebuild for studio looks.`
+                : "Build your edit first: the cutout is made while tracking."}
+            </div>
+          ) : null}
           {job.plan ? <InSwitch job={job} busy={busy} savePlan={savePlan} preview={preview} /> : null}
 
           <div className="section">

@@ -675,6 +675,9 @@ NOISE=['off','light','strong']
 RNNOISE_URL='https://raw.githubusercontent.com/GregorR/rnnoise-models/master/somnolent-hogwash-2018-09-01/sh.rnnn'
 
 VOICE=['level','off']
+# Tracking at build time. full: face, hands and the person cutout (studio looks, text behind you).
+# fast: face and hands only, skipping the cutout (the slow part). off: nothing tracked, for screen recordings.
+TRACKING=['full','fast','off']
 LOUDNESS=-14.  # LUFS: what TikTok, Reels and Shorts normalise to
 PEAK=10**(-1.5/20)  # limiter ceiling, leaves room for the sound effects on top
 
@@ -735,6 +738,11 @@ def job_noise(folder):
     try:mode=json.loads((Path(folder)/'workflow-mode.json').read_text()).get('noise','off')
     except (OSError,ValueError):mode='off'
     return mode if mode in NOISE else 'off'
+
+def job_tracking(folder):
+    try:mode=json.loads((Path(folder)/'workflow-mode.json').read_text()).get('tracking','full')
+    except (OSError,ValueError):mode='full'
+    return mode if mode in TRACKING else 'full'
 
 def write_wav(pcm,path,rate=SR):
     with wave.open(path if hasattr(path,'write') else str(path),'wb') as w:
@@ -869,7 +877,7 @@ def cut_summary(folder):
 def prepare(src,folder,preset='bold',status=say):
     """Step 1: check the recording and transcribe all of it so the cut can be chosen."""
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True);(folder/'assets').mkdir(exist_ok=True);check_tools()
-    (folder/'workflow-mode.json').write_text(json.dumps({'mode':'shorts','preset':preset,'noise':job_noise(folder),'language':job_language(folder)}))
+    (folder/'workflow-mode.json').write_text(json.dumps({'mode':'shorts','preset':preset,'noise':job_noise(folder),'language':job_language(folder),'tracking':job_tracking(folder)}))
     status('Reading your video',0);info=probe(src)
     limit=float(setting('SHORTS_MAX_SECONDS','600'))
     if info['duration']>limit:raise ValueError(f'Use a recording of {limit/60:g} minutes or less (SHORTS_MAX_SECONDS).')
@@ -904,9 +912,12 @@ def apply_cut(folder,status=say):
     language=json.loads((folder/'full-captions.json').read_text()).get('language')
     (folder/'captions.json').write_text(json.dumps({'language':language,'captions':kept},indent=1))
     (folder/'cut-map.json').write_text(json.dumps([{k:r[k] for k in ['start','end','out','frames']} for r in ranges],indent=1))
-    meta['noise']=job_noise(folder);(folder/'manifest.json').write_text(json.dumps(meta,indent=2))
-    status('Step 2 of 2 · Tracking face, hands and you (for graphics)',0)
-    run_with_progress([str(ROOT/'.venv-face/bin/python'),str(ROOT/'shorts_worker.py'),str(folder)],status,'Step 2 of 2 · Tracking face, hands and you (for graphics)')
+    tracking=job_tracking(folder)
+    meta['noise']=job_noise(folder);meta['tracking']=tracking;(folder/'manifest.json').write_text(json.dumps(meta,indent=2))
+    step={'full':'Step 2 of 2 · Tracking face, hands and you (for graphics)','fast':'Step 2 of 2 · Tracking face and hands (fast: no cutout)',
+          'off':'Step 2 of 2 · Finding shots and keyframes (tracking off)'}[tracking]
+    status(step,0)
+    run_with_progress([str(ROOT/'.venv-face/bin/python'),str(ROOT/'shorts_worker.py'),str(folder),tracking],status,step)
     preset=json.loads((folder/'workflow-mode.json').read_text()).get('preset','bold')
     preset=preset if preset in PRESETS else 'duo'
     keep={k:getattr(before,k) for k in ['caption_font','caption_motion','caption_fill','caption_place','caption_case','caption_speed','captions_auto','background','transition','progress_bar','auto_sound']}
@@ -1175,7 +1186,8 @@ def check_background(plan,folder,warnings):
     if bg.mode=='image' and not (bg.image and (Path(folder)/'assets'/bg.image).exists()):
         warnings.append(f'Background: image "{bg.image}" is not uploaded, so your room is blurred instead');bg.mode='blur'
     if bg.mode!='original' and not (Path(folder)/'foreground.webm').exists():
-        warnings.append('Background: no person cutout yet (rebuild your edit), so the original background is kept');bg.mode='original'
+        why='tracking is set to '+job_tracking(folder)+' (choose Full in Cut and rebuild for studio looks)' if job_tracking(folder)!='full' else 'rebuild your edit'
+        warnings.append(f'Background: no person cutout ({why}), so the original background is kept');bg.mode='original'
     return plan
 
 def save_plan(folder,plan):
@@ -1204,6 +1216,9 @@ def planner_context(folder,notes=''):
     lines=[f"Clip: {meta['duration']:.2f}s, {meta['width']}x{meta['height']}, vertical.",
      f"Scene cuts at: {', '.join(f'{c/fps:.2f}s' for c in tracks['cuts']) or 'none'}",
      'Face visible: '+('; '.join(r.replace(' visible','') for r in runs(tracks['face'],fps,lambda v:'visible' if v else None)) or 'never')]
+    tracking=meta.get('tracking','full')
+    if tracking!='full':lines.append('No person cutout (tracking '+tracking+'): keep look original, no behind_subject text, no broll layout front.'
+        +(' Nothing was tracked: no face or hand anchors, no gesture triggers; zooms use focus center.' if tracking=='off' else ''))
     if tracks.get('person'):lines.append('Person fills >55% of frame (avoid behind_subject text): '+('; '.join(r.replace(' close','') for r in runs(tracks['person'],fps,lambda v:'close' if v and v>.55 else None)) or 'never'))
     for side in ['left','right']:lines.append(f'{side} hand (screen side) gestures: '+('; '.join(runs(tracks['hands'][side],fps,where)) or 'not visible'))
     assets=sorted(p.name for p in (folder/'assets').iterdir() if p.suffix.lower() in ['.png','.jpg','.jpeg','.webp','.gif'])

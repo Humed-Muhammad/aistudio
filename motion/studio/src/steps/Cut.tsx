@@ -62,7 +62,8 @@ export const Cut: React.FC<JobApi> = (ctx) => {
   const lost = !!tc && tc.speech > 0 && tc.missing > Math.max(5, 0.1 * tc.speech);
   const stale =
     !!job.files["source.mp4"] &&
-    ((job.cut_mtime ?? 0) > job.files["source.mp4"] || (!!job.manifest && (job.manifest.noise || "off") !== job.noise));
+    ((job.cut_mtime ?? 0) > job.files["source.mp4"] ||
+      (!!job.manifest && ((job.manifest.noise || "off") !== job.noise || (job.manifest.tracking || "full") !== job.track_mode)));
 
   return (
     <div className="inspector">
@@ -175,6 +176,14 @@ export const Cut: React.FC<JobApi> = (ctx) => {
             </option>
           </select>
         </label>
+        <label className="check" title="Full: face, hands and your cutout (studio looks, text behind you). Fast: face and hands, no cutout. Off: nothing tracked, for screen recordings.">
+          Tracking
+          <select value={job.track_mode} disabled={busy} style={{ width: "auto" }} onChange={(e) => patch({ track_mode: e.target.value })}>
+            <option value="full">Full (studio looks)</option>
+            <option value="fast">Fast (no cutout)</option>
+            <option value="off">Off (screen recording)</option>
+          </select>
+        </label>
       </div>
 
       <div className="parts">
@@ -235,7 +244,7 @@ export const Cut: React.FC<JobApi> = (ctx) => {
       <div className="footer">
         <span className="hint">
           {stale
-            ? "You changed the cut or noise setting. Rebuild to update your edit (graphics will be reset)."
+            ? "You changed the cut, noise or tracking setting. Rebuild to update your edit (graphics will be reset)."
             : job.tracking
               ? "Your edit is built. Rebuilding resets the graphics plan; your chosen look is kept."
               : "Next, your edit is built and tracked, with your cutout for backgrounds. Nothing is uploaded."}

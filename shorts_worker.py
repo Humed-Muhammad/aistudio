@@ -1,11 +1,15 @@
 """Local tracking for the shorts editor (runs in .venv-face). No paid calls.
 Writes tracks.json (hands, gestures, face, cuts), foreground.webm (person cutout with alpha),
-keyframes/*.jpg for planning and tracking-preview.mp4 for review."""
+keyframes/*.jpg for planning and tracking-preview.mp4 for review.
+  python shorts_worker.py JOB [full|fast|off]
+full: everything. fast: face and hands, no person cutout (the slow part). off: only shot cuts and keyframes;
+tracks.json keeps its shape with nothing found, so the editor falls back to fixed positions."""
 from pathlib import Path
 from fractions import Fraction
 import av, mediapipe as mp, numpy as np, sys, json, math, urllib.request
 from PIL import Image, ImageDraw
 root=Path(sys.argv[1]).resolve()
+MODE=sys.argv[2] if len(sys.argv)>2 else 'full'
 MODELS=Path(__file__).resolve().parent/'models'
 URLS={'gesture_recognizer.task':'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/latest/gesture_recognizer.task',
  'blaze_face_short_range.tflite':'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite',
@@ -120,9 +124,17 @@ Path(root/'keyframes').mkdir(exist_ok=True)
 gesture_opts=mp.tasks.vision.GestureRecognizerOptions(base_options=model('gesture_recognizer.task'),running_mode=mp.tasks.vision.RunningMode.VIDEO,num_hands=2,min_hand_detection_confidence=.45,min_hand_presence_confidence=.45,min_tracking_confidence=.45)
 face_opts=mp.tasks.vision.FaceDetectorOptions(base_options=model('blaze_face_short_range.tflite'),running_mode=mp.tasks.vision.RunningMode.IMAGE,min_detection_confidence=.4)
 seg_opts=mp.tasks.vision.ImageSegmenterOptions(base_options=model('selfie_multiclass_256x256.tflite'),running_mode=mp.tasks.vision.RunningMode.VIDEO,output_confidence_masks=True,output_category_mask=False)
-raw_hands=[];faces=[];cuts=[];coverage=[];previous=None;alpha_prev=None;last={'left':None,'right':None};matte=matte_or_none(W,H)
-with mp.tasks.vision.GestureRecognizer.create_from_options(gesture_opts) as gestures, mp.tasks.vision.FaceDetector.create_from_options(face_opts) as detector, mp.tasks.vision.ImageSegmenter.create_from_options(seg_opts) as segmenter, av.open(str(source)) as inp, av.open(str(root/'foreground.webm'),'w') as out:
- fg=out.add_stream('libvpx-vp9',rate=fps);fg.width,fg.height,fg.pix_fmt=W,H,'yuva420p';fg.options={'crf':'26','b':'0','deadline':'realtime','cpu-used':'8','row-mt':'1'}
+raw_hands=[];faces=[];cuts=[];coverage=[];previous=None;alpha_prev=None;last={'left':None,'right':None};matte=matte_or_none(W,H) if MODE=='full' else None
+from contextlib import ExitStack
+with ExitStack() as stack:
+ track=MODE!='off';cutout=MODE=='full'
+ gestures=stack.enter_context(mp.tasks.vision.GestureRecognizer.create_from_options(gesture_opts)) if track else None
+ detector=stack.enter_context(mp.tasks.vision.FaceDetector.create_from_options(face_opts)) if track else None
+ segmenter=stack.enter_context(mp.tasks.vision.ImageSegmenter.create_from_options(seg_opts)) if cutout and not matte else None
+ inp=stack.enter_context(av.open(str(source)))
+ if cutout:
+  out=stack.enter_context(av.open(str(root/'foreground.webm'),'w'))
+  fg=out.add_stream('libvpx-vp9',rate=fps);fg.width,fg.height,fg.pix_fmt=W,H,'yuva420p';fg.options={'crf':'26','b':'0','deadline':'realtime','cpu-used':'8','row-mt':'1'}
  for i,frame in enumerate(inp.decode(video=0)):
   rgb=np.ascontiguousarray(frame.to_ndarray(format='rgb24'))  # PyAV pads rows; MediaPipe needs packed pixels
   if i%15==0:progress(.9*i/total)
@@ -135,12 +147,16 @@ with mp.tasks.vision.GestureRecognizer.create_from_options(gesture_opts) as gest
   if i%fps==0 and i//fps%2==0:Image.fromarray(rgb).resize((360,round(360*H/W))).save(root/f'keyframes/{i/fps:07.2f}.jpg',quality=80)
   # MediaPipe sometimes rejects a frame whose pixels are shared ("Packet isn't the sole owner"): give it its
   # own copy, and skip that one frame's hands rather than failing the whole build.
+  if not track:
+   raw_hands.append({'left':None,'right':None});faces.append(None);coverage.append(0.);continue
   try:
    result=gestures.recognize_for_video(mp.Image(image_format=mp.ImageFormat.SRGB,data=rgb.copy()),ms)
    hands=[hand_record(lm,(g[0].category_name if g else ''),W,H) for lm,g in zip(result.hand_landmarks,result.gestures)]
   except RuntimeError:hands=[]
   current=assign(hands,last);raw_hands.append(current);last={k:current[k] or (None if i in cuts else last[k]) for k in last}
   faces.append(find_face(detector,rgb,W,H))
+  if not cutout:
+   coverage.append(0.);continue
   colour=rgb
   if matte:mask,colour=matte(rgb)
   else:
@@ -154,32 +170,34 @@ with mp.tasks.vision.GestureRecognizer.create_from_options(gesture_opts) as gest
   rgba=np.dstack([colour,mask])
   vf=av.VideoFrame.from_ndarray(rgba,format='rgba').reformat(format='yuva420p');vf.pts=i;vf.time_base=Fraction(1,fps)
   for p in fg.encode(vf):out.mux(p)
- for p in fg.encode():out.mux(p)
+ if cutout:
+  for p in fg.encode():out.mux(p)
 n=len(raw_hands)
 tracks={'fps':fps,'width':W,'height':H,'frames':n,'cuts':cuts,
  'hands':{k:smooth([h[k] for h in raw_hands],cuts,fps,n) for k in ['left','right']},
  'face':smooth(faces,cuts,fps,n),'person':coverage}
 (root/'tracks.json').write_text(json.dumps(tracks,separators=(',',':')))
 
-# Review preview: draws exactly the smoothed data the renderer will follow.
-PW=360;PH=round(PW*H/W)//2*2
-with av.open(str(source)) as inp, av.open(str(root/'tracking-preview.mp4'),'w') as out:
- st=out.add_stream('libx264',rate=fps);st.width,st.height,st.pix_fmt=PW,PH,'yuv420p';st.options={'crf':'26'}
- for i,frame in enumerate(inp.decode(video=0)):
-  im=frame.to_image().resize((PW,PH));d=ImageDraw.Draw(im)
-  if i%60==0:progress(.9+.1*i/total)
-  for side,col in [('left',(255,200,40)),('right',(80,220,255))]:
-   h=tracks['hands'][side][i]
-   if h:
-    x,y,tx,ty,s,g=h;r=max(4,s*PH*.5)
-    d.ellipse([x*PW-r,y*PH-r,x*PW+r,y*PH+r],outline=col,width=2);d.ellipse([tx*PW-3,ty*PH-3,tx*PW+3,ty*PH+3],fill=col)
-    d.text((x*PW+r+3,y*PH-6),f'{side} {g}',fill=col)
-  f=tracks['face'][i]
-  if f:x,y,s,_=f;d.rectangle([(x-s*H/W*.4)*PW,(y-s/2)*PH,(x+s*H/W*.4)*PW,(y+s/2)*PH],outline=(140,255,140),width=2)
-  if i in cuts:d.rectangle([0,0,PW-1,PH-1],outline=(255,60,60),width=6)
-  d.text((6,6),f'{i/fps:5.2f}s',fill=(255,255,255))
-  vf=av.VideoFrame.from_image(im);vf.pts=i;vf.time_base=Fraction(1,fps)
-  for p in st.encode(vf):out.mux(p)
- for p in st.encode():out.mux(p)
+# Review preview: draws exactly the smoothed data the renderer will follow (nothing to draw when tracking is off).
+if MODE!='off':
+ PW=360;PH=round(PW*H/W)//2*2
+ with av.open(str(source)) as inp, av.open(str(root/'tracking-preview.mp4'),'w') as out:
+  st=out.add_stream('libx264',rate=fps);st.width,st.height,st.pix_fmt=PW,PH,'yuv420p';st.options={'crf':'26'}
+  for i,frame in enumerate(inp.decode(video=0)):
+   im=frame.to_image().resize((PW,PH));d=ImageDraw.Draw(im)
+   if i%60==0:progress(.9+.1*i/total)
+   for side,col in [('left',(255,200,40)),('right',(80,220,255))]:
+    h=tracks['hands'][side][i]
+    if h:
+     x,y,tx,ty,s,g=h;r=max(4,s*PH*.5)
+     d.ellipse([x*PW-r,y*PH-r,x*PW+r,y*PH+r],outline=col,width=2);d.ellipse([tx*PW-3,ty*PH-3,tx*PW+3,ty*PH+3],fill=col)
+     d.text((x*PW+r+3,y*PH-6),f'{side} {g}',fill=col)
+   f=tracks['face'][i]
+   if f:x,y,s,_=f;d.rectangle([(x-s*H/W*.4)*PW,(y-s/2)*PH,(x+s*H/W*.4)*PW,(y+s/2)*PH],outline=(140,255,140),width=2)
+   if i in cuts:d.rectangle([0,0,PW-1,PH-1],outline=(255,60,60),width=6)
+   d.text((6,6),f'{i/fps:5.2f}s',fill=(255,255,255))
+   vf=av.VideoFrame.from_image(im);vf.pts=i;vf.time_base=Fraction(1,fps)
+   for p in st.encode(vf):out.mux(p)
+  for p in st.encode():out.mux(p)
 seen=lambda t:sum(bool(v) for v in t)
 print(json.dumps({'frames':n,'cuts':len(cuts),'left_hand_frames':seen(tracks['hands']['left']),'right_hand_frames':seen(tracks['hands']['right']),'face_frames':seen(tracks['face'])}))

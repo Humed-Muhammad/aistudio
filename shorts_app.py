@@ -209,9 +209,10 @@ def list_jobs():
     return sorted(jobs,key=lambda j:-j['created'])
 
 @router.post('/shorts/jobs')
-def create(video:list[UploadFile]=File(...),preset:str=Form('bold'),title:str=Form(''),noise:str=Form('off'),language:str=Form(''),auto:bool=Form(False),notes:str=Form(''),client:str=Form('')):
+def create(video:list[UploadFile]=File(...),preset:str=Form('bold'),title:str=Form(''),noise:str=Form('off'),track_mode:str=Form('full'),language:str=Form(''),auto:bool=Form(False),notes:str=Form(''),client:str=Form('')):
     if preset not in shorts.PRESETS+['auto']:raise HTTPException(400,'Unknown caption style')
     if noise not in shorts.NOISE:raise HTTPException(400,'Unknown noise setting')
+    if track_mode not in shorts.TRACKING:raise HTTPException(400,'Unknown tracking setting')
     if language and language not in shorts.LANGUAGES:raise HTTPException(400,'Unknown language')
     if len(video)>20:raise HTTPException(400,'Upload at most 20 recordings at once.')
     video=sorted(video,key=lambda v:natural(v.filename or ''))  # phone names (IMG_1234) follow recording order
@@ -226,7 +227,7 @@ def create(video:list[UploadFile]=File(...),preset:str=Form('bold'),title:str=Fo
     name=title.strip() or re.sub(r'[_-]+',' ',Path(video[0].filename or '').stem).strip() or 'Untitled video'
     who=clients.get(client);kit=(who or {}).get('kit')  # the client's brand kit, copied so later kit edits don't change this video
     (path/'job.json').write_text(json.dumps({'title':name[:80],'created':time.time(),'client':who['id'] if who else None,'kit':kit}))
-    mode={'mode':'shorts','preset':preset,'noise':noise,'language':language or (kit or {}).get('language') or shorts.job_language(path)}
+    mode={'mode':'shorts','preset':preset,'noise':noise,'tracking':track_mode,'language':language or (kit or {}).get('language') or shorts.job_language(path)}
     if kit and kit.get('voice'):mode['voice']=kit['voice']
     (path/'workflow-mode.json').write_text(json.dumps(mode))
     if auto:(path/'auto.json').write_text(json.dumps({'notes':notes.strip()[:2000]}))
@@ -273,6 +274,10 @@ def rename(ident:str,body:dict=Body(...)):
         if body['noise'] not in shorts.NOISE:raise HTTPException(422,'Unknown noise setting')
         if busy(ident):raise HTTPException(409,'Wait for the current step to finish.')
         mode=read(path,'workflow-mode.json') or {'mode':'shorts'};(path/'workflow-mode.json').write_text(json.dumps({**mode,'noise':body['noise']}))
+    if 'track_mode' in body:  # used from the next build (Cut section)
+        if body['track_mode'] not in shorts.TRACKING:raise HTTPException(422,'Unknown tracking setting')
+        if busy(ident):raise HTTPException(409,'Wait for the current step to finish.')
+        mode=read(path,'workflow-mode.json') or {'mode':'shorts'};(path/'workflow-mode.json').write_text(json.dumps({**mode,'tracking':body['track_mode']}))
     if 'voice' in body:  # used from the next render; only the volume changes
         if body['voice'] not in shorts.VOICE:raise HTTPException(422,'Unknown voice setting')
         mode=read(path,'workflow-mode.json') or {'mode':'shorts'};(path/'workflow-mode.json').write_text(json.dumps({**mode,'voice':body['voice']}))
@@ -310,7 +315,7 @@ def state(ident:str):
        'left':sum(map(bool,tracks['hands']['left'])),'right':sum(map(bool,tracks['hands']['right']))} if tracks else None,
      'transcript':{'language':captions.get('language'),'text':''.join(c['text'] for c in captions.get('captions',[])).strip()},
      'cut_mtime':(path/'cut.json').stat().st_mtime if cut else None,'planner_available':bool(shorts.setting('ANTHROPIC_API_KEY')),
-     'noise':shorts.job_noise(path),'voice':shorts.job_voice(path),'strong_noise_available':bool(shorts.setting('ELEVENLABS_API_KEY')),
+     'noise':shorts.job_noise(path),'track_mode':shorts.job_tracking(path),'voice':shorts.job_voice(path),'strong_noise_available':bool(shorts.setting('ELEVENLABS_API_KEY')),
      'language':shorts.job_language(path),'word_fixes':read(path,'word-fixes.json',{'fixes':[]})['fixes'],'post':read(path,'post.json',None),'transcript_check':check(path),
      'stopping':bool(cancels.get(ident) and cancels[ident].is_set() and busy(ident))}
 

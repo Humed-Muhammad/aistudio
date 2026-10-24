@@ -1,0 +1,23 @@
+{
+ "id": "tap-ripple",
+ "name": "Tap ripple",
+ "category": "Callouts",
+ "description": "Rings ripple out from a point like a finger tap. Put it on a button you press in a screen recording.",
+ "duration": 2,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.5,
+ "sound": "click",
+ "fields": [
+  {
+   "key": "taps",
+   "label": "Taps",
+   "type": "number",
+   "default": 2,
+   "min": 1,
+   "max": 4,
+   "step": 1
+  }
+ ],
+ "poster": 0.18
+}

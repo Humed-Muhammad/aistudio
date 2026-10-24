@@ -1,0 +1,30 @@
+{
+ "id": "checklist",
+ "name": "Checklist",
+ "category": "Data",
+ "description": "Items appear and get ticked one after another. Use for features, steps done, what is included.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.35,
+ "sound": "pop",
+ "fields": [
+  {
+   "key": "title",
+   "label": "Title (optional)",
+   "type": "text",
+   "default": "What you get"
+  },
+  {
+   "key": "items",
+   "label": "Items (one per line)",
+   "type": "list",
+   "default": [
+    "Auto captions",
+    "Studio backgrounds",
+    "Free and open source"
+   ]
+  }
+ ],
+ "poster": 0.85
+}

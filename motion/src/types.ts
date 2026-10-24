@@ -13,7 +13,8 @@ export type ShortEvent = {
     | "broll"
     | "card"
     | "no_captions"
-    | "look";
+    | "look"
+    | "element";
   start: number;
   end: number;
   text: string;
@@ -73,6 +74,9 @@ export type ShortEvent = {
   /** flash: this switch's own effect; empty uses the video's transition. */
   effect?: "" | "bloom" | "leak" | "blur" | "whip" | "dip" | "flash" | "none";
   look?: string;
+  /** element: id of a graphic in the library (src/elements), and its field values. */
+  element?: string;
+  props?: Record<string, unknown>;
 };
 
 export type ClipInfo = { duration: number; width: number; height: number };

@@ -1,0 +1,33 @@
+{
+ "id": "social-handle",
+ "name": "Social handle",
+ "category": "Lower thirds",
+ "description": "Platform badge and @handle, with a soft shine. Use to tell people where to find you.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.86,
+ "sound": "pop",
+ "fields": [
+  {
+   "key": "platform",
+   "label": "Platform",
+   "type": "select",
+   "default": "TikTok",
+   "options": [
+    "TikTok",
+    "Instagram",
+    "YouTube",
+    "Telegram",
+    "X",
+    "Facebook"
+   ]
+  },
+  {
+   "key": "handle",
+   "label": "Handle",
+   "type": "text",
+   "default": "@humedfables"
+  }
+ ]
+}

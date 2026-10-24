@@ -1,0 +1,26 @@
+{
+ "id": "subscribe-button",
+ "name": "Subscribe button",
+ "category": "Social",
+ "description": "A button gets clicked and turns into \"Subscribed\" with a ringing bell. Change the words for Follow or Join.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.75,
+ "sound": "click",
+ "poster": 0.8,
+ "fields": [
+  {
+   "key": "before",
+   "label": "Button text",
+   "type": "text",
+   "default": "Subscribe"
+  },
+  {
+   "key": "after",
+   "label": "After click",
+   "type": "text",
+   "default": "Subscribed"
+  }
+ ]
+}

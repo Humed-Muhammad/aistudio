@@ -1,0 +1,25 @@
+{
+ "id": "hook-title",
+ "name": "Hook title",
+ "category": "Titles",
+ "description": "A big two-line opening title; words rise one by one. Put *stars* around words to colour them. Use in the first seconds.",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.3,
+ "sound": "whoosh",
+ "fields": [
+  {
+   "key": "line1",
+   "label": "Line 1",
+   "type": "text",
+   "default": "I edit videos"
+  },
+  {
+   "key": "line2",
+   "label": "Line 2",
+   "type": "text",
+   "default": "with *AI*"
+  }
+ ]
+}

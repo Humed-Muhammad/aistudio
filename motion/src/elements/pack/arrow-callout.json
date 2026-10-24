@@ -1,0 +1,31 @@
+{
+ "id": "arrow-callout",
+ "name": "Arrow callout",
+ "category": "Callouts",
+ "description": "A hand-drawn arrow draws itself toward something, with a short label. Place it next to what you point at.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.55,
+ "sound": "whoosh",
+ "fields": [
+  {
+   "key": "label",
+   "label": "Label",
+   "type": "text",
+   "default": "Look here"
+  },
+  {
+   "key": "direction",
+   "label": "Points",
+   "type": "select",
+   "default": "down right",
+   "options": [
+    "down right",
+    "down left",
+    "up right",
+    "up left"
+   ]
+  }
+ ]
+}

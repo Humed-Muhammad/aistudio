@@ -1,0 +1,25 @@
+{
+ "id": "name-lower-third",
+ "name": "Name lower third",
+ "category": "Lower thirds",
+ "description": "Your name and role slide in beside an accent bar. Use when you introduce yourself or a guest.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.42,
+ "y": 0.8,
+ "sound": "whoosh",
+ "fields": [
+  {
+   "key": "name",
+   "label": "Name",
+   "type": "text",
+   "default": "Humed Muhammad"
+  },
+  {
+   "key": "role",
+   "label": "Role",
+   "type": "text",
+   "default": "AI video editor"
+  }
+ ]
+}

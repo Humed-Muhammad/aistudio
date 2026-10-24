@@ -91,6 +91,17 @@ export const captionFace = (id: Plan["caption_font"]): CaptionFace | null => {
   };
 };
 
+/**
+ * The caption letter case applied to the text itself, for styles that draw every letter in its own box:
+ * there, CSS "capitalize" sees each letter as a new word and would capitalize all of them.
+ */
+export const caseText = (text: string, plan: Plan) =>
+  plan.caption_case === "upper"
+    ? text.toUpperCase()
+    : plan.caption_case === "spoken"
+      ? text
+      : text.replace(/(^|[\s\-–—"'(“])(\p{Ll})/gu, (_, before: string, letter: string) => before + letter.toUpperCase());
+
 /** Letter case for caption styles that used to force ALL CAPS: Capitalized by default (Ethiopic has no case). */
 export const letterCase = (plan: Plan): React.CSSProperties["textTransform"] =>
   plan.caption_case === "upper"

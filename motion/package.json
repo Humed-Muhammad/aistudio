@@ -29,11 +29,12 @@
     "vite": "8.3.3"
   },
   "scripts": {
-    "dev": "remotion studio",
+    "dev": "node scripts/elements.mjs && remotion studio",
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
-    "lint": "eslint src && tsc && tsc -p studio",
+    "elements": "node scripts/elements.mjs",
+    "lint": "node scripts/elements.mjs && eslint src && tsc && tsc -p studio",
     "studio": "vite --config studio/vite.config.ts",
-    "studio:build": "vite build --config studio/vite.config.ts"
+    "studio:build": "node scripts/elements.mjs && vite build --config studio/vite.config.ts"
   }
 }

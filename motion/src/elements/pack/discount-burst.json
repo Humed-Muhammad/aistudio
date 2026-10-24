@@ -1,0 +1,25 @@
+{
+ "id": "discount-burst",
+ "name": "Discount burst",
+ "category": "Sales",
+ "description": "A spinning starburst badge with the discount. Use for sales, \"-30%\", \"FREE\", \"NEW\".",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.72,
+ "y": 0.3,
+ "sound": "impact",
+ "fields": [
+  {
+   "key": "big",
+   "label": "Big text",
+   "type": "text",
+   "default": "-30%"
+  },
+  {
+   "key": "small",
+   "label": "Small text",
+   "type": "text",
+   "default": "OFF"
+  }
+ ]
+}

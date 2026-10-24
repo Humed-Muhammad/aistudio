@@ -1,0 +1,43 @@
+{
+ "id": "app-notification",
+ "name": "App notification",
+ "category": "Fun",
+ "description": "A phone notification drops in from the top with app name, title and message.",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.1,
+ "sound": "click",
+ "fields": [
+  {
+   "key": "app",
+   "label": "App name",
+   "type": "text",
+   "default": "AI Studio"
+  },
+  {
+   "key": "icon",
+   "label": "Icon (emoji)",
+   "type": "text",
+   "default": "✨"
+  },
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text",
+   "default": "Your video is ready"
+  },
+  {
+   "key": "body",
+   "label": "Message",
+   "type": "text",
+   "default": "Draft rendered in 2 minutes"
+  },
+  {
+   "key": "time",
+   "label": "Time",
+   "type": "text",
+   "default": "now"
+  }
+ ]
+}

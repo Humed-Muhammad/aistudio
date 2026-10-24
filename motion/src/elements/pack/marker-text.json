@@ -1,0 +1,25 @@
+{
+ "id": "marker-text",
+ "name": "Marker text",
+ "category": "Callouts",
+ "description": "A phrase with a marker stroke swiping in behind it. Use to stress one key line.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.32,
+ "sound": "whoosh",
+ "fields": [
+  {
+   "key": "text",
+   "label": "Text",
+   "type": "text",
+   "default": "Free to download"
+  },
+  {
+   "key": "color",
+   "label": "Marker colour (empty = accent)",
+   "type": "color",
+   "default": ""
+  }
+ ]
+}

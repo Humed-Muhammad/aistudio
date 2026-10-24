@@ -7,7 +7,7 @@ import {
 } from "remotion";
 import type { TikTokPage } from "@remotion/captions";
 import { loadFont as loadSerif } from "@remotion/google-fonts/NotoSerifEthiopic";
-import { letterCase, type CaptionFace } from "./captionFonts";
+import { caseText, letterCase, type CaptionFace } from "./captionFonts";
 import { mix, onAccent } from "./colors";
 import { HEADLINE_FONT } from "./fonts";
 import type { Plan } from "./types";
@@ -382,7 +382,7 @@ export const Sweep: React.FC<Props> = ({ page, plan, style, face }) => {
   const enter = interpolate(frame, [0, 6], [0, 1], clamp);
   // Each letter's moment: spread across its word while the word is spoken (at most 90 ms a letter).
   const words = page.tokens.map((t) => {
-    const chars = Array.from(t.text.trim());
+    const chars = Array.from(caseText(t.text.trim(), plan));
     const dur = Math.max(120, Math.min(t.toMs - t.fromMs, 90 * chars.length));
     return chars.map((c, j) => ({ c, at: t.fromMs - 40 + (dur * j) / Math.max(1, chars.length) }));
   });
@@ -411,6 +411,7 @@ export const Sweep: React.FC<Props> = ({ page, plan, style, face }) => {
                 key={j}
                 style={{
                   display: "inline-block",
+                  textTransform: "none",
                   transform: rise < 1 ? `translateY(${(1 - rise) * 0.32}em)` : undefined,
                   color: mix("#b4b9c3", "#ffffff", lit),
                   opacity: 0.55 + lit * 0.45,

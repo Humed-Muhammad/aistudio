@@ -3,7 +3,7 @@ import { api, jobUrl, sendJSON, type Job } from "../api";
 import type { JobApi } from "../JobView";
 
 /** Claude proofreads the transcript (misheard Amharic, broken words); the creator reviews every fix before it applies. */
-export const WordFixes: React.FC<JobApi> = ({ job, busy, setup, show, post, toast }) => {
+export const WordFixes: React.FC<JobApi> = ({ job, busy, locked, setup, show, post, toast }) => {
   const fixes = job.word_fixes;
   const [notes, setNotes] = useState("");
   const [picked, setPicked] = useState<Record<number, boolean>>({});
@@ -24,9 +24,7 @@ export const WordFixes: React.FC<JobApi> = ({ job, busy, setup, show, post, toas
       toast(
         !j.tracking
           ? `${chosen.length} fixes applied.`
-          : j.captions_updated
-            ? `${chosen.length} fixes applied. Captions updated: render a new draft to see them in the file.`
-            : `${chosen.length} fixes applied. One of them changes where the edit cuts, so rebuild your edit to use it.`,
+          : `${chosen.length} fixes applied. Captions updated in the live edit: render a new draft to see them in the file.`,
       );
     } catch (e) {
       toast((e as Error).message, true);
@@ -69,10 +67,10 @@ export const WordFixes: React.FC<JobApi> = ({ job, busy, setup, show, post, toas
           <div className="row" style={{ justifyContent: "space-between" }}>
             <span className="hint">Untick or edit anything that's wrong. Only the words change; timing and audio stay.</span>
             <div className="row">
-              <button type="button" className="btn ghost small" disabled={busy} onClick={discard}>
+              <button type="button" className="btn ghost small" disabled={locked} onClick={discard}>
                 Discard
               </button>
-              <button type="button" className="btn" disabled={busy || !chosen.length} onClick={apply}>
+              <button type="button" className="btn" disabled={locked || !chosen.length} onClick={apply}>
                 Apply {chosen.length} {chosen.length === 1 ? "fix" : "fixes"}
               </button>
             </div>

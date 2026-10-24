@@ -21,3 +21,7 @@ graphics-kit/node_modules
 .claude/skills/
 # Shorts studio build (motion/studio, rebuilt by make shorts)
 static/studio/
+
+# Graphics library: the generated list, and graphics made on this machine (by you or Claude)
+motion/src/elements/registry.gen.ts
+motion/src/elements/mine/

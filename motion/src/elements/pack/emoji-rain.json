@@ -1,0 +1,28 @@
+{
+ "id": "emoji-rain",
+ "name": "Emoji rain",
+ "category": "Fun",
+ "description": "Emoji fall down the whole screen. Use for celebrations, money, fire, love moments.",
+ "duration": 3,
+ "layout": "full",
+ "x": 0.5,
+ "y": 0.5,
+ "sound": "none",
+ "fields": [
+  {
+   "key": "emoji",
+   "label": "Emoji (several mix)",
+   "type": "text",
+   "default": "🔥💯🎉"
+  },
+  {
+   "key": "amount",
+   "label": "Amount",
+   "type": "number",
+   "default": 24,
+   "min": 6,
+   "max": 60,
+   "step": 1
+  }
+ ]
+}

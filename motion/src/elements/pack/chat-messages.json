@@ -1,0 +1,25 @@
+{
+ "id": "chat-messages",
+ "name": "Chat messages",
+ "category": "Fun",
+ "description": "Message bubbles pop in one by one like a phone chat. Start a line with \"me:\" for your own (right side) bubbles.",
+ "duration": 5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.4,
+ "sound": "pop",
+ "poster": 0.85,
+ "fields": [
+  {
+   "key": "messages",
+   "label": "Messages (one per line)",
+   "type": "list",
+   "default": [
+    "Can you edit my TikToks?",
+    "me: Yes! With my AI studio",
+    "How long does it take?",
+    "me: About 10 minutes 🚀"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,24 @@
+{
+ "id": "step-timeline",
+ "name": "Step timeline",
+ "category": "Data",
+ "description": "Dots on a line light up one by one with short labels. Use for a process: upload, edit, post.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.3,
+ "sound": "pop",
+ "fields": [
+  {
+   "key": "steps",
+   "label": "Steps (one per line)",
+   "type": "list",
+   "default": [
+    "Upload",
+    "AI edits",
+    "Post"
+   ]
+  }
+ ],
+ "poster": 0.85
+}

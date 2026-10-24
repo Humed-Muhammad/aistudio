@@ -1,0 +1,32 @@
+{
+ "id": "cursor-click",
+ "name": "Cursor click",
+ "category": "Callouts",
+ "description": "A mouse pointer glides in, clicks with a ripple, and shows a label. Place it on a button in a screen recording.",
+ "duration": 2.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.5,
+ "sound": "click",
+ "fields": [
+  {
+   "key": "label",
+   "label": "Label (optional)",
+   "type": "text",
+   "default": "Click here"
+  },
+  {
+   "key": "from",
+   "label": "Comes from",
+   "type": "select",
+   "default": "bottom right",
+   "options": [
+    "bottom right",
+    "bottom left",
+    "top right",
+    "top left"
+   ]
+  }
+ ],
+ "poster": 0.62
+}

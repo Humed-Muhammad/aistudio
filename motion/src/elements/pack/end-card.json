@@ -1,0 +1,31 @@
+{
+ "id": "end-card",
+ "name": "End card",
+ "category": "Social",
+ "description": "A closing screen: a thank-you line, your handle and a call to action over a darkened frame.",
+ "duration": 4,
+ "layout": "full",
+ "x": 0.5,
+ "y": 0.5,
+ "sound": "whoosh",
+ "fields": [
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text",
+   "default": "Thanks for *watching*"
+  },
+  {
+   "key": "handle",
+   "label": "Handle",
+   "type": "text",
+   "default": "@humedfables"
+  },
+  {
+   "key": "cta",
+   "label": "Call to action",
+   "type": "text",
+   "default": "Follow for more"
+  }
+ ]
+}

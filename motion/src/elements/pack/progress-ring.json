@@ -1,0 +1,29 @@
+{
+ "id": "progress-ring",
+ "name": "Progress ring",
+ "category": "Data",
+ "description": "A ring fills to a percentage with the number in the middle and a caption. Use for scores, completion, savings.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.35,
+ "sound": "riser",
+ "fields": [
+  {
+   "key": "percent",
+   "label": "Percent",
+   "type": "number",
+   "default": 85,
+   "min": 0,
+   "max": 100,
+   "step": 1
+  },
+  {
+   "key": "label",
+   "label": "Caption",
+   "type": "text",
+   "default": "time saved"
+  }
+ ],
+ "poster": 0.8
+}

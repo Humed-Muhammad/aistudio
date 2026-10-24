@@ -1,0 +1,37 @@
+{
+ "id": "versus",
+ "name": "Versus",
+ "category": "Data",
+ "description": "Two sides slide in from left and right with a VS badge between them. Use to compare two options.",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.35,
+ "sound": "impact",
+ "fields": [
+  {
+   "key": "left",
+   "label": "Left title",
+   "type": "text",
+   "default": "Old way"
+  },
+  {
+   "key": "left_note",
+   "label": "Left note",
+   "type": "text",
+   "default": "3 hours per video"
+  },
+  {
+   "key": "right",
+   "label": "Right title",
+   "type": "text",
+   "default": "AI Studio"
+  },
+  {
+   "key": "right_note",
+   "label": "Right note",
+   "type": "text",
+   "default": "10 minutes"
+  }
+ ]
+}

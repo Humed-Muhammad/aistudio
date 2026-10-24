@@ -1,0 +1,29 @@
+{
+ "id": "countdown",
+ "name": "Countdown",
+ "category": "Sales",
+ "description": "Big numbers count down one per second (3, 2, 1…) then show a word. Use before a reveal or a launch.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.42,
+ "sound": "click",
+ "poster": 0.15,
+ "fields": [
+  {
+   "key": "from",
+   "label": "Count from",
+   "type": "number",
+   "default": 3,
+   "min": 1,
+   "max": 10,
+   "step": 1
+  },
+  {
+   "key": "end",
+   "label": "Final word",
+   "type": "text",
+   "default": "Go!"
+  }
+ ]
+}

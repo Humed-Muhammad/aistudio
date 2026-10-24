@@ -1,0 +1,25 @@
+{
+ "id": "breaking-banner",
+ "name": "Breaking banner",
+ "category": "Titles",
+ "description": "A news-style banner: a label box and a headline that slides in. Use for announcements.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.2,
+ "sound": "whoosh",
+ "fields": [
+  {
+   "key": "label",
+   "label": "Label",
+   "type": "text",
+   "default": "NEW"
+  },
+  {
+   "key": "headline",
+   "label": "Headline",
+   "type": "text",
+   "default": "My AI studio is now open source"
+  }
+ ]
+}

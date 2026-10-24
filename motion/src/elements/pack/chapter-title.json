@@ -1,0 +1,25 @@
+{
+ "id": "chapter-title",
+ "name": "Chapter title",
+ "category": "Titles",
+ "description": "A large chapter number with a title and a line that wipes across. Use to start a new section.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.42,
+ "sound": "whoosh",
+ "fields": [
+  {
+   "key": "number",
+   "label": "Number",
+   "type": "text",
+   "default": "01"
+  },
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text",
+   "default": "Upload your *video*"
+  }
+ ]
+}

@@ -1,0 +1,24 @@
+{
+ "id": "kinetic-words",
+ "name": "Kinetic words",
+ "category": "Titles",
+ "description": "Short words punch in one after another in the same spot, the last one stays. Great for \"Fast. Free. Local.\"",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.42,
+ "sound": "pop",
+ "fields": [
+  {
+   "key": "words",
+   "label": "Words (one per line)",
+   "type": "list",
+   "default": [
+    "Fast.",
+    "Free.",
+    "*Local.*"
+   ]
+  }
+ ],
+ "poster": 0.85
+}

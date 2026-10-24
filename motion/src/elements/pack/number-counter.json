@@ -1,0 +1,50 @@
+{
+ "id": "number-counter",
+ "name": "Number counter",
+ "category": "Data",
+ "description": "A big number counts up with a caption, on a panel. Use for results, prices, followers, percentages.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.32,
+ "sound": "riser",
+ "fields": [
+  {
+   "key": "prefix",
+   "label": "Before the number",
+   "type": "text",
+   "default": ""
+  },
+  {
+   "key": "value",
+   "label": "Number",
+   "type": "number",
+   "default": 10000,
+   "min": 0,
+   "max": 10000000,
+   "step": 1
+  },
+  {
+   "key": "suffix",
+   "label": "After the number",
+   "type": "text",
+   "default": "+"
+  },
+  {
+   "key": "label",
+   "label": "Caption",
+   "type": "text",
+   "default": "videos edited"
+  },
+  {
+   "key": "decimals",
+   "label": "Decimals",
+   "type": "number",
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1
+  }
+ ],
+ "poster": 0.8
+}

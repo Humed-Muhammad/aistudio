@@ -1,0 +1,37 @@
+{
+ "id": "circle-highlight",
+ "name": "Circle highlight",
+ "category": "Callouts",
+ "description": "A hand-drawn circle draws around something, with an optional label underneath. Centre it on what matters.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.5,
+ "sound": "whoosh",
+ "fields": [
+  {
+   "key": "label",
+   "label": "Label (optional)",
+   "type": "text",
+   "default": ""
+  },
+  {
+   "key": "width",
+   "label": "Width",
+   "type": "number",
+   "default": 420,
+   "min": 150,
+   "max": 900,
+   "step": 10
+  },
+  {
+   "key": "height",
+   "label": "Height",
+   "type": "number",
+   "default": 260,
+   "min": 100,
+   "max": 900,
+   "step": 10
+  }
+ ]
+}

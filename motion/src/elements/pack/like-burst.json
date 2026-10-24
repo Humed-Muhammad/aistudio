@@ -1,0 +1,26 @@
+{
+ "id": "like-burst",
+ "name": "Like burst",
+ "category": "Social",
+ "description": "A heart pops with a ring of sparks. Use when you say \"like\" or for a happy moment.",
+ "duration": 1.8,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.45,
+ "sound": "pop",
+ "poster": 0.3,
+ "fields": [
+  {
+   "key": "caption",
+   "label": "Caption (optional)",
+   "type": "text",
+   "default": ""
+  },
+  {
+   "key": "color",
+   "label": "Heart colour",
+   "type": "color",
+   "default": "#FF4D6D"
+  }
+ ]
+}

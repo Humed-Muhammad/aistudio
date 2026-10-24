@@ -1,0 +1,25 @@
+{
+ "id": "topic-badge",
+ "name": "Topic badge",
+ "category": "Lower thirds",
+ "description": "A small pill label such as TIP #1 or PART 2, with a light sweep. Use to mark what this part is about.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.14,
+ "sound": "pop",
+ "fields": [
+  {
+   "key": "label",
+   "label": "Label",
+   "type": "text",
+   "default": "TIP #1"
+  },
+  {
+   "key": "icon",
+   "label": "Icon (emoji, optional)",
+   "type": "text",
+   "default": "💡"
+  }
+ ]
+}

@@ -10,7 +10,7 @@ import {
 } from "remotion";
 import { createTikTokStyleCaptions } from "@remotion/captions";
 import type { Caption, TikTokPage } from "@remotion/captions";
-import { captionFace, letterCase } from "./captionFonts";
+import { captionFace, caseText, letterCase } from "./captionFonts";
 import {
   Float,
   Karaoke,
@@ -170,8 +170,8 @@ const Duo: React.FC<{
     if (motion === "lift")
       return (
         <span key={i} style={{ display: "inline-block", whiteSpace: "nowrap" }}>
-          {Array.from(t.text.trim()).map((c, j) => (
-            <span key={j} style={{ ...fill, ...waveLetter(now, t.fromMs, j, slow) }}>
+          {Array.from(caseText(t.text.trim(), plan)).map((c, j) => (
+            <span key={j} style={{ ...fill, ...waveLetter(now, t.fromMs, j, slow), textTransform: "none" }}>
               {c}
             </span>
           ))}

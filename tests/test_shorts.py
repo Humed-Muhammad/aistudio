@@ -257,13 +257,21 @@ class TranscriptEditTests(unittest.TestCase):
  def test_rejects_empty_and_unknown_parts(self):
   with self.assertRaises(ValueError):shorts.edit_part(self.p,0,'  ')
   with self.assertRaises(ValueError):shorts.edit_part(self.p,5,'hi')
- def test_built_edit_captions_update_in_place_unless_the_cut_moves(self):
+ def test_built_edit_captions_always_update_in_place(self):
   p=self.p;caps=self.caps();units=json.loads((p/'units.json').read_text())
   ranges=shorts.layout(shorts.cut_ranges(shorts.load_cut(p),caps,units,5))
   (p/'cut-map.json').write_text(json.dumps([{k:r[k] for k in ['start','end','out','frames']} for r in ranges]));(p/'captions.json').write_text('{}')
   self.assertTrue(shorts.edit_part(p,0,'So this works.'))
   self.assertEqual([c['text'] for c in json.loads((p/'captions.json').read_text())['captions']][:3],[' So',' this',' works.'])
-  self.assertFalse(shorts.edit_part(p,1,'um works.'))  # a filler now gets cut out: the edit must be rebuilt
+  # A fix never changes the audio: captions follow the built cut even when the new words would trim differently.
+  self.assertTrue(shorts.edit_part(p,1,'um works.'))
+  words=[c['text'] for c in json.loads((p/'captions.json').read_text())['captions']]
+  self.assertIn(' works.',words);self.assertNotIn(' um',words)  # fillers are hidden from captions, as everywhere
+  self.assertTrue(shorts.edit_part(p,0,'So this really nicely works.'))  # more words than were spoken: none dropped
+  words=[c['text'] for c in json.loads((p/'captions.json').read_text())['captions']]
+  self.assertEqual(words[:5],[' So',' this',' really',' nicely',' works.'])
+  times=[c['startMs'] for c in json.loads((p/'captions.json').read_text())['captions']]
+  self.assertEqual(times,sorted(times))
  def test_api_route(self):
   from fastapi.testclient import TestClient
   import app,shorts_app
@@ -480,6 +488,18 @@ class NoiseTests(unittest.TestCase):
    with wave.open(str(path)) as w:got=np.frombuffer(w.readframes(w.getnframes()),np.int16).reshape(-1,2).T
    self.assertEqual(got.shape,ref.shape);self.assertTrue(np.array_equal(got[:,48000:96000],ref[:,48000:96000]))
    self.assertFalse((p/'isolate-in.wav').exists())
+
+ def test_words_stay_editable_while_a_render_runs(self):
+  from fastapi.testclient import TestClient
+  import app,shorts_app
+  client=TestClient(app.app);ident='e'*32
+  with tempfile.TemporaryDirectory() as d, patch.object(shorts_app,'RUNS',Path(d)):
+   p=job(Path(d)/ident);(p/'upload.mp4').write_bytes(b'x');(p/'job.json').write_text('{"title":"T","created":1}')
+   with patch.object(shorts_app,'busy',lambda i:True), patch.object(shorts_app,'status_of',lambda path:{'state':'running','action':'render'}):
+    self.assertFalse(shorts_app.edit_locked(ident))  # a render works from its own snapshot
+   with patch.object(shorts_app,'busy',lambda i:True), patch.object(shorts_app,'status_of',lambda path:{'state':'running','action':'auto'}):
+    self.assertTrue(shorts_app.edit_locked(ident))  # building or planning rewrites the plan: wait
+   with patch.object(shorts_app,'busy',lambda i:False):self.assertFalse(shorts_app.edit_locked(ident))
 
  def test_tracking_setting_via_api_and_planner(self):
   from fastapi.testclient import TestClient

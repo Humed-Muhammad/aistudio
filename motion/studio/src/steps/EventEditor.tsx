@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { ShortEvent } from "../../../src/types";
 import { TITLES } from "./Look";
+import { ELEMENTS } from "../../../src/elements/registry.gen";
+import type { Field, FieldValue } from "../../../src/elements/types";
 
 /** Mirrors Event defaults in shorts.py, so a new graphic draws in the preview before it is saved. */
 export const BLANK: ShortEvent = {
@@ -95,6 +97,7 @@ export const problem = (e: ShortEvent, others: ShortEvent[]): string => {
   const items = e.items.filter((i) => i.trim());
   const overlaps = (x: ShortEvent) => x.start < e.end && e.start < x.end;
   if (e.type === "text" && !e.text.trim()) return "Add some text.";
+  if (e.type === "element" && !ELEMENTS[e.element ?? ""]) return "This graphic is not in your library any more. Remove it, or add one from the library.";
   if (e.type === "look" && others.some((x) => x.type === "look" && overlaps(x))) return "This overlaps another look switch. Move it so they do not overlap.";
   if (e.type === "card") {
     if (["steps", "chips", "icons"].includes(e.template) && items.length < 2) return "Add at least 2 items.";
@@ -177,6 +180,41 @@ const ColorRow: React.FC<{ label: string; value: string; empty: string; palette:
         <input type="color" aria-label={`Any ${label.toLowerCase()}`} value={isDefault ? "#6EC1FF" : value} onChange={(x) => onChange(x.target.value.toUpperCase())} />
       </div>
     </div>
+  );
+};
+
+/** One editable field of a library graphic, in the control that fits its type. */
+const FieldInput: React.FC<{ f: Field; value: FieldValue; palette: [string, string][]; onChange: (v: FieldValue) => void }> = ({ f, value, palette, onChange }) => {
+  if (f.type === "color") return <ColorRow label={f.label} value={String(value ?? "")} empty={String(f.default ?? "")} palette={palette} onChange={onChange} />;
+  if (f.type === "toggle")
+    return (
+      <label className="check">
+        <input type="checkbox" checked={value === true} onChange={(x) => onChange(x.target.checked)} />
+        {f.label}
+      </label>
+    );
+  if (f.type === "number" && (f.max ?? 100) - (f.min ?? 0) <= 1000)
+    return <Range label={f.label} value={Number(value)} min={f.min ?? 0} max={f.max ?? 100} step={f.step ?? 1} onChange={onChange} />;
+  return (
+    <label className="field">
+      <span>{f.label}</span>
+      {f.type === "select" ? (
+        <select value={String(value)} onChange={(x) => onChange(x.target.value)}>
+          {(f.options ?? []).map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </select>
+      ) : f.type === "number" ? (
+        <input type="number" value={Number(value)} min={f.min} max={f.max} step={f.step ?? 1} onChange={(x) => onChange(Number(x.target.value))} />
+      ) : f.type === "list" ? (
+        <textarea dir="auto" rows={4} value={(Array.isArray(value) ? value : String(value).split("\n")).join("\n")} onChange={(x) => onChange(x.target.value.split("\n"))} />
+      ) : f.type === "longtext" ? (
+        <textarea dir="auto" rows={3} value={String(value)} onChange={(x) => onChange(x.target.value)} />
+      ) : (
+        <input dir="auto" value={String(value)} onChange={(x) => onChange(x.target.value)} />
+      )}
+      {f.hint ? <small className="hint">{f.hint}</small> : null}
+    </label>
   );
 };
 
@@ -302,6 +340,34 @@ export const EventEditor: React.FC<{
           ) : null}
           {e.timeline.length > 1 ? <p className="hint">This card changes as you speak; editing the items or highlight makes it one still card.</p> : null}
         </>
+      ) : null}
+
+      {e.type === "element" && ELEMENTS[e.element ?? ""] ? (
+        (() => {
+          const meta = ELEMENTS[e.element ?? ""].meta;
+          const value = (f: Field) => (e.props?.[f.key] as FieldValue | undefined) ?? f.default;
+          return (
+            <>
+              <p className="hint" style={{ margin: "2px 0 6px" }}>
+                <b>{meta.name}</b> · {meta.description}
+              </p>
+              {meta.fields.map((f) => (
+                <FieldInput key={f.key} f={f} value={value(f)} palette={palette} onChange={(v) => set({ props: { ...e.props, [f.key]: v } })} />
+              ))}
+              {meta.layout === "anchored" ? (
+                <>
+                  <Range label="Across" value={e.x} min={0} max={1} step={0.01} show={(v) => `${Math.round(v * 100)}%`} onChange={(x) => set({ x })} />
+                  <Range label="Height" value={e.y} min={0} max={1} step={0.01} show={(v) => `${Math.round(v * 100)}%`} onChange={(y) => set({ y })} />
+                  <Range label="Size" value={e.size} min={0.4} max={2} step={0.05} show={(v) => `${v.toFixed(2)}×`} onChange={(size) => set({ size })} />
+                </>
+              ) : null}
+              <ColorRow label="Accent colour" value={e.accent ?? ""} empty="" palette={palette} onChange={(accent) => set({ accent })} />
+              <button type="button" className="btn secondary small" onClick={() => set({ props: {} })}>
+                Reset to the graphic's defaults
+              </button>
+            </>
+          );
+        })()
       ) : null}
 
       {e.type === "zoom" ? (

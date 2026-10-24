@@ -10,7 +10,7 @@ Speech is never regenerated: the cut only removes parts of the original audio.
 """
 from pathlib import Path
 from fractions import Fraction
-from typing import Literal,get_args,get_origin
+from typing import Any,Literal,get_args,get_origin
 import json,subprocess,shutil,wave,base64,os,re,signal,threading
 import av,numpy as np
 from pydantic import BaseModel,Field,ValidationError
@@ -35,7 +35,7 @@ GESTURES=['open_palm','fist','point','pinch','peace','thumbs_up','rock']
 
 class Event(BaseModel):
     """One timeline item. Fields that do not apply to a type are ignored."""
-    type:Literal['text','sticker','zoom','shake','flash','sfx','broll','card','no_captions','look']=Field(description='no_captions: hide captions for words spoken between start and end; look: switch the background look (e.g. original to show the real room) between start and end')
+    type:Literal['text','sticker','zoom','shake','flash','sfx','broll','card','no_captions','look','element']=Field(description='element: a graphic from the library (motion/src/elements); no_captions: hide captions for words spoken between start and end; look: switch the background look (e.g. original to show the real room) between start and end')
     look:str=Field('',description='look event: name from the looks list; original shows the real room')
     start:float=Field(description='seconds')
     end:float=Field(description='seconds; for flash/sfx use start+0.3')
@@ -75,6 +75,8 @@ class Event(BaseModel):
     timeline:list[tuple[float,int]]=Field([],description='card: (seconds, active item) changes inside one continuous card; filled when back-to-back cards are merged')
     scene:Literal[tuple(SCENES)]=Field('overlay',description='card: overlay on video, dim (darken+blur video behind), dark (full-screen glow), light (full-screen grid paper), split (graphic top, speaker bottom)')
     effect:Literal[('',*TRANSITIONS)]=Field('',description='flash: this switch\'s own effect; empty uses the video\'s transition')
+    element:str=Field('',description='element: id of a graphic in the library')
+    props:dict[str,Any]=Field({},description='element: its field values by key (missing ones use the graphic\'s defaults)')
 
 BG_MODES=['original','blur','glow','color','gradient','studio','grid','image']
 LAMPS=['tube','twin','neon','globe','ring','arch','hex']  # wall lamp designs (Background.tsx Tubes)
@@ -220,6 +222,12 @@ class PNoCaptions(BaseModel):
     type:Literal['no_captions'];start:Num;end:Num
 class PLook(BaseModel):
     type:Literal['look'];start:Num;end:Num;look:str=choice(list(LOOKS))
+class PElement(BaseModel):
+    type:Literal['element'];start:Num;end:Num
+    element:str=Field(description='id from the graphics library list')
+    props:dict[str,Any]=Field(description='field values by key, in the language spoken (Ethiopic script for Amharic); only fields you change')
+    x:Num=Field(description='horizontal centre 0-1 (anchored graphics; use the library default unless it would cover the face)')
+    y:Num=Field(description='vertical centre 0-1 (anchored graphics)')
 class PlannerPlan(BaseModel):
     caption_preset:str=choice(PRESETS);caption_y:Num=Field(description='captions vertical centre 0-1, clear of face and stickers')
     graphics_style:str=choice(GRAPHIC_STYLES,'design of all cards and text pops for this video')
@@ -227,7 +235,7 @@ class PlannerPlan(BaseModel):
     look:str=choice(list(LOOKS),'background look for the whole video, see the looks list')
     light:str=choice(LIGHT_PATTERNS,'light design on studio walls (ignored for other looks): pool is the safe default; halo or split for podcasts, blinds/window/leaves for calm stories, beam or bokeh for drama')
     emphasis:list[str]=Field(description='editorial captions: words to stress, as spoken (key nouns, numbers, punchlines), about one per sentence')
-    events:list[PText|PSticker|PZoom|PShake|PFlash|PSfx|PBroll|PCard|PNoCaptions|PLook]
+    events:list[PText|PSticker|PZoom|PShake|PFlash|PSfx|PBroll|PCard|PNoCaptions|PLook|PElement]
     notes:str=Field(description='one short paragraph explaining the edit choices to the creator')
     def to_plan(self):
         def fix(model,data):
@@ -547,8 +555,8 @@ def retime_words(old,words):
     return out
 
 def edit_part(folder,ident,text):
-    """Replace the words of one transcript part (fixing recognition errors). Part ids, the cut and the audio stay.
-    Returns True when captions of an already built edit were updated in place, False when a rebuild is needed."""
+    """Replace the words of one transcript part (fixing recognition errors). Part ids, the cut and the audio stay,
+    and the captions of an already built edit are updated in place. Returns True."""
     folder=Path(folder);data=json.loads((folder/'full-captions.json').read_text());captions=data['captions']
     units=json.loads((folder/'units.json').read_text())
     if not 0<=ident<len(units):raise ValueError(f'Unknown transcript part: {ident}')
@@ -565,15 +573,32 @@ def edit_part(folder,ident,text):
     return refresh_edit_captions(folder)
 
 def refresh_edit_captions(folder):
-    """Rewrite captions.json of the built edit from the corrected transcript, if the cut it was built from is unchanged."""
+    """Rewrite captions.json of the built edit from the corrected transcript. A word fix never changes the audio,
+    so the words are placed through the cut the edit was built with (cut-map.json). A corrected word that lands in
+    a trimmed pause moves to the nearest kept moment of its own part, so a correction never drops words; parts
+    that are not in the built edit stay out. Changing which parts are kept still needs a rebuild."""
     folder=Path(folder);data=json.loads((folder/'full-captions.json').read_text());captions=data['captions']
-    units=json.loads((folder/'units.json').read_text());cut=load_cut(folder);info=json.loads((folder/'source-info.json').read_text())
     built=json.loads((folder/'cut-map.json').read_text()) if (folder/'cut-map.json').exists() else []
-    whole=not captions or (not cut.tighten and cut.keep==list(range(len(units))))
-    ranges=[] if whole else layout(cut_ranges(cut,captions,units,info['duration'],voice_or_none(folder)))
-    if [{k:r[k] for k in ['start','end','out','frames']} for r in ranges]!=built:
-        save_cut(folder,cut);return False  # the edit's audio no longer matches these words: newer cut.json marks it for rebuilding
-    kept=[c for c in captions if not is_filler(c)] if whole else remap_captions(captions,ranges)
+    if not built:kept=[c for c in captions if not is_filler(c)]
+    else:
+        spans=[(r['start'],r['start']+r['frames']/FPS,r['out']) for r in built]
+        def place(a,b):  # recording seconds -> edit seconds, through the first built range the word overlaps
+            for s,e,o in spans:
+                x,y=max(a,s),min(b,e)
+                if y>x:return x-s+o,y-s+o
+            return None
+        def snap(a,b):  # into the nearest built range, at its edge
+            s,e,o=min(spans,key=lambda r:max(r[0]-b,a-r[1],0))
+            x=min(max(a,s),e-.08);return x-s+o,min(x+max(b-a,.08),e)-s+o
+        kept=[]
+        for u in json.loads((folder/'units.json').read_text()):
+            words=[c for c in captions[u['first']:u['last']+1] if not is_filler(c)]
+            placed=[place(c['startMs']/1000,c['endMs']/1000) for c in words]
+            if not any(placed):continue  # this part was cut from the built edit
+            for c,p in zip(words,placed):
+                x,y=p or snap(c['startMs']/1000,c['endMs']/1000)
+                kept.append({**c,'startMs':round(x*1000),'endMs':round(y*1000),'timestampMs':None})
+        kept.sort(key=lambda c:c['startMs'])
     (folder/'captions.json').write_text(json.dumps({'language':data.get('language'),'captions':kept},indent=1));return True
 
 def load_cut(folder):return CutPlan.model_validate_json((Path(folder)/'cut.json').read_text())
@@ -1112,6 +1137,36 @@ def reveal_times(e,captions):
         t=max(after,hit-.1 if hit is not None else spread(i));times.append(min(t,e.end-.3));after=times[-1]+.25
     return [(round(t,3),i+1) for i,t in enumerate(times)]
 
+ELEMENTS_DIR=ROOT/'motion'/'src'/'elements'
+
+def element_catalog():
+    """The graphics library: {id: meta} from motion/src/elements/pack and mine (name.json beside name.tsx)."""
+    out={}
+    for source in ['pack','mine']:
+        for path in sorted((ELEMENTS_DIR/source).glob('*.json')) if (ELEMENTS_DIR/source).exists() else []:
+            try:meta=json.loads(path.read_text())
+            except ValueError:continue
+            if meta.get('id')==path.stem and path.with_suffix('.tsx').exists() and path.stem not in out:out[path.stem]={**meta,'source':source}
+    return out
+
+def element_values(meta,props):
+    """Keep only the graphic's own fields, each in its type and range; unknown keys are dropped."""
+    out={}
+    for f in meta.get('fields',[]):
+        k=f['key']
+        if k not in props:continue
+        v=props[k];t=f['type']
+        try:
+            if t=='number':v=min(max(float(v),f.get('min',-1e9)),f.get('max',1e9))
+            elif t=='toggle':v=v in (True,'true','1',1)
+            elif t=='list':v=[str(x)[:200] for x in (v if isinstance(v,list) else str(v).split('\n')) if str(x).strip()][:20]
+            elif t=='select':v=str(v) if str(v) in f.get('options',[]) else f['default']
+            elif t=='color':v=str(v) if (not v or HEX.match(str(v))) else f['default']
+            else:v=str(v)[:600]
+        except (TypeError,ValueError):v=f['default']
+        out[k]=v
+    return out
+
 def check_plan(plan,folder):
     """Clamp to the clip and report anything the renderer cannot honour."""
     folder=Path(folder);meta=json.loads((folder/'manifest.json').read_text());tracks=json.loads((folder/'tracks.json').read_text())
@@ -1150,6 +1205,11 @@ def check_plan(plan,folder):
         if e.type=='text' and not e.text.strip():warnings.append(f'{where}: empty text; skipped');continue
         for k in ('accent','ink'):
             if getattr(e,k) and not HEX.match(getattr(e,k)):setattr(e,k,'')
+        if e.type=='element':
+            meta=element_catalog().get(e.element)
+            if not meta:warnings.append(f'{where}: graphic "{e.element}" is not in the library; skipped');continue
+            e.props=element_values(meta,e.props or {});e.x=min(max(e.x,0.),1.);e.y=min(max(e.y,0.),1.);e.size=min(max(e.size,.3),3.)
+            kept.append(e);continue
         if e.type=='look':
             where=f'look switch at {e.start:.2f}s'
             if e.look not in LOOKS:warnings.append(f'{where}: unknown look "{e.look}"; skipped');continue
@@ -1225,6 +1285,9 @@ def planner_context(folder,notes=''):
     lines.append('Uploaded images (use exact filenames as asset): '+(', '.join(assets) or 'none'))
     clips=load_clips(folder)
     lines.append('Screen recordings for broll (exact filename as asset): '+(', '.join(f"{n} ({c['duration']:.1f}s, {'vertical' if c['height']>=c['width'] else 'wide'})" for n,c in clips.items()) or 'none'))
+    lib=element_catalog()
+    lines.append('Graphics library (type element; id: what it is · fields key=default):\n'+'\n'.join(
+        f"- {i}: {m['description']} · "+', '.join(f"{f['key']}={json.dumps(f['default'],ensure_ascii=False)}" for f in m['fields']) for i,m in lib.items()) if lib else 'Graphics library: empty')
     lines.append('Transcript, [start s] word:\n'+' '.join(f"[{c['startMs']/1000:.2f}]{c['text'].strip()}" for c in captions) if captions else 'No speech detected.')
     lines.append('Accent palette (field highlight_color): '+', '.join(f'{k} {v}' for k,v in PALETTE.items()))
     lines.append('Background looks (field look): '+'; '.join(f'{k} = {v}' for k,v in LOOK_NOTES.items()))
@@ -1250,6 +1313,7 @@ Style goals: retention-focused like top YouTube Shorts/TikTok creators, but neve
 - Captions default to duo (two short lines, line 2 in the accent color). Other styles when the content asks for it: karaoke (word by word, energetic talking), pill (punchy tips, hooks), typewriter (tutorials, tech, step-by-step), quiet (calm storytelling, reflective), float (premium, aspirational), stack (short loud statements, under 40 s). Keep one caption style for the whole video. Pick highlight_color from the palette for contrast with the chosen look and the footage: sky or mint on warm or red scenes, coral or pink on blue or cool scenes, white when the scene is busy. Never yellow.
 - Pick one graphics_style for every card and text pop: glass for tech, AI and apps; bold for loud tips and hooks; editorial for calm, premium storytelling; minimal when the footage is busy or the look is strong; tech for coding and data; brutal for bold opinions and hot takes; aurora for inspiring, creative or future topics; candy for friendly, playful, lifestyle; noir for luxury, fashion, serious reflection; swiss for facts, lists and clean business; clay for calm how-tos and wellness. Make graphics big and few. A card headline must add something: never repeat the list or step text word for word.
 - Pick one background look for the whole video from the looks list, matched to the topic and mood (the person is cut out and placed on it). Prefer clean_blur when unsure; dark_glow or warm_studio for a premium feel; grid_paper or cream for teaching; color_pop only for short, loud videos; original when the real location matters to the story.
+- Library graphics (type element): pick from the Graphics library list by id and fill only the fields you change, with the creator's own words in the spoken language. Use them where they fit the words: a name lower third when the speaker introduces themself, a number counter or progress ring for a figure, a checklist or step timeline for a list or process, a comment reply when answering a viewer, a follow nudge or end card at the very end. At most one library graphic on screen at a time, none over the face, and no more than one every ~6 seconds.
 - Look switches (type look, start, end, look): only where the creator asks to change the background for a part, e.g. show the real room (original) while they point at their setup. Not on your own initiative.
 - Sound design is automatic (auto_sound): only add sfx for a special moment the rules would miss, such as a ding on a big number.
 - The speaker may talk in Amharic, English or both. Write text events in the language being spoken at that moment (Amharic in Ethiopic script); keep them short.
@@ -1387,6 +1451,12 @@ def auto_sounds(plan,kit,cuts=(),voice=.05):
             if e.scene in ('dark','light','split'):whoosh(e.start+2/FPS);add('impact',e.start+4/FPS);scenes.append(e.start)
             else:add('ui-click',e.start+2/FPS)
             for t,_ in e.timeline[1:]:add('ui-click',t+3/FPS)  # next item or step
+        elif e.type=='element':  # the sound each library graphic asks for
+            want=(element_catalog().get(e.element) or {}).get('sound','none')
+            if want=='whoosh':whoosh(e.start+2/FPS)
+            elif want in ('pop','impact','success'):add(want,e.start+2/FPS)
+            elif want=='click':add('ui-click',e.start+2/FPS)
+            elif want=='riser':add('riser-bass',e.start+.6)
     kinds=['riser-bass','riser-metal']
     for at in sorted(set(scenes)|{c for c in cuts if 4<=c<=9}):
         if at>=2.5 and add(kinds[sum(o.sound.startswith('riser') for o in out)%2],at,'end'):add('hit',at)
@@ -1568,8 +1638,12 @@ def sound_kit(folder,names=None):
     (out/'sources.json').write_text(json.dumps(used))
     return kit
 
+def sync_elements():
+    """Refresh the renderer's list of library graphics (new or removed files in motion/src/elements)."""
+    subprocess.run(['node','scripts/elements.mjs'],cwd=MOTION,capture_output=True,check=False)
+
 def render(folder,final=False,status=say):
-    folder=Path(folder);need_motion()
+    folder=Path(folder);need_motion();sync_elements()
     props,warnings=render_props(folder);(folder/'render-props.json').write_text(json.dumps(props))
     name='shorts-final.mp4' if final else 'shorts-draft.mp4';partial=folder/('.rendering-'+name)
     cmd=['npx','remotion','render','src/index.ts','Shorts',str(partial),'--props',str(folder/'render-props.json'),'--public-dir',str(folder),'--codec','h264','--crf','18' if final else '23','--log','info']+browser_args()

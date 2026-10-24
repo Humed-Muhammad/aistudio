@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ShortEvent } from "../../../src/types";
 import { api, clock, fileUrl, jobUrl } from "../api";
 import type { JobApi } from "../JobView";
+import { ELEMENTS } from "../../../src/elements/registry.gen";
+import type { ElementMeta } from "../../../src/elements/types";
 import { BLANK, EventEditor, problem } from "./EventEditor";
+import { Library } from "./Library";
 
 const describe = (e: ShortEvent): [string, string] => {
   if (e.type === "text") return ["Text", `“${e.text}”${e.behind_subject ? " behind you" : ""}`];
@@ -30,6 +33,13 @@ const describe = (e: ShortEvent): [string, string] => {
   }
   if (e.type === "no_captions") return ["No captions", "captions hidden for these words"];
   if (e.type === "look") return ["Look", `switch to ${e.look === "original" ? "your real room" : e.look}`];
+  if (e.type === "element") {
+    const meta = ELEMENTS[e.element ?? ""]?.meta;
+    if (!meta) return ["Graphic", `${e.element} (not in your library)`];
+    const first = meta.fields.find((f) => f.type === "text" || f.type === "longtext" || f.type === "list");
+    const value = first ? (e.props?.[first.key] ?? first.default) : "";
+    return [meta.name, String(Array.isArray(value) ? value.join(", ") : value).replace(/\*/g, "")];
+  }
   if (e.type === "flash") return ["Effect", e.effect ? (EFFECTS.find(([id]) => id === e.effect)?.[1] ?? e.effect) : "same as the video"];
   if (e.type === "sfx") return ["Sound", e.sound];
   return [e.type, ""];
@@ -183,6 +193,32 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
     edit(p.events.length, e);
     seek(at + 0.4);
   };
+  const addElement = (meta: ElementMeta) => {
+    const at = Math.round(((player.current?.getCurrentFrame() ?? 0) / 30) * 10) / 10;
+    const e: ShortEvent = { ...BLANK, type: "element", element: meta.id, props: {}, start: at, end: at + meta.duration, x: meta.x, y: meta.y, size: 1 };
+    edit(p.events.length, e);
+    seek(at + meta.duration * (meta.poster ?? 0.55));
+  };
+  const remove = (i: number) => {
+    window.clearTimeout(timer.current);
+    pending.current = null;
+    setEditing(null);
+    setSaving(false);
+    const q = structuredClone(p);
+    q.events.splice(i, 1);
+    savePlan(q);
+  };
+  // A library graphic used in this video: remove the one nearest the paused preview.
+  const removeElement = (id: string) => {
+    const at = (player.current?.getCurrentFrame() ?? 0) / 30;
+    let best = -1;
+    p.events.forEach((x, k) => {
+      if (x.type === "element" && x.element === id && (best < 0 || Math.abs(x.start - at) < Math.abs(p.events[best].start - at))) best = k;
+    });
+    if (best >= 0) remove(best);
+  };
+  const used: Record<string, number> = {};
+  for (const x of p.events) if (x.type === "element" && x.element) used[x.element] = (used[x.element] ?? 0) + 1;
   const events = p.events.map((e, i) => [editing?.i === i ? editing.e : e, i] as const);
 
   return (
@@ -322,7 +358,7 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
               <button
                 type="button"
                 className="btn secondary"
-                disabled={busy || !setup.planner_available}
+                disabled={job.state === "running" || !setup.planner_available}
                 onClick={() => {
                   const d = new FormData();
                   d.set("notes", notes);
@@ -345,6 +381,9 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
               </button>
               <button type="button" className="btn secondary small" disabled={busy} onClick={() => add("card")}>
                 ＋ Card
+              </button>
+              <button type="button" className="btn secondary small" onClick={() => document.getElementById("library")?.scrollIntoView({ behavior: "smooth" })}>
+                ＋ From library
               </button>
             </div>
           </div>
@@ -372,13 +411,7 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
                       disabled={busy}
                       onClick={(x) => {
                         x.stopPropagation();
-                        window.clearTimeout(timer.current);
-                        pending.current = null;
-                        setEditing(null);
-                        setSaving(false);
-                        const q = structuredClone(p);
-                        q.events.splice(i, 1);
-                        savePlan(q);
+                        remove(i);
                       }}
                     >
                       ×
@@ -396,10 +429,19 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
                       onChange={(next) => edit(i, next)}
                     />
                   ) : null}
+                  {on ? (
+                    <div className="row" style={{ justifyContent: "flex-end", padding: "0 12px 12px" }}>
+                      <button type="button" className="btn ghost small" disabled={busy} onClick={() => remove(i)}>
+                        Remove this graphic
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
           </div>
+          <Library style={p.graphics_style} accent={p.highlight_color} disabled={busy} used={used} onAdd={addElement} onRemove={removeElement} />
+
           <div className="row" style={{ marginTop: 10 }}>
             <span className="hint">Hide captions from</span>
             <input style={{ width: 80 }} placeholder="0:12" value={nocap.start} onChange={(e) => setNocap({ ...nocap, start: e.target.value })} aria-label="Hide captions from" />

@@ -364,3 +364,19 @@ span.playbtn { border: 0; background: none; }
 .postrow { display: grid; grid-template-columns: 20px 1fr auto; gap: 8px; align-items: center; padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; margin-top: 6px; cursor: pointer; font-size: 13.5px; }
 .postrow.on { border-color: var(--accent); background: var(--soft); }
 .postbox { white-space: pre-wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--sunken); font-size: 13.5px; line-height: 1.5; margin: 6px 0 8px; }
+
+/* ---------- graphics library (Graphics tab) ---------- */
+.libgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.libtile { display: grid; gap: 6px; padding: 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--raised); color: var(--text); cursor: pointer; text-align: left; font: 600 12px var(--font); transition: border-color .15s, transform .15s; }
+.libtile:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.libtile:disabled { opacity: .5; cursor: not-allowed; }
+.libthumb { display: block; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #111; pointer-events: none; }
+.libname { padding: 0 2px 2px; line-height: 1.25; }
+.libsearch { width: 140px !important; margin-left: auto; padding: 6px 10px !important; font-size: 12.5px !important; }
+.chip { padding: 5px 11px; border-radius: 99px; border: 1px solid var(--line); background: var(--sunken); color: var(--muted); font: 600 12px var(--font); cursor: pointer; }
+.chip:hover { color: var(--text); }
+.chip.on { background: var(--soft); color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.libwrap { display: grid; gap: 4px; align-content: start; }
+.libtile.used { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.libused { border: 1px solid var(--line); background: var(--soft); color: var(--text); border-radius: 8px; padding: 4px 6px; font: 600 11px var(--font); cursor: pointer; }
+.libused:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }

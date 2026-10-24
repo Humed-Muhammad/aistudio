@@ -1,0 +1,31 @@
+{
+ "id": "comment-reply",
+ "name": "Comment reply",
+ "category": "Social",
+ "description": "A viewer comment card, like TikTok's \"Reply to …\". Use when you answer a question from the comments.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.22,
+ "sound": "pop",
+ "fields": [
+  {
+   "key": "user",
+   "label": "Username",
+   "type": "text",
+   "default": "sara_tube"
+  },
+  {
+   "key": "comment",
+   "label": "Comment",
+   "type": "longtext",
+   "default": "How do you edit your videos so fast?"
+  },
+  {
+   "key": "likes",
+   "label": "Likes",
+   "type": "text",
+   "default": "1.2K"
+  }
+ ]
+}

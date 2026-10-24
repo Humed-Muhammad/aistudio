@@ -17,7 +17,10 @@ export type Tab = "review" | "cut" | "look" | "captions" | "graphics" | "sound" 
 export type JobApi = {
   job: Job;
   setup: Setup;
+  /** Something is running: no new steps (build, render, Ask Claude). */
   busy: boolean;
+  /** Editing is blocked too. A render or post text works from a snapshot, so editing stays open during those. */
+  locked: boolean;
   show: (j: Job) => void;
   post: (path: string, data?: FormData) => Promise<void>;
   savePlan: (plan: Job["plan"]) => Promise<void>;
@@ -95,6 +98,7 @@ export const JobView: React.FC<{
 
   if (!job) return <div className="empty" style={{ margin: 24 }}>Loading…</div>;
   const busy = job.state === "running";
+  const locked = busy && !["render", "post"].includes(job.action ?? "");
   const toast = (msg: string, error = false) => setNotice({ msg, error });
   const post = async (path: string, data?: FormData) => {
     try {
@@ -116,14 +120,17 @@ export const JobView: React.FC<{
     setTab(t);
     setView(null);
   };
-  const ctx: JobApi = { job, setup, busy, show, post, savePlan, toast, goto, preview: { set: setOverride, player } };
+  const ctx: JobApi = { job, setup, busy, locked, show, post, savePlan, toast, goto, preview: { set: setOverride, player } };
+  // Look, captions, graphics and sound only change the plan: they stay editable while a render runs.
+  const editCtx: JobApi = { ...ctx, busy: locked };
 
   const built = !!job.tracking;
   const open: Record<Tab, boolean> = { review: true, cut: !!job.cut, look: built, captions: built, graphics: built, sound: !!job.cut, export: built };
   const current = open[tab] ? tab : "review";
   const draftFile = job.files["shorts-draft.mp4"];
   const finalFile = job.files["shorts-final.mp4"];
-  const changedSinceDraft = !!draftFile && Math.max(job.files["plan.json"] ?? 0, job.files["source.mp4"] ?? 0) > draftFile;
+  const changedSinceDraft =
+    !!draftFile && Math.max(job.files["plan.json"] ?? 0, job.files["source.mp4"] ?? 0, job.files["captions.json"] ?? 0) > draftFile;
   const cutChanged = !!job.files["source.mp4"] && (job.cut_mtime ?? 0) > job.files["source.mp4"];
   const client = clients.find((c) => c.id === job.client) ?? null;
   const s = statusOf(job);
@@ -354,7 +361,7 @@ export const JobView: React.FC<{
           ) : null}
           <div className="viewer">
             {shownView === "live" && built ? (
-              <Preview ref={player} id={id} version={JSON.stringify(job.plan) + job.files["source.mp4"]} override={override} />
+              <Preview ref={player} id={id} version={JSON.stringify(job.plan) + job.files["source.mp4"] + "/" + job.files["captions.json"]} override={override} />
             ) : (
               <div className="frame">
                 {job.cut || built ? (
@@ -397,10 +404,10 @@ export const JobView: React.FC<{
         <aside className="panel">
           {current === "review" ? <Review {...ctx} /> : null}
           {current === "cut" ? <Cut {...ctx} /> : null}
-          {current === "look" ? <Look {...ctx} /> : null}
-          {current === "captions" ? <CaptionsTab {...ctx} /> : null}
-          {current === "graphics" ? <Graphics {...ctx} /> : null}
-          {current === "sound" ? <SoundTab {...ctx} /> : null}
+          {current === "look" ? <Look {...editCtx} /> : null}
+          {current === "captions" ? <CaptionsTab {...editCtx} /> : null}
+          {current === "graphics" ? <Graphics {...editCtx} /> : null}
+          {current === "sound" ? <SoundTab {...editCtx} /> : null}
           {current === "export" ? <Export {...ctx} /> : null}
         </aside>
       </div>

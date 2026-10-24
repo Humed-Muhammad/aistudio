@@ -32,6 +32,11 @@ def check(path):
 
 def busy(ident):return bool(active.get(ident) and active[ident].is_alive())
 
+# A render works from a snapshot of the plan and captions (render-props.json), and post text only reads them:
+# while one of those runs, the creator can keep editing; the edits show in the next draft.
+EDIT_DURING={'render','post'}
+def edit_locked(ident):return busy(ident) and status_of(folder(ident)).get('action') not in EDIT_DURING
+
 def start(path,action,message,work,**extra):
     """One background task per job. Status (action, progress, start time) is persisted for reloads."""
     with lock:
@@ -303,7 +308,7 @@ def delete(ident:str):
 @router.get('/shorts/jobs/{ident}')
 def state(ident:str):
     path=folder(ident);tracks=read(path,'tracks.json');captions=read(path,'captions.json',{});cut=read(path,'cut.json')
-    files=[n for n in ['source.mp4','tracking-preview.mp4','shorts-draft.mp4','shorts-final.mp4','plan.json'] if (path/n).exists()]
+    files=[n for n in ['source.mp4','tracking-preview.mp4','shorts-draft.mp4','shorts-final.mp4','plan.json','captions.json'] if (path/n).exists()]
     try:cut_summary=shorts.cut_summary(path) if cut else None
     except (OSError,ValueError,KeyError):cut_summary=None
     return {**status_of(path),**summary(path),'id':ident,'manifest':read(path,'manifest.json'),'plan':read(path,'plan.json'),'warnings':read(path,'plan-warnings.json',[]),
@@ -387,7 +392,7 @@ def put_unit(ident:str,unit:int,body:dict=Body(...)):
     """Correct the words of one transcript part."""
     path=folder(ident)
     if not (path/'units.json').exists():raise HTTPException(409,'Wait for the transcript first.')
-    if busy(ident):raise HTTPException(409,'This video is still busy. Wait for the current step to finish.')
+    if edit_locked(ident):raise HTTPException(409,'This video is still busy. Wait for the current step to finish.')
     try:updated=shorts.edit_part(path,unit,str(body.get('text','')))
     except ValueError as e:raise invalid(e)
     return {**state(ident),'captions_updated':updated}
@@ -417,7 +422,7 @@ def write_post(ident:str,notes:str=Form('')):
 @router.post('/shorts/jobs/{ident}/fixes/apply')
 def apply_fixes(ident:str,body:dict=Body(...)):
     path=folder(ident);edits=body.get('edits') or {}
-    if busy(ident):raise HTTPException(409,'This video is still busy. Wait for the current step to finish.')
+    if edit_locked(ident):raise HTTPException(409,'This video is still busy. Wait for the current step to finish.')
     if not edits:raise HTTPException(422,'Choose at least one fix.')
     try:in_place=shorts.apply_fixes(path,edits)
     except (ValueError,KeyError) as e:raise invalid(e)

@@ -6,7 +6,7 @@ import { WordFixes } from "./WordFixes";
 type Filter = "all" | "kept" | "removed";
 
 export const Cut: React.FC<JobApi> = (ctx) => {
-  const { job, busy, setup, show, post, toast } = ctx;
+  const { job, busy, locked, setup, show, post, toast } = ctx;
   const [filter, setFilter] = useState<Filter>("all");
   const [notes, setNotes] = useState("");
   const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
@@ -45,12 +45,7 @@ export const Cut: React.FC<JobApi> = (ctx) => {
       const j = await sendJSON<Job>(jobUrl(job.id, `units/${id}`), "PUT", { text });
       setEditing(null);
       show(j);
-      if (j.tracking)
-        toast(
-          j.captions_updated
-            ? "Saved. The captions in your edit now use the corrected words."
-            : "Saved. This correction changes where the edit cuts, so rebuild your edit to use it.",
-        );
+      if (j.tracking) toast("Saved. The captions in your edit now use the corrected words.");
     } catch (e) {
       toast((e as Error).message, true);
     }
@@ -217,7 +212,7 @@ export const Cut: React.FC<JobApi> = (ctx) => {
                 </div>
               ) : (
                 <span className="text" dir="auto">
-                  {busy ? null : (
+                  {locked ? null : (
                     <button
                       type="button"
                       className="btn secondary small fix"

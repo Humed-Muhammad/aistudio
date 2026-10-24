@@ -1,0 +1,56 @@
+{
+ "id": "before-after-bars",
+ "name": "Before / after bars",
+ "category": "Data",
+ "description": "Two bars grow to compare before and after (time, cost, views). The after bar uses the accent colour.",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.35,
+ "sound": "riser",
+ "fields": [
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text",
+   "default": "Editing time"
+  },
+  {
+   "key": "before_label",
+   "label": "Before label",
+   "type": "text",
+   "default": "Before"
+  },
+  {
+   "key": "before",
+   "label": "Before value",
+   "type": "number",
+   "default": 120,
+   "min": 0,
+   "max": 100000,
+   "step": 1
+  },
+  {
+   "key": "after_label",
+   "label": "After label",
+   "type": "text",
+   "default": "With AI"
+  },
+  {
+   "key": "after",
+   "label": "After value",
+   "type": "number",
+   "default": 15,
+   "min": 0,
+   "max": 100000,
+   "step": 1
+  },
+  {
+   "key": "unit",
+   "label": "Unit",
+   "type": "text",
+   "default": " min"
+  }
+ ],
+ "poster": 0.8
+}

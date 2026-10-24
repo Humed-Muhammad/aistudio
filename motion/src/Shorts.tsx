@@ -27,6 +27,7 @@ import { LookSwitch } from "./LookSwitch";
 import { TransitionLight, transitionMotion } from "./Transitions";
 import { Captions } from "./Captions";
 import { Card } from "./Cards";
+import { ElementLayer } from "./elements/ElementLayer";
 import { Sticker, TextPop } from "./Graphics";
 import { MediaBase, useMedia } from "./media";
 import { faceAt, reframeFor } from "./tracking";
@@ -296,6 +297,17 @@ const Edit: React.FC<ShortsProps> = ({
                   </AbsoluteFill>
                 </AbsoluteFill>
               ) : null}
+            </Sequence>
+          );
+        })}
+
+      {plan.events
+        .filter((e) => e.type === "element")
+        .map((e, i) => {
+          const { from, duration } = frames(e, fps);
+          return (
+            <Sequence key={`el${i}`} from={from} durationInFrames={duration} layout="none">
+              <ElementLayer event={e} duration={duration} accent={plan.highlight_color} style={plan.graphics_style} />
             </Sequence>
           );
         })}

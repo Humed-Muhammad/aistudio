@@ -1,0 +1,31 @@
+{
+ "id": "live-badge",
+ "name": "Live / REC badge",
+ "category": "Lower thirds",
+ "description": "A pulsing red dot with LIVE or REC and a timer. Use for live moments, behind the scenes, recordings.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.2,
+ "y": 0.08,
+ "sound": "none",
+ "fields": [
+  {
+   "key": "label",
+   "label": "Label",
+   "type": "select",
+   "default": "LIVE",
+   "options": [
+    "LIVE",
+    "REC",
+    "ON AIR",
+    "NOW"
+   ]
+  },
+  {
+   "key": "timer",
+   "label": "Show timer",
+   "type": "toggle",
+   "default": true
+  }
+ ]
+}

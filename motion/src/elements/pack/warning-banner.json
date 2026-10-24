@@ -1,0 +1,25 @@
+{
+ "id": "warning-banner",
+ "name": "Warning banner",
+ "category": "Callouts",
+ "description": "A caution banner with diagonal stripes and a warning icon. Use for \"Don't do this\" and common mistakes.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.25,
+ "sound": "impact",
+ "fields": [
+  {
+   "key": "text",
+   "label": "Text",
+   "type": "text",
+   "default": "Don't make this *mistake*"
+  },
+  {
+   "key": "color",
+   "label": "Stripe colour",
+   "type": "color",
+   "default": "#FF6B4A"
+  }
+ ]
+}

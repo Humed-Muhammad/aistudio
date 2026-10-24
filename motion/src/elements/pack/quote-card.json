@@ -1,0 +1,25 @@
+{
+ "id": "quote-card",
+ "name": "Quote card",
+ "category": "Titles",
+ "description": "A quote on a panel with large quotation marks and who said it. Use for testimonials and sayings.",
+ "duration": 4.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.35,
+ "sound": "whoosh",
+ "fields": [
+  {
+   "key": "quote",
+   "label": "Quote",
+   "type": "longtext",
+   "default": "He turned my raw clips into a video that *sold out* my stock."
+  },
+  {
+   "key": "author",
+   "label": "Who said it",
+   "type": "text",
+   "default": "— Selam, café owner"
+  }
+ ]
+}

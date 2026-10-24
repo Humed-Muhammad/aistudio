@@ -48,3 +48,49 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual((plan.events[0].type,plan.events[0].element),('element','checklist'))
 
 if __name__=='__main__':unittest.main()
+
+FAKE='''import json,os,re,sys
+p=sys.argv[2];gid=re.search(r'"id" in the JSON must be "([^"]+)"',p).group(1)
+mine=re.search(r'these absolute paths: (\\S+)\\.json',p).group(1).rsplit('/',1)[0]
+m={"id":gid,"name":"Fake "+gid,"category":"Test","description":"d","duration":2,"layout":"anchored","x":.5,"y":.5,"sound":"none","fields":[]}
+open(f"{mine}/{gid}.json","w").write(json.dumps(m));open(f"{mine}/{gid}.tsx","w").write(os.environ.get("FAKE_TSX","export default function X() { return null; }"))
+print(json.dumps({"type":"result","result":"done","is_error":False}))
+'''
+
+class MakeAndChangeTests(unittest.TestCase):
+    """Describe / change / undo / delete / hide, with a stand-in for Claude Code and a temporary library."""
+    def setUp(self):
+        import library,os,sys,stat
+        from unittest.mock import patch
+        self.d=tempfile.TemporaryDirectory();root=Path(self.d.name)
+        mine=root/'mine';self.lib=library
+        fake=root/'claude';fake.write_text(f'#!{sys.executable}\n'+FAKE);fake.chmod(fake.stat().st_mode|stat.S_IEXEC)
+        self.p=[patch.object(library,'MINE',mine),patch.object(library,'HISTORY',mine/'.history'),patch.object(library,'REVIEW',mine/'.review'),
+                patch.object(library,'HIDDEN',mine/'hidden.json'),patch.object(library,'rebuild_studio',lambda:None),patch.object(library,'node',lambda *a,**k:None),
+                patch.object(library,'check',lambda gid,stills=None:(os.environ.get('FAKE_OK','1')=='1','TypeScript errors: broken')),
+                patch.dict(os.environ,{'CLAUDE_BIN':str(fake)})]
+        for x in self.p:x.start()
+    def tearDown(self):
+        for x in reversed(self.p):x.stop()
+        self.d.cleanup()
+
+    def test_make_change_undo_delete(self):
+        lib=self.lib;info=lib.make('A neon OPEN sign that flickers on',status=lambda *a:None)
+        gid=info['id'];self.assertEqual(gid,'neon-open-sign-flickers');self.assertEqual(lib.find(gid),'mine')
+        lib.change(gid,'slower please',status=lambda *a:None);self.assertEqual(len(lib.versions(gid)),1)
+        lib.undo(gid);self.assertEqual(lib.versions(gid),[])
+        lib.delete(gid);self.assertIsNone(lib.find(gid))
+
+    def test_a_failed_check_never_joins_the_library(self):
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ,{'FAKE_OK':'0'}):
+            with self.assertRaisesRegex(RuntimeError,'set aside'):self.lib.make('a broken thing to test',status=lambda *a:None)
+        self.assertEqual(list(self.lib.MINE.glob('*.tsx')),[])  # moved to history, not kept
+
+    def test_pack_graphics_are_copied_not_changed_and_only_hidden(self):
+        lib=self.lib;before=(lib.PACK/'topic-badge.tsx').read_text()
+        info=lib.change('topic-badge','make it green',status=lambda *a:None)
+        self.assertEqual(info['id'],'topic-badge-mine');self.assertEqual((lib.PACK/'topic-badge.tsx').read_text(),before)
+        with self.assertRaisesRegex(ValueError,'only be hidden'):lib.delete('topic-badge')
+        self.assertEqual(lib.set_hidden('topic-badge'),['topic-badge']);self.assertEqual(lib.set_hidden('topic-badge',False),[])

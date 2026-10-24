@@ -1,0 +1,20 @@
+{
+ "id": "word-highlight",
+ "name": "Word highlight",
+ "category": "Titles",
+ "description": "A sentence where a highlight jumps from word to word. Great for a key line you want people to read along.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.32,
+ "sound": "none",
+ "poster": 0.6,
+ "fields": [
+  {
+   "key": "text",
+   "label": "Sentence",
+   "type": "text",
+   "default": "Edit like a pro with AI"
+  }
+ ]
+}

@@ -380,3 +380,13 @@ span.playbtn { border: 0; background: none; }
 .libtile.used { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
 .libused { border: 1px solid var(--line); background: var(--soft); color: var(--text); border-radius: 8px; padding: 4px 6px; font: 600 11px var(--font); cursor: pointer; }
 .libused:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+.libmake { display: grid; gap: 8px; padding: 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+.libchange { display: grid; gap: 8px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.libstatus { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: var(--raised); font-size: 13px; white-space: pre-wrap; }
+.libstatus.error { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.libstatus.done { background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.libacts { display: flex; gap: 2px; flex-wrap: wrap; }
+.libacts button { border: 0; background: none; padding: 2px 5px; border-radius: 6px; color: var(--muted); font: 600 11px var(--font); cursor: pointer; }
+.libacts button:hover:not(:disabled) { color: var(--text); background: var(--raised); }
+.libacts button:disabled { opacity: .4; cursor: not-allowed; }
+.spinner.small { width: 14px; height: 14px; border-width: 2px; }

@@ -1,0 +1,37 @@
+{
+ "id": "focus-brackets",
+ "name": "Focus brackets",
+ "category": "Callouts",
+ "description": "Four corner brackets close in around something, like a camera focusing. Set the box size to fit what you point at.",
+ "duration": 2.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.5,
+ "sound": "click",
+ "fields": [
+  {
+   "key": "width",
+   "label": "Width",
+   "type": "number",
+   "default": 520,
+   "min": 100,
+   "max": 1000,
+   "step": 10
+  },
+  {
+   "key": "height",
+   "label": "Height",
+   "type": "number",
+   "default": 360,
+   "min": 100,
+   "max": 1700,
+   "step": 10
+  },
+  {
+   "key": "label",
+   "label": "Label (optional)",
+   "type": "text",
+   "default": ""
+  }
+ ]
+}

@@ -1,0 +1,19 @@
+{
+ "id": "question-hook",
+ "name": "Question hook",
+ "category": "Titles",
+ "description": "A big question with a bouncing question mark. Use as a first-second hook: \"Did you know…?\"",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.3,
+ "sound": "pop",
+ "fields": [
+  {
+   "key": "question",
+   "label": "Question",
+   "type": "text",
+   "default": "Did you *know* this?"
+  }
+ ]
+}

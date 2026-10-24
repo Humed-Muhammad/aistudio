@@ -1,0 +1,25 @@
+{
+ "id": "sticky-note",
+ "name": "Sticky note",
+ "category": "Callouts",
+ "description": "A pastel paper note with a pin and a short reminder, slightly tilted. Use for tips and side notes.",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.7,
+ "y": 0.3,
+ "sound": "pop",
+ "fields": [
+  {
+   "key": "text",
+   "label": "Note",
+   "type": "longtext",
+   "default": "Tip: record in natural light!"
+  },
+  {
+   "key": "paper",
+   "label": "Paper colour",
+   "type": "color",
+   "default": "#BFE6FF"
+  }
+ ]
+}

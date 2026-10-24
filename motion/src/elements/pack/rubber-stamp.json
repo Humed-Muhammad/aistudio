@@ -1,0 +1,25 @@
+{
+ "id": "rubber-stamp",
+ "name": "Rubber stamp",
+ "category": "Callouts",
+ "description": "A stamp slams down with a word like APPROVED, SOLD OUT or NEW, slightly rotated with a worn edge.",
+ "duration": 2.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.4,
+ "sound": "impact",
+ "fields": [
+  {
+   "key": "word",
+   "label": "Word",
+   "type": "text",
+   "default": "APPROVED"
+  },
+  {
+   "key": "color",
+   "label": "Colour (empty = accent)",
+   "type": "color",
+   "default": ""
+  }
+ ]
+}

@@ -440,7 +440,7 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
               );
             })}
           </div>
-          <Library style={p.graphics_style} accent={p.highlight_color} disabled={busy} used={used} onAdd={addElement} onRemove={removeElement} />
+          <Library style={p.graphics_style} accent={p.highlight_color} disabled={busy} used={used} onAdd={addElement} onRemove={removeElement} toast={toast} />
 
           <div className="row" style={{ marginTop: 10 }}>
             <span className="hint">Hide captions from</span>

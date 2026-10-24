@@ -1,0 +1,20 @@
+{
+ "id": "typewriter-title",
+ "name": "Typewriter title",
+ "category": "Titles",
+ "description": "A line types itself out letter by letter with a blinking caret. Good for \"Here is how I…\" openers.",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.3,
+ "sound": "click",
+ "poster": 0.8,
+ "fields": [
+  {
+   "key": "text",
+   "label": "Text",
+   "type": "text",
+   "default": "Here is how I edit"
+  }
+ ]
+}

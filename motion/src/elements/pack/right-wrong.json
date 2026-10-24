@@ -1,0 +1,30 @@
+{
+ "id": "right-wrong",
+ "name": "Right / wrong mark",
+ "category": "Callouts",
+ "description": "A big tick or cross draws itself in a circle, with a short label. Use for do / don't comparisons.",
+ "duration": 2.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.4,
+ "sound": "pop",
+ "poster": 0.7,
+ "fields": [
+  {
+   "key": "mark",
+   "label": "Mark",
+   "type": "select",
+   "default": "Right",
+   "options": [
+    "Right",
+    "Wrong"
+   ]
+  },
+  {
+   "key": "label",
+   "label": "Label",
+   "type": "text",
+   "default": "Do this"
+  }
+ ]
+}

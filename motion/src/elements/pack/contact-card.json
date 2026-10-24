@@ -1,0 +1,38 @@
+{
+ "id": "contact-card",
+ "name": "Contact card",
+ "category": "Sales",
+ "description": "A phone / WhatsApp / Telegram number with an icon, so viewers can order or book. The number counts in digit by digit.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.78,
+ "sound": "pop",
+ "poster": 0.8,
+ "fields": [
+  {
+   "key": "app",
+   "label": "App",
+   "type": "select",
+   "default": "Phone",
+   "options": [
+    "Phone",
+    "WhatsApp",
+    "Telegram",
+    "Email"
+   ]
+  },
+  {
+   "key": "label",
+   "label": "Label",
+   "type": "text",
+   "default": "Call to order"
+  },
+  {
+   "key": "number",
+   "label": "Number",
+   "type": "text",
+   "default": "0911 23 45 67"
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+ "id": "website-bar",
+ "name": "Website bar",
+ "category": "Lower thirds",
+ "description": "A browser address bar with your link that types in, with a lock icon. Use to show a website or link in bio.",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.85,
+ "sound": "click",
+ "poster": 0.8,
+ "fields": [
+  {
+   "key": "url",
+   "label": "Link",
+   "type": "text",
+   "default": "github.com/humed/ai-studio"
+  }
+ ]
+}

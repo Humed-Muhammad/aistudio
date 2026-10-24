@@ -1,0 +1,35 @@
+{
+ "id": "opening-hours",
+ "name": "Opening hours",
+ "category": "Sales",
+ "description": "A clock icon with your days and hours, and an OPEN NOW badge. Write rows as \"Days: hours\".",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.36,
+ "sound": "pop",
+ "poster": 0.8,
+ "fields": [
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text",
+   "default": "We are open"
+  },
+  {
+   "key": "rows",
+   "label": "Rows (\"Days: hours\")",
+   "type": "list",
+   "default": [
+    "Mon – Fri: 7:00 – 21:00",
+    "Sat – Sun: 8:00 – 22:00"
+   ]
+  },
+  {
+   "key": "badge",
+   "label": "Badge (empty to hide)",
+   "type": "text",
+   "default": "OPEN NOW"
+  }
+ ]
+}

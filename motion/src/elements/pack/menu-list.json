@@ -1,0 +1,31 @@
+{
+ "id": "menu-list",
+ "name": "Menu with prices",
+ "category": "Sales",
+ "description": "A menu card: items appear one by one with dotted lines to their prices. Write rows as \"Item: price\".",
+ "duration": 4.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.38,
+ "sound": "pop",
+ "poster": 0.85,
+ "fields": [
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text",
+   "default": "Today's menu"
+  },
+  {
+   "key": "rows",
+   "label": "Rows (\"Item: price\")",
+   "type": "list",
+   "default": [
+    "Macchiato: 120 ብር",
+    "Buna (jebena): 80 ብር",
+    "Croissant: 150 ብር",
+    "Fresh juice: 140 ብር"
+   ]
+  }
+ ]
+}

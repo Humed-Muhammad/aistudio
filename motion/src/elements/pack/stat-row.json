@@ -1,0 +1,24 @@
+{
+ "id": "stat-row",
+ "name": "Three stats",
+ "category": "Data",
+ "description": "Three numbers count up side by side with captions. Write each as \"number | caption\", e.g. \"120+ | clients\".",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.3,
+ "sound": "riser",
+ "poster": 0.85,
+ "fields": [
+  {
+   "key": "stats",
+   "label": "Stats (\"number | caption\")",
+   "type": "list",
+   "default": [
+    "120+ | clients",
+    "4.9★ | rating",
+    "10 min | per edit"
+   ]
+  }
+ ]
+}

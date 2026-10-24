@@ -1,0 +1,26 @@
+{
+ "id": "order-button",
+ "name": "Order button",
+ "category": "Sales",
+ "description": "A big call-to-action button that pulses and gets tapped, with a small line under it. \"Order now\", \"Book today\", \"DM me\".",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.78,
+ "sound": "click",
+ "poster": 0.5,
+ "fields": [
+  {
+   "key": "text",
+   "label": "Button",
+   "type": "text",
+   "default": "Order now"
+  },
+  {
+   "key": "sub",
+   "label": "Under the button",
+   "type": "text",
+   "default": "Free delivery in Bole"
+  }
+ ]
+}

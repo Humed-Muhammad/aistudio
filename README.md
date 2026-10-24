@@ -21,7 +21,7 @@ All three share one app, one sidebar and four color themes.
 - **Smart cut**: drops retakes, false starts, filler words and long pauses; keeps every point and the payoff. Speech is only ever cut, never regenerated.
 - **Captions** in Amharic (Ethiopic script) and English, many styles (duo, light sweep, word-by-word lift …), placed just under the chin and kept clear of the platform buttons.
 - **Graphics**: text pops, cards (steps, lists, stats, quotes), zoom punch-ins, transitions, emoji or images that follow your hand, text behind you.
-- **Graphics library**: 32 ready-made animated graphics (lower thirds, titles, callouts, counters, checklists, comment replies, follow and subscribe nudges, price tags, countdowns, confetti, chat bubbles…). Hover to preview, click to add, edit every word; they take your graphic style and colours. Add your own as two small files (see `AGENTS.md`).
+- **Graphics library**: 63 ready-made animated graphics (lower thirds, titles, callouts, charts and counters, ratings, polls, comment replies, follow and subscribe nudges, price tags, menus, coupons, contact cards, countdowns, confetti, fireworks, chat bubbles…). Hover to preview, click to add, edit every word; they take your graphic style and colours. Describe a new one in your own words and Claude Code makes it, checks it renders and adds it; change, undo, hide or delete any time.
 - **Looks**: put yourself on a studio wall (16 looks, lamps, light patterns, color grade) using a local person cutout. No green screen needed.
 - **B-roll**: drop in screen recordings; they play over the edit while you keep talking.
 - **Sound**: volume levelled to −14 LUFS, optional noise removal, and sound effects that you can audition and pick.

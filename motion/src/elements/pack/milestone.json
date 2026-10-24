@@ -1,0 +1,26 @@
+{
+ "id": "milestone",
+ "name": "Milestone",
+ "category": "Social",
+ "description": "A trophy with a big milestone number and sparkles, like \"10K followers\". Use to celebrate.",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.38,
+ "sound": "success",
+ "poster": 0.7,
+ "fields": [
+  {
+   "key": "value",
+   "label": "Milestone",
+   "type": "text",
+   "default": "10K"
+  },
+  {
+   "key": "label",
+   "label": "Label",
+   "type": "text",
+   "default": "followers · thank you!"
+  }
+ ]
+}

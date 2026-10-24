@@ -1,0 +1,50 @@
+{
+ "id": "poll",
+ "name": "Poll",
+ "category": "Data",
+ "description": "A two-option poll: bars fill to the results and the winner lights up. Use to ask viewers or show what people chose.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.35,
+ "sound": "pop",
+ "poster": 0.85,
+ "fields": [
+  {
+   "key": "question",
+   "label": "Question",
+   "type": "text",
+   "default": "Which do you prefer?"
+  },
+  {
+   "key": "a",
+   "label": "Option A",
+   "type": "text",
+   "default": "Edit myself"
+  },
+  {
+   "key": "a_pct",
+   "label": "A percent",
+   "type": "number",
+   "default": 28,
+   "min": 0,
+   "max": 100,
+   "step": 1
+  },
+  {
+   "key": "b",
+   "label": "Option B",
+   "type": "text",
+   "default": "Let AI edit"
+  },
+  {
+   "key": "b_pct",
+   "label": "B percent",
+   "type": "number",
+   "default": 72,
+   "min": 0,
+   "max": 100,
+   "step": 1
+  }
+ ]
+}

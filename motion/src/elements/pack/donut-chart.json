@@ -1,0 +1,30 @@
+{
+ "id": "donut-chart",
+ "name": "Donut chart",
+ "category": "Data",
+ "description": "A donut fills in segments with a legend. Write each part as \"Label: value\" (percent or any number).",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.35,
+ "sound": "riser",
+ "poster": 0.85,
+ "fields": [
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text",
+   "default": "Where my time goes"
+  },
+  {
+   "key": "parts",
+   "label": "Parts (\"Label: value\")",
+   "type": "list",
+   "default": [
+    "Recording: 20",
+    "Editing with AI: 15",
+    "Posting: 5"
+   ]
+  }
+ ]
+}

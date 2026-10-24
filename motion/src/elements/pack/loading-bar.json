@@ -1,0 +1,26 @@
+{
+ "id": "loading-bar",
+ "name": "Loading bar",
+ "category": "Fun",
+ "description": "A progress bar fills from 0 to 100% with a label, like an app working. Use for \"AI is editing…\" moments.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.5,
+ "sound": "riser",
+ "poster": 0.6,
+ "fields": [
+  {
+   "key": "label",
+   "label": "Label",
+   "type": "text",
+   "default": "AI is editing your video…"
+  },
+  {
+   "key": "done",
+   "label": "When full",
+   "type": "text",
+   "default": "Done ✓"
+  }
+ ]
+}

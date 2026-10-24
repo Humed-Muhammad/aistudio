@@ -1,0 +1,29 @@
+{
+ "id": "star-rating",
+ "name": "Star rating",
+ "category": "Data",
+ "description": "Five stars fill one by one up to a score, with the number of reviews. Use for testimonials and reviews.",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.3,
+ "sound": "success",
+ "poster": 0.8,
+ "fields": [
+  {
+   "key": "score",
+   "label": "Score",
+   "type": "number",
+   "default": 4.9,
+   "min": 0,
+   "max": 5,
+   "step": 0.1
+  },
+  {
+   "key": "reviews",
+   "label": "Under the stars",
+   "type": "text",
+   "default": "from 120 happy clients"
+  }
+ ]
+}

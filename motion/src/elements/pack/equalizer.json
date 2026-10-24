@@ -1,0 +1,28 @@
+{
+ "id": "equalizer",
+ "name": "Audio equalizer",
+ "category": "Fun",
+ "description": "Bouncing audio bars with an optional label. Use for music, podcast intros and \"turn the sound on\".",
+ "duration": 3,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.8,
+ "sound": "none",
+ "fields": [
+  {
+   "key": "label",
+   "label": "Label (optional)",
+   "type": "text",
+   "default": "🔊 Sound on"
+  },
+  {
+   "key": "bars",
+   "label": "Bars",
+   "type": "number",
+   "default": 16,
+   "min": 6,
+   "max": 32,
+   "step": 1
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "id": "fireworks",
+ "name": "Fireworks",
+ "category": "Fun",
+ "description": "Bursts of light explode across the whole screen, one after another. Use for launches, big news and celebrations.",
+ "duration": 3.5,
+ "layout": "full",
+ "x": 0.5,
+ "y": 0.5,
+ "sound": "success",
+ "poster": 0.35,
+ "fields": [
+  {
+   "key": "bursts",
+   "label": "Bursts",
+   "type": "number",
+   "default": 4,
+   "min": 1,
+   "max": 8,
+   "step": 1
+  }
+ ]
+}

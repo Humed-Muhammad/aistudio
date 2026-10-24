@@ -1,0 +1,31 @@
+{
+ "id": "sparkles",
+ "name": "Sparkles",
+ "category": "Fun",
+ "description": "Twinkling sparkles around a spot. Put them on a product, a result or your face for a \"wow\" moment.",
+ "duration": 2.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.4,
+ "sound": "success",
+ "fields": [
+  {
+   "key": "spread",
+   "label": "Spread",
+   "type": "number",
+   "default": 360,
+   "min": 120,
+   "max": 900,
+   "step": 10
+  },
+  {
+   "key": "amount",
+   "label": "Amount",
+   "type": "number",
+   "default": 14,
+   "min": 4,
+   "max": 40,
+   "step": 1
+  }
+ ]
+}

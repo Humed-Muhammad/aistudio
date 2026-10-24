@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useId } from "react";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { accentCss, type Theme } from "../graphicKits";
 import { mix, onAccent } from "../colors";
@@ -94,6 +94,9 @@ export const panel = (theme: Theme, k: number, radius = 28): React.CSSProperties
 
 /** Font size that fits text of this length on one line: base size up to fits characters, smaller beyond. */
 export const fit = (text: string, base: number, fits: number) => base * Math.min(1, fits / Math.max(1, [...text].length));
+
+/** An SVG id unique to this graphic instance (many graphics share one page in the library and the preview). */
+export const useSvgId = (name: string) => `${name}-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
 /** A soft shadow that lifts text off busy video without a hard outline. */
 export const lift = (k: number) => `0 ${4 * k}px ${18 * k}px rgba(0,0,0,.45)`;

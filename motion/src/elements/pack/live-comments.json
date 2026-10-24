@@ -1,0 +1,25 @@
+{
+ "id": "live-comments",
+ "name": "Live comments",
+ "category": "Social",
+ "description": "Comments float up one after another like a live stream. Write each as \"name: comment\".",
+ "duration": 5,
+ "layout": "anchored",
+ "x": 0.3,
+ "y": 0.62,
+ "sound": "none",
+ "poster": 0.8,
+ "fields": [
+  {
+   "key": "comments",
+   "label": "Comments (\"name: comment\")",
+   "type": "list",
+   "default": [
+    "sara: this is so good 🔥",
+    "dawit: how do I get it?",
+    "meron: እንዴት ነው የምጠቀመው?",
+    "abel: open source?! 😍"
+   ]
+  }
+ ]
+}

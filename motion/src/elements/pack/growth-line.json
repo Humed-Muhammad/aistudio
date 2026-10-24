@@ -1,0 +1,26 @@
+{
+ "id": "growth-line",
+ "name": "Growth line",
+ "category": "Data",
+ "description": "A line graph climbs with an arrow at the end and a big result like \"+240%\". Use for growth and results.",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.35,
+ "sound": "riser",
+ "poster": 0.85,
+ "fields": [
+  {
+   "key": "result",
+   "label": "Result",
+   "type": "text",
+   "default": "+240%"
+  },
+  {
+   "key": "label",
+   "label": "Label",
+   "type": "text",
+   "default": "followers in 3 months"
+  }
+ ]
+}

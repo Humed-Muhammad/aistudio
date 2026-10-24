@@ -1,0 +1,31 @@
+{
+ "id": "bar-chart",
+ "name": "Bar chart",
+ "category": "Data",
+ "description": "Bars grow one after another with labels and values. Write each row as \"Label: value\". The biggest uses the accent.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.35,
+ "sound": "riser",
+ "poster": 0.85,
+ "fields": [
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text",
+   "default": "Views per video"
+  },
+  {
+   "key": "rows",
+   "label": "Rows (\"Label: value\")",
+   "type": "list",
+   "default": [
+    "Before: 1200",
+    "Month 1: 5400",
+    "Month 2: 18000",
+    "Now: 42000"
+   ]
+  }
+ ]
+}

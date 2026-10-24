@@ -1,0 +1,31 @@
+{
+ "id": "coupon-ticket",
+ "name": "Coupon ticket",
+ "category": "Sales",
+ "description": "A ticket with a punched edge, a discount and a code in a dashed box. Use for promo codes and offers.",
+ "duration": 4,
+ "layout": "anchored",
+ "x": 0.5,
+ "y": 0.35,
+ "sound": "pop",
+ "fields": [
+  {
+   "key": "offer",
+   "label": "Offer",
+   "type": "text",
+   "default": "20% OFF"
+  },
+  {
+   "key": "detail",
+   "label": "Detail",
+   "type": "text",
+   "default": "your first edit"
+  },
+  {
+   "key": "code",
+   "label": "Code",
+   "type": "text",
+   "default": "HUMED20"
+  }
+ ]
+}

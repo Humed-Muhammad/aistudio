@@ -1,0 +1,26 @@
+{
+ "id": "typing-indicator",
+ "name": "Typing indicator",
+ "category": "Fun",
+ "description": "A chat bubble with three bouncing dots that turns into a message. Use for \"someone is replying…\" moments.",
+ "duration": 3.5,
+ "layout": "anchored",
+ "x": 0.42,
+ "y": 0.45,
+ "sound": "pop",
+ "poster": 0.85,
+ "fields": [
+  {
+   "key": "name",
+   "label": "Who (optional)",
+   "type": "text",
+   "default": "Client"
+  },
+  {
+   "key": "message",
+   "label": "Message",
+   "type": "text",
+   "default": "Can you edit my video today? 🙏"
+  }
+ ]
+}

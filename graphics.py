@@ -21,7 +21,10 @@ from PIL import Image,ImageOps
 from shorts import Cancelled,finished,say
 from config import ROOT,setting
 RUNS=ROOT/'runs'/'graphics';KIT=ROOT/'graphics-kit';NODE=KIT/'node_modules'
-HF=NODE/'.bin'/'hyperframes';FFMPEG=NODE/'ffmpeg-static'/'ffmpeg';FFPROBE=NODE/'@ffprobe-installer'/'darwin-arm64'/'ffprobe'
+import platform
+# npm installs the FFprobe build for this machine, e.g. @ffprobe-installer/darwin-arm64 or linux-x64.
+ARCH={'arm64':'arm64','aarch64':'arm64','x86_64':'x64','amd64':'x64'}.get(platform.machine().lower(),platform.machine().lower())
+HF=NODE/'.bin'/'hyperframes';FFMPEG=NODE/'ffmpeg-static'/'ffmpeg';FFPROBE=NODE/'@ffprobe-installer'/f'{sys.platform}-{ARCH}'/'ffprobe'
 SIZES={'portrait':(1080,1920),'square':(1080,1080),'landscape':(1920,1080)}
 IMAGES=['.png','.jpg','.jpeg','.webp','.gif','.svg'];AUDIO=['.mp3','.wav','.m4a','.aac','.ogg']
 FONTS={'inter':['inter-latin-400-normal','inter-latin-700-normal','inter-latin-800-normal'],'anton':['anton-latin-400-normal'],
@@ -228,9 +231,10 @@ exit, words (word-by-word rise, Ethiopic-safe), countUp (prices/stats), typeOn. 
 It can draw text, shapes, charts and the uploaded images; it cannot generate photos, footage or people.'''
 
 def claude_bin():
-    """The Claude Code CLI: CLAUDE_BIN, then PATH, then the copy bundled with the VS Code / Cursor extension."""
+    """The Claude Code CLI: CLAUDE_BIN, then PATH, then the native installer's ~/.local/bin, then the copy bundled with the VS Code / Cursor extension."""
     if setting('CLAUDE_BIN'):return setting('CLAUDE_BIN')
     if shutil.which('claude'):return shutil.which('claude')
+    if (Path.home()/'.local/bin/claude').exists():return str(Path.home()/'.local/bin/claude')
     found=[p for ext in ['.vscode','.cursor','.vscode-insiders'] for p in (Path.home()/ext/'extensions').glob('anthropic.claude-code-*/resources/native-binary/claude')]
     return str(max(found,key=lambda p:p.stat().st_mtime)) if found else None
 

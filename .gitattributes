@@ -1,0 +1,6 @@
+# Shell scripts and the Makefile must keep LF endings (Windows checkouts break bash otherwise); Windows scripts keep CRLF.
+*.sh text eol=lf
+*.command text eol=lf
+Makefile text eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

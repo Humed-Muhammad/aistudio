@@ -1,12 +1,12 @@
 {
   "name": "ai-studio-graphics-kit",
   "private": true,
-  "description": "Local toolchain for the motion graphics workflow: HyperFrames renderer, GSAP, fonts, and FFmpeg/FFprobe binaries (no system-wide install).",
+  "description": "Local toolchain for the motion graphics workflow: HyperFrames renderer, GSAP, fonts, and FFmpeg/FFprobe binaries for this OS (no system-wide install).",
   "scripts": {
     "doctor": "hyperframes doctor"
   },
   "dependencies": {
-    "@ffprobe-installer/darwin-arm64": "5.0.1",
+    "@ffprobe-installer/ffprobe": "2.1.2",
     "@fontsource/anton": "5.3.0",
     "@fontsource/inter": "5.3.0",
     "@fontsource/noto-sans-ethiopic": "5.3.0",

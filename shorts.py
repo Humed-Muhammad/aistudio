@@ -372,9 +372,16 @@ def clean_captions(path):
         if word.strip('-–—♪ '):kept.append(c)
     data['captions']=kept;Path(path).write_text(json.dumps(data,indent=1));return kept
 
+CHROME_PATHS=['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/Applications/Chromium.app/Contents/MacOS/Chromium',
+ '/usr/bin/google-chrome-stable','/usr/bin/google-chrome','/usr/bin/chromium','/usr/bin/chromium-browser']
+
+def chrome():
+    """Installed Chrome or Chromium (macOS or Linux), or '' when there is none."""
+    return setting('SHORTS_BROWSER') or next((c for c in CHROME_PATHS if Path(c).exists()),'')
+
 def browser_args():
     """Remotion's bundled headless shell crashes on some macOS versions; prefer installed Chrome."""
-    path=setting('SHORTS_BROWSER') or next((c for c in ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/Applications/Chromium.app/Contents/MacOS/Chromium'] if Path(c).exists()),'')
+    path=chrome()
     return ['--browser-executable',path] if path else []
 
 def need_motion():

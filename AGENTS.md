@@ -2,7 +2,7 @@
 
 A local video studio for short-form creators and the people who edit for them. Three tools share one server (`make run`, http://127.0.0.1:8770) and one sidebar: the **Shorts editor** (`/shorts`), **Motion graphics** (`/graphics`) and the **Audio cleaner** (`/cleaner`). Everything renders on this Mac; cloud calls (Claude API, ElevenLabs) happen only with the user's own keys and are said out loud before they cost money.
 
-For installation or onboarding, follow **Setup** in `README.md`: `make setup`, then `make shorts` and/or `make graphics`, then `python doctor.py --all`. Do not spend paid API credit during setup. A running UI is not the same as a ready tool: check `doctor.py`.
+For installation or onboarding, run the installer for the user's system (`bash install-mac.sh`, `bash install-ubuntu.sh`, or `install-windows.ps1`, which runs the Ubuntu installer inside WSL2), as described under **Install** in `README.md`; developers can use `make setup`, `make shorts`, `make graphics`. Then check with `python doctor.py --all`. Do not spend paid API credit during setup. A running UI is not the same as a ready tool: check `doctor.py`.
 
 General rules:
 - Never change the creator's original upload; never regenerate or alter their voice.

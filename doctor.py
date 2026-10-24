@@ -6,7 +6,6 @@
   python doctor.py --all        everything, plus which optional keys are set
 """
 import argparse,importlib,shutil,subprocess,sys
-from pathlib import Path
 from config import ROOT,setting
 
 def report(title,checks):
@@ -43,12 +42,13 @@ def shorts_ready():
 
 def graphics_ready():
     import graphics
+    from shorts import chrome
     return report('Motion graphics',{
         'Node.js 22+':(runs(['node','-e','process.exit(+process.versions.node.split(".")[0]>=22?0:1)']),'install Node.js 22+ from nodejs.org'),
         'HyperFrames':(graphics.HF.exists(),'run make graphics'),
         'FFmpeg (local)':(graphics.FFMPEG.exists(),'run make graphics'),
         'FFprobe (local)':(graphics.FFPROBE.exists(),'run make graphics'),
-        'Google Chrome':(Path('/Applications/Google Chrome.app').exists(),'install Google Chrome'),
+        'Google Chrome':(bool(chrome()),'install Google Chrome, or set SHORTS_BROWSER in .env'),
         'Claude Code skills':((ROOT/'.claude/skills/hyperframes/SKILL.md').exists(),'run make graphics'),
     })
 

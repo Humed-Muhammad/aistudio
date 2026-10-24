@@ -10,7 +10,7 @@ setup: ## One-time setup: .venv, Python packages, .env
 	bash setup.sh
 
 shorts: ## Optional: enable the shorts editor (tracking env, Remotion, local whisper.cpp)
-	@test -x .venv-face/bin/python || FACE_PYTHON=$$(command -v python3.12 || command -v python3) bash setup-face-mesh.sh
+	@test -x .venv-face/bin/python || FACE_PYTHON=$${FACE_PYTHON:-$$(command -v python3.12 || command -v python3)} bash setup-face-mesh.sh
 	.venv-face/bin/python -m pip install -q onnxruntime==1.31.0
 	@command -v node >/dev/null || { echo "Install Node.js 18+ first (https://nodejs.org)"; exit 1; }
 	cd motion && npm ci && node transcribe.mjs && npm run studio:build

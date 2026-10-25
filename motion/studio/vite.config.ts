@@ -8,9 +8,9 @@ export default defineConfig({
   root: __dirname,
   base: "/static/studio/",
   oxc: { jsx: { runtime: "automatic" } },
-  build: { outDir: "../../static/studio", emptyOutDir: true, chunkSizeWarningLimit: 2000 },
+  build: { outDir: "../../static/studio", emptyOutDir: true, chunkSizeWarningLimit: 3000 },
   server: {
     port: 5173,
-    proxy: { "/shorts/jobs": app, "/shorts/looks": app, "/shorts/setup": app, "/runs": app },
+    proxy: { "/motion": app, "/shorts/jobs": app, "/shorts/looks": app, "/shorts/setup": app, "/runs": app },
   },
 });

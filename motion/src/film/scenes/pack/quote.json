@@ -1,0 +1,16 @@
+{
+ "id": "quote",
+ "name": "Review",
+ "category": "Proof",
+ "description": "A customer review: stars, the quote with *starred* words in the accent, and the person's name and role. Use as social proof.",
+ "duration": 4,
+ "min": 3,
+ "poster": 0.85,
+ "sound": "none",
+ "fields": [
+  { "key": "quote", "label": "Quote", "type": "longtext", "default": "We got paid *twice as fast* in the first month. I don't chase anyone anymore." },
+  { "key": "name", "label": "Name", "type": "text", "default": "Selam Tadesse" },
+  { "key": "role", "label": "Role", "type": "text", "default": "Owner, Bloom Studio" },
+  { "key": "stars", "label": "Stars", "type": "number", "default": 5, "min": 0, "max": 5, "step": 1 }
+ ]
+}

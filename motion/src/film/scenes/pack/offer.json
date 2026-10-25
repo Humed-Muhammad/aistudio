@@ -1,0 +1,17 @@
+{
+ "id": "offer",
+ "name": "Offer",
+ "category": "Sales",
+ "description": "A deal: a spinning badge with the discount, the product, the old price crossed out, the new price landing and a deadline. For sales and launches.",
+ "duration": 3.6,
+ "min": 2.8,
+ "poster": 0.85,
+ "sound": "none",
+ "fields": [
+  { "key": "badge", "label": "Badge", "type": "text", "default": "-30%" },
+  { "key": "title", "label": "What is on offer", "type": "longtext", "default": "Pro plan, *first 3 months*" },
+  { "key": "old", "label": "Old price", "type": "text", "default": "$29" },
+  { "key": "new", "label": "New price", "type": "text", "default": "$19" },
+  { "key": "note", "label": "Deadline or condition", "type": "text", "default": "Ends Sunday" }
+ ]
+}

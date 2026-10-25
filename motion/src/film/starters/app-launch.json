@@ -1,0 +1,82 @@
+{
+ "title": "App launch",
+ "description": "A product film for an app: hook, the problem, the app working on a phone, a number that proves it, and the call to action.",
+ "use": "Apps, software, online services",
+ "film": {
+  "format": "portrait",
+  "style": "glass",
+  "mode": "dark",
+  "accent": "#6EC1FF",
+  "accent2": "#B79CFF",
+  "backdrop": "aurora",
+  "transition": "push",
+  "camera": "drift",
+  "brand": {
+   "name": "Nimbo",
+   "logo": ""
+  },
+  "language": "en",
+  "sound": {
+   "auto": true,
+   "music": "",
+   "music_volume": 0.5,
+   "voice": ""
+  },
+  "scenes": [
+   {
+    "id": "s1",
+    "template": "hook",
+    "duration": 3.6,
+    "props": {
+     "kicker": "New",
+     "title": "Invoices that *chase themselves*",
+     "sub": "Send, remind and get paid without lifting a finger."
+    }
+   },
+   {
+    "id": "s2",
+    "template": "compare",
+    "duration": 4.8,
+    "props": {
+     "title": "Stop chasing *payments*",
+     "left_title": "Before",
+     "left": [
+      "Spreadsheets",
+      "Late payments",
+      "Awkward calls"
+     ],
+     "right_title": "With Nimbo",
+     "right": [
+      "One dashboard",
+      "Paid in 3 days",
+      "Auto reminders"
+     ]
+    }
+   },
+   {
+    "id": "s3",
+    "template": "phone-app",
+    "duration": 4.5,
+    "props": {}
+   },
+   {
+    "id": "s4",
+    "template": "notifications",
+    "duration": 4,
+    "props": {}
+   },
+   {
+    "id": "s5",
+    "template": "big-number",
+    "duration": 3.4,
+    "props": {}
+   },
+   {
+    "id": "s6",
+    "template": "end-card",
+    "duration": 3.4,
+    "props": {}
+   }
+  ]
+ }
+}

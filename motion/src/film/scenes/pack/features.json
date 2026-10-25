@@ -1,0 +1,14 @@
+{
+ "id": "features",
+ "name": "Feature grid",
+ "category": "Structure",
+ "description": "A title and 3 to 6 feature tiles (icon + short label) that pop in one after another. Use to show what is inside.",
+ "duration": 3.8,
+ "min": 2.8,
+ "poster": 0.85,
+ "sound": "none",
+ "fields": [
+  { "key": "title", "label": "Title", "type": "longtext", "default": "All in *one place*" },
+  { "key": "items", "label": "Tiles (icon | label)", "type": "list", "default": ["send | Auto reminders", "card | Card payments", "chart-line | Live reports", "users | Client list", "languages | Amharic & English", "shield-check | Bank-level security"] }
+ ]
+}

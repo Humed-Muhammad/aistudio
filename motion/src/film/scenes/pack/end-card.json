@@ -1,0 +1,16 @@
+{
+ "id": "end-card",
+ "name": "Call to action",
+ "category": "Brand",
+ "description": "The ending: brand mark, one line telling people what to do, a button that pulses and the address or handle. Use as the last scene.",
+ "duration": 3.4,
+ "min": 2.5,
+ "poster": 0.75,
+ "sound": "none",
+ "fields": [
+  { "key": "title", "label": "Line", "type": "longtext", "default": "Start getting paid *today*" },
+  { "key": "button", "label": "Button", "type": "text", "default": "Try it free" },
+  { "key": "url", "label": "Address or handle", "type": "text", "default": "nimbo.app" },
+  { "key": "note", "label": "Small print", "type": "text", "default": "No card needed · Cancel anytime" }
+ ]
+}

@@ -1,0 +1,15 @@
+{
+ "id": "icon-hero",
+ "name": "Icon statement",
+ "category": "Type",
+ "description": "One big glossy 3D icon tile with a headline and a line under it. A clean way to state one benefit or idea.",
+ "duration": 3,
+ "min": 2.2,
+ "poster": 0.75,
+ "sound": "none",
+ "fields": [
+  { "key": "icon", "label": "Icon", "type": "text", "default": "shield-check" },
+  { "key": "title", "label": "Headline", "type": "longtext", "default": "Your money is *safe*" },
+  { "key": "sub", "label": "Line under it", "type": "text", "default": "Payments are encrypted and go straight to your bank." }
+ ]
+}

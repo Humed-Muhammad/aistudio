@@ -134,7 +134,7 @@ const TimeField: React.FC<{ label: string; value: number; onChange: (v: number) 
   );
 };
 
-const Range: React.FC<{ label: string; value: number; min: number; max: number; step: number; show?: (v: number) => string; onChange: (v: number) => void }> = ({
+export const Range: React.FC<{ label: string; value: number; min: number; max: number; step: number; show?: (v: number) => string; onChange: (v: number) => void }> = ({
   label,
   value,
   min,
@@ -151,7 +151,7 @@ const Range: React.FC<{ label: string; value: number; min: number; max: number; 
 );
 
 /** Colour choice: Default (the style's / video's colour), the palette, or any colour. */
-const ColorRow: React.FC<{ label: string; value: string; empty: string; palette: [string, string][]; onChange: (v: string) => void }> = ({
+export const ColorRow: React.FC<{ label: string; value: string; empty: string; palette: [string, string][]; onChange: (v: string) => void }> = ({
   label,
   value,
   empty,
@@ -184,7 +184,7 @@ const ColorRow: React.FC<{ label: string; value: string; empty: string; palette:
 };
 
 /** One editable field of a library graphic, in the control that fits its type. */
-const FieldInput: React.FC<{ f: Field; value: FieldValue; palette: [string, string][]; onChange: (v: FieldValue) => void }> = ({ f, value, palette, onChange }) => {
+export const FieldInput: React.FC<{ f: Field; value: FieldValue; palette: [string, string][]; onChange: (v: FieldValue) => void }> = ({ f, value, palette, onChange }) => {
   if (f.type === "color") return <ColorRow label={f.label} value={String(value ?? "")} empty={String(f.default ?? "")} palette={palette} onChange={onChange} />;
   if (f.type === "toggle")
     return (

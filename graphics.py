@@ -254,12 +254,15 @@ def activity(tool,args,rel):
             if word in f' {target} ':return text
     return 'Claude is working'
 
-def run_claude(args,cwd,status,message,log=None,timeout=None):
-    """Run claude -p with stream-json output; forward tool calls as status lines; return the final result event."""
+def run_claude(args,cwd,status,message,log=None,timeout=None,keep=False,resume=None,describe=None):
+    """Run claude -p with stream-json output; forward tool calls as status lines; return the final result event.
+    keep: save the session so a later call can continue it (resume=its session_id), as the film chat does.
+    describe(tool, input, cwd): the progress line for a tool call (defaults to activity())."""
     exe=claude_bin()
     if not exe:raise ValueError('Claude Code is not installed: install the Claude Code VS Code extension or CLI, or set CLAUDE_BIN in .env.')
     import threading,signal
-    proc=subprocess.Popen([exe,'-p',*args,'--output-format','stream-json','--verbose','--no-session-persistence'],cwd=cwd,env=claude_env(),
+    session=(['--resume',resume] if resume else [])+([] if keep or resume else ['--no-session-persistence'])
+    proc=subprocess.Popen([exe,'-p',*args,'--output-format','stream-json','--verbose',*session],cwd=cwd,env=claude_env(),
                           stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,start_new_session=True)
     ev=getattr(status,'cancelled',None);started=time.time();result=None;tail=[];steps=0
     def watch():
@@ -279,7 +282,7 @@ def run_claude(args,cwd,status,message,log=None,timeout=None):
             except ValueError:tail=(tail+[line.strip()])[-8:];continue
             if event.get('type')=='assistant':
                 for part in event.get('message',{}).get('content',[]):
-                    if part.get('type')=='tool_use':steps+=1;status(f"{activity(part.get('name'),part.get('input') or {},cwd)} · step {steps}",None)
+                    if part.get('type')=='tool_use':steps+=1;status(f"{(describe or activity)(part.get('name'),part.get('input') or {},cwd)} · step {steps}",None)
             elif event.get('type')=='result':result=event
     finally:
         if out:out.close()

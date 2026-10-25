@@ -1,0 +1,16 @@
+{
+ "id": "bars",
+ "name": "Bar chart",
+ "category": "Data",
+ "description": "Bars that grow one after another with their values, the last (or highest) one in the accent. For comparisons and growth over time.",
+ "duration": 4,
+ "min": 3,
+ "poster": 0.9,
+ "sound": "none",
+ "fields": [
+  { "key": "title", "label": "Title", "type": "longtext", "default": "Paid *faster* every month" },
+  { "key": "bars", "label": "Bars (label | value)", "type": "list", "default": ["Jan | 12", "Feb | 19", "Mar | 26", "Apr | 34", "May | 48"] },
+  { "key": "unit", "label": "Unit after values", "type": "text", "default": "k" },
+  { "key": "prefix", "label": "Before values", "type": "text", "default": "$" }
+ ]
+}

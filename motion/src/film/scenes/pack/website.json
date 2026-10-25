@@ -1,0 +1,18 @@
+{
+ "id": "website",
+ "name": "Website",
+ "category": "Product",
+ "description": "A browser window: the address types itself, the landing page builds, a cursor clicks the main button and it confirms. For sites, sign-ups and online shops.",
+ "duration": 4.8,
+ "min": 3.8,
+ "poster": 0.93,
+ "sound": "none",
+ "fields": [
+  { "key": "url", "label": "Address", "type": "text", "default": "nimbo.app" },
+  { "key": "brand", "label": "Name in the menu bar", "type": "text", "default": "Nimbo" },
+  { "key": "headline", "label": "Page headline", "type": "longtext", "default": "Get paid *on time*, every time" },
+  { "key": "sub", "label": "Page line", "type": "text", "default": "Invoices, reminders and payments in one simple app." },
+  { "key": "button", "label": "Button", "type": "text", "default": "Start free" },
+  { "key": "done", "label": "After the click", "type": "text", "default": "You're in!" }
+ ]
+}

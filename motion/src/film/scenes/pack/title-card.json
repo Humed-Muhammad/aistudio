@@ -1,0 +1,15 @@
+{
+ "id": "title-card",
+ "name": "Chapter title",
+ "category": "Type",
+ "description": "A chapter break: a big outlined number, the chapter title and a line drawing under it. Use between parts of an explainer.",
+ "duration": 2.4,
+ "min": 1.8,
+ "poster": 0.7,
+ "sound": "whoosh",
+ "fields": [
+  { "key": "number", "label": "Number", "type": "text", "default": "01" },
+  { "key": "title", "label": "Title", "type": "longtext", "default": "Create in *seconds*" },
+  { "key": "sub", "label": "Small line", "type": "text", "default": "Step one" }
+ ]
+}

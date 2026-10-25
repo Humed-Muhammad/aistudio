@@ -1,0 +1,14 @@
+{
+ "id": "stats",
+ "name": "Three numbers",
+ "category": "Data",
+ "description": "Two to four numbers side by side (or stacked on tall videos), each counting up with its label. For results at a glance.",
+ "duration": 3.6,
+ "min": 2.8,
+ "poster": 0.85,
+ "sound": "none",
+ "fields": [
+  { "key": "title", "label": "Title", "type": "longtext", "default": "Trusted by *small businesses*" },
+  { "key": "stats", "label": "Numbers (value | label)", "type": "list", "default": ["2,400+ | businesses", "$18M | paid on time", "4.9 ★ | average rating"] }
+ ]
+}

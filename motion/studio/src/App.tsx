@@ -5,6 +5,9 @@ import { JobView } from "./JobView";
 import { Upload } from "./steps/Upload";
 import { applyTheme, savedTheme, THEMES } from "./theme";
 import { Videos } from "./Videos";
+import { FilmList, NewFilm } from "./films/Films";
+import { FilmView } from "./films/FilmView";
+import type { FilmSetup, FilmSummary } from "./films/filmApi";
 
 export type Setup = {
   planner_available: boolean;
@@ -17,17 +20,29 @@ export type Route =
   | { page: "videos" }
   | { page: "job"; id: string }
   | { page: "new"; client: string | null }
-  | { page: "clients"; client: string | null };
+  | { page: "clients"; client: string | null }
+  | { page: "films" }
+  | { page: "film"; id: string }
+  | { page: "newfilm"; client: string | null };
 
 const parse = (): Route => {
   const q = new URLSearchParams(location.search);
   if (q.get("job")) return { page: "job", id: q.get("job")! };
+  if (q.get("film")) return { page: "film", id: q.get("film")! };
+  if (q.has("newfilm")) return { page: "newfilm", client: q.get("client") };
+  if (q.get("view") === "films") return { page: "films" };
   if (q.has("new")) return { page: "new", client: q.get("client") };
   if (q.get("view") === "clients") return { page: "clients", client: q.get("client") };
   return { page: "videos" };
 };
 const href = (r: Route) =>
-  r.page === "job"
+  r.page === "film"
+    ? "?film=" + r.id
+    : r.page === "films"
+      ? "?view=films"
+      : r.page === "newfilm"
+        ? "?newfilm" + (r.client ? "&client=" + r.client : "")
+        : r.page === "job"
     ? "?job=" + r.id
     : r.page === "new"
       ? "?new" + (r.client ? "&client=" + r.client : "")
@@ -41,7 +56,10 @@ export const App: React.FC = () => {
   const [route, setRoute] = useState<Route>(parse());
   const [setup, setSetup] = useState<Setup>({ planner_available: false, strong_noise_available: false, palette: {} });
   const [theme, setTheme] = useState(savedTheme());
+  const [films, setFilms] = useState<FilmSummary[] | null>(null);
+  const [filmSetup, setFilmSetup] = useState<FilmSetup | null>(null);
   const timer = useRef<number>(undefined);
+  const filmTimer = useRef<number>(undefined);
 
   const loadJobs = useCallback(async () => {
     try {
@@ -53,19 +71,32 @@ export const App: React.FC = () => {
       timer.current = window.setTimeout(loadJobs, 15000);
     }
   }, []);
+  const loadFilms = useCallback(async () => {
+    try {
+      const list = await api<FilmSummary[]>("/motion/films");
+      setFilms(list);
+      window.clearTimeout(filmTimer.current);
+      filmTimer.current = window.setTimeout(loadFilms, list.some((f) => f.state === "running") ? 3000 : 20000);
+    } catch {
+      filmTimer.current = window.setTimeout(loadFilms, 20000);
+    }
+  }, []);
   const loadClients = useCallback(() => api<Client[]>("/shorts/clients").then(setClients, () => {}), []);
 
   useEffect(() => {
     loadJobs();
     loadClients();
     api<Setup>("/shorts/setup").then(setSetup).catch(() => {});
+    loadFilms();
+    api<FilmSetup>("/motion/setup").then(setFilmSetup).catch(() => {});
     const back = () => setRoute(parse());
     window.addEventListener("popstate", back);
     return () => {
       window.removeEventListener("popstate", back);
       window.clearTimeout(timer.current);
+      window.clearTimeout(filmTimer.current);
     };
-  }, [loadJobs, loadClients]);
+  }, [loadJobs, loadClients, loadFilms]);
 
   const go = (r: Route) => {
     setRoute(r);
@@ -77,6 +108,7 @@ export const App: React.FC = () => {
     setTheme(id);
   };
   const editing = route.page === "job";
+  const filming = route.page === "film" || route.page === "films" || route.page === "newfilm";
 
   return (
     <div className="shell">
@@ -85,12 +117,12 @@ export const App: React.FC = () => {
           <i />
           <span>Humed’s AI Studio</span>
         </button>
-        <button type="button" className="btn newbtn" onClick={() => go({ page: "new", client: null })}>
-          ＋<span> New video</span>
+        <button type="button" className="btn newbtn" onClick={() => go(filming ? { page: "newfilm", client: null } : { page: "new", client: null })}>
+          ＋<span> {filming ? "New film" : "New video"}</span>
         </button>
         <nav className="railnav" aria-label="Shorts">
           <span className="raillabel">Shorts</span>
-          <button type="button" className={route.page === "videos" || editing ? "on" : ""} onClick={() => go({ page: "videos" })}>
+          <button type="button" className={route.page === "videos" || route.page === "new" || editing ? "on" : ""} onClick={() => go({ page: "videos" })}>
             <span className="ico">▦</span>
             <span>Videos</span>
           </button>
@@ -99,11 +131,18 @@ export const App: React.FC = () => {
             <span>Clients</span>
           </button>
         </nav>
+        <nav className="railnav" aria-label="Motion Studio">
+          <span className="raillabel">Motion Studio</span>
+          <button type="button" className={filming ? "on" : ""} onClick={() => go({ page: "films" })} title="Promos, product films and explainers drawn in code">
+            <span className="ico">✦</span>
+            <span>Films</span>
+          </button>
+        </nav>
         <nav className="railnav tools" aria-label="Other tools">
           <span className="raillabel">Tools</span>
-          <a href="/graphics" title="Motion graphics: promos and ads written as code">
-            <span className="ico">✦</span>
-            <span>Motion graphics</span>
+          <a href="/graphics" title="Advanced: HTML + GSAP compositions written by Claude Code (HyperFrames)">
+            <span className="ico">⌘</span>
+            <span>HTML motion (advanced)</span>
           </a>
           <a href="/cleaner" title="Audio cleaner: remove noise and transcribe">
             <span className="ico">♪</span>
@@ -129,7 +168,40 @@ export const App: React.FC = () => {
         </div>
       </aside>
       <main className="main">
-        {route.page === "job" ? (
+        {route.page === "film" ? (
+          filmSetup ? (
+            <FilmView
+              key={route.id}
+              id={route.id}
+              setup={filmSetup}
+              clients={clients}
+              onChange={loadFilms}
+              onBack={() => go({ page: "films" })}
+              onDeleted={() => {
+                loadFilms();
+                go({ page: "films" });
+              }}
+            />
+          ) : (
+            <div className="empty" style={{ margin: 24 }}>Loading…</div>
+          )
+        ) : route.page === "newfilm" ? (
+          filmSetup ? (
+            <NewFilm
+              setup={filmSetup}
+              clients={clients}
+              client={route.client}
+              onCreated={(id) => {
+                loadFilms();
+                go({ page: "film", id });
+              }}
+            />
+          ) : (
+            <div className="empty" style={{ margin: 24 }}>Loading…</div>
+          )
+        ) : route.page === "films" ? (
+          <FilmList films={films} clients={clients} open={(id) => go({ page: "film", id })} create={() => go({ page: "newfilm", client: null })} />
+        ) : route.page === "job" ? (
           <JobView
             key={route.id}
             id={route.id}

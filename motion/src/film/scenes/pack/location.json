@@ -1,0 +1,16 @@
+{
+ "id": "location",
+ "name": "Location",
+ "category": "Brand",
+ "description": "A drawn street map: a pin drops on your place with a pulse, and a card shows the name, address and opening hours. For shops, salons, cafés and events.",
+ "duration": 3.8,
+ "min": 3,
+ "poster": 0.85,
+ "sound": "none",
+ "fields": [
+  { "key": "caption", "label": "Headline", "type": "longtext", "default": "Find us in *Bole*" },
+  { "key": "name", "label": "Place name", "type": "text", "default": "Fade House Barbers" },
+  { "key": "address", "label": "Address", "type": "text", "default": "Bole Rd, near Edna Mall" },
+  { "key": "hours", "label": "Hours", "type": "text", "default": "Open daily · 8:00 – 21:00" }
+ ]
+}

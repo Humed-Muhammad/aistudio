@@ -1,0 +1,15 @@
+{
+ "id": "chat",
+ "name": "Chat",
+ "category": "Product",
+ "description": "A messaging conversation on a phone: bubbles appear one by one, the other side types first. For support, bots, ordering by message or a customer story.",
+ "duration": 5,
+ "min": 3.5,
+ "poster": 0.92,
+ "sound": "none",
+ "fields": [
+  { "key": "caption", "label": "Headline", "type": "longtext", "default": "Answers in *seconds*" },
+  { "key": "contact", "label": "Contact name", "type": "text", "default": "Nimbo Assistant" },
+  { "key": "messages", "label": "Messages (me | text, or them | text)", "type": "list", "default": ["me | Did Kaffa Roasters pay yet?", "them | Yes, $860 arrived this morning ✓", "me | Send a reminder to the others", "them | Done. 2 reminders sent."] }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+ "id": "booking",
+ "name": "Booking",
+ "category": "Product",
+ "description": "A calendar card: a day is picked, time slots appear, one is chosen and the booking is confirmed. For salons, clinics, classes and appointments.",
+ "duration": 4.6,
+ "min": 3.6,
+ "poster": 0.93,
+ "sound": "none",
+ "fields": [
+  { "key": "caption", "label": "Headline", "type": "longtext", "default": "Book in *20 seconds*" },
+  { "key": "month", "label": "Month", "type": "text", "default": "June 2026" },
+  { "key": "first", "label": "Weekday of the 1st (0 = Monday)", "type": "number", "default": 0, "min": 0, "max": 6, "step": 1 },
+  { "key": "days", "label": "Days in the month", "type": "number", "default": 30, "min": 28, "max": 31, "step": 1 },
+  { "key": "day", "label": "Day that is picked", "type": "number", "default": 12, "min": 1, "max": 31, "step": 1 },
+  { "key": "slots", "label": "Time slots", "type": "list", "default": ["9:00", "10:30", "13:00", "15:30"] },
+  { "key": "pick", "label": "Slot that is picked (1 = first)", "type": "number", "default": 2, "min": 1, "max": 6, "step": 1 },
+  { "key": "done", "label": "Confirmation", "type": "text", "default": "Booked · Fri 12, 10:30" }
+ ]
+}

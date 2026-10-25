@@ -1,0 +1,17 @@
+{
+ "id": "dashboard",
+ "name": "Dashboard",
+ "category": "Product",
+ "description": "An analytics dashboard: KPI cards count up and a chart draws itself. For growth, results or what the product tracks.",
+ "duration": 4.5,
+ "min": 3.5,
+ "poster": 0.9,
+ "sound": "none",
+ "fields": [
+  { "key": "caption", "label": "Headline", "type": "longtext", "default": "See your *cash flow* live" },
+  { "key": "product", "label": "App name", "type": "text", "default": "Nimbo" },
+  { "key": "kpis", "label": "KPI cards (label | value | change)", "type": "list", "default": ["Revenue | $48,200 | +12%", "Paid | 326 | +8%", "Days to pay | 3.2 | -41%"] },
+  { "key": "chart_title", "label": "Chart title", "type": "text", "default": "Payments this year" },
+  { "key": "series", "label": "Chart values (comma separated)", "type": "text", "default": "12, 18, 15, 24, 22, 30, 28, 41" }
+ ]
+}

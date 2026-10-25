@@ -1,0 +1,15 @@
+{
+ "id": "search",
+ "name": "Search",
+ "category": "Product",
+ "description": "A search bar types a question and results drop in below, the best one highlighted. For finding things, marketplaces and 'just search for it'.",
+ "duration": 4.2,
+ "min": 3.2,
+ "poster": 0.9,
+ "sound": "none",
+ "fields": [
+  { "key": "caption", "label": "Headline", "type": "longtext", "default": "Find any invoice *instantly*" },
+  { "key": "query", "label": "What is typed", "type": "text", "default": "unpaid in May" },
+  { "key": "results", "label": "Results (icon | title | detail)", "type": "list", "default": ["file | Lumen Dental #204 | $2,450 · due 12 days ago", "file | Abebe Builders #198 | $3,100 · due 3 days ago", "file | Mesi Catering #191 | $640 · due today"] }
+ ]
+}

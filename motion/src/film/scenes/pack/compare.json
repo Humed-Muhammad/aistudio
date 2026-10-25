@@ -1,0 +1,50 @@
+{
+ "id": "compare",
+ "name": "Before and after",
+ "category": "Structure",
+ "description": "Two columns side by side: the old way (crossed out, dim) and your way (ticked, in the accent). Use for problem then solution.",
+ "duration": 4.8,
+ "min": 3.5,
+ "poster": 0.9,
+ "sound": "none",
+ "fields": [
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "longtext",
+   "default": "Stop chasing *payments*"
+  },
+  {
+   "key": "left_title",
+   "label": "Old way title",
+   "type": "text",
+   "default": "Before"
+  },
+  {
+   "key": "left",
+   "label": "Old way",
+   "type": "list",
+   "default": [
+    "Spreadsheets",
+    "Late payments",
+    "Awkward calls"
+   ]
+  },
+  {
+   "key": "right_title",
+   "label": "Your way title",
+   "type": "text",
+   "default": "With Nimbo"
+  },
+  {
+   "key": "right",
+   "label": "Your way",
+   "type": "list",
+   "default": [
+    "One dashboard",
+    "Paid in 3 days",
+    "Auto reminders"
+   ]
+  }
+ ]
+}

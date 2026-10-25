@@ -1,0 +1,16 @@
+{
+ "id": "ai-prompt",
+ "name": "AI prompt",
+ "category": "Product",
+ "description": "A prompt box types a request, Generate is pressed with a sparkle, and result cards shimmer in. For AI features and 'just ask'.",
+ "duration": 5,
+ "min": 4,
+ "poster": 0.92,
+ "sound": "none",
+ "fields": [
+  { "key": "caption", "label": "Headline", "type": "longtext", "default": "Just *ask*" },
+  { "key": "prompt", "label": "What is typed", "type": "longtext", "default": "Write a friendly reminder for clients who are 7 days late" },
+  { "key": "button", "label": "Button", "type": "text", "default": "Generate" },
+  { "key": "results", "label": "Results (title | text)", "type": "list", "default": ["Friendly | Hi Selam, just a quick nudge about invoice #204…", "Firm | This is a reminder that invoice #204 is now 7 days overdue…", "Short | Invoice #204 is due. Pay in one tap here →"] }
+ ]
+}

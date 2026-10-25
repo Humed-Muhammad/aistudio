@@ -1,0 +1,15 @@
+{
+ "id": "ring",
+ "name": "Percent ring",
+ "category": "Data",
+ "description": "A ring that fills to a percentage with the number counting in the middle and a label under it. For rates, shares and progress.",
+ "duration": 3.2,
+ "min": 2.4,
+ "poster": 0.85,
+ "sound": "none",
+ "fields": [
+  { "key": "value", "label": "Percent", "type": "number", "default": 92, "min": 0, "max": 100, "step": 1 },
+  { "key": "title", "label": "What it means", "type": "longtext", "default": "of invoices paid *before* the due date" },
+  { "key": "kicker", "label": "Small label", "type": "text", "default": "On time" }
+ ]
+}

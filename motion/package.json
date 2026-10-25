@@ -13,7 +13,9 @@
     "@remotion/lottie": "4.0.535",
     "@remotion/media": "4.0.535",
     "@remotion/player": "4.0.535",
+    "@remotion/transitions": "4.0.535",
     "lottie-web": "5.13.0",
+    "lucide-react": "1.53.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remotion": "4.0.535"
@@ -29,12 +31,13 @@
     "vite": "8.3.3"
   },
   "scripts": {
-    "dev": "node scripts/elements.mjs && remotion studio",
+    "dev": "node scripts/elements.mjs && node scripts/scenes.mjs && remotion studio",
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
     "elements": "node scripts/elements.mjs",
-    "lint": "node scripts/elements.mjs && eslint src && tsc && tsc -p studio",
+    "lint": "node scripts/elements.mjs && node scripts/scenes.mjs && eslint src && tsc && tsc -p studio",
     "studio": "vite --config studio/vite.config.ts",
-    "studio:build": "node scripts/elements.mjs && vite build --config studio/vite.config.ts"
+    "studio:build": "node scripts/elements.mjs && node scripts/scenes.mjs && vite build --config studio/vite.config.ts",
+    "scenes": "node scripts/scenes.mjs"
   }
 }

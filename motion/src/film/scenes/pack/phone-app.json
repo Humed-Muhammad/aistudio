@@ -1,0 +1,59 @@
+{
+ "id": "phone-app",
+ "name": "Phone app",
+ "category": "Product",
+ "description": "The product working on a phone: an app screen with rows that slide in, a tap on the main button and a success message. Use to show what the app does.",
+ "duration": 4.5,
+ "min": 3.5,
+ "poster": 0.86,
+ "sound": "none",
+ "fields": [
+  {
+   "key": "caption",
+   "label": "Headline beside the phone",
+   "type": "longtext",
+   "default": "Every invoice, *one tap* away"
+  },
+  {
+   "key": "app",
+   "label": "App name",
+   "type": "text",
+   "default": "Nimbo"
+  },
+  {
+   "key": "title",
+   "label": "Screen title",
+   "type": "text",
+   "default": "Invoices"
+  },
+  {
+   "key": "summary",
+   "label": "Top card (label | value), or empty",
+   "type": "text",
+   "default": "Outstanding | $4,510"
+  },
+  {
+   "key": "rows",
+   "label": "Rows (icon | title | value)",
+   "type": "list",
+   "default": [
+    "file | Studio Bloom | $1,200",
+    "file | Kaffa Roasters | $860",
+    "file | Lumen Dental | $2,450",
+    "file | Abebe Builders | $3,100"
+   ]
+  },
+  {
+   "key": "button",
+   "label": "Button",
+   "type": "text",
+   "default": "Send all"
+  },
+  {
+   "key": "toast",
+   "label": "Message after the tap",
+   "type": "text",
+   "default": "3 invoices sent"
+  }
+ ]
+}

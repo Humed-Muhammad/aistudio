@@ -1,0 +1,1228 @@
+{
+ "scenes": {
+  "ai-prompt": {
+   "id": "ai-prompt",
+   "name": "AI prompt",
+   "category": "Product",
+   "description": "A prompt box types a request, Generate is pressed with a sparkle, and result cards shimmer in. For AI features and 'just ask'.",
+   "duration": 5,
+   "min": 4,
+   "poster": 0.92,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "caption",
+     "label": "Headline",
+     "type": "longtext",
+     "default": "Just *ask*"
+    },
+    {
+     "key": "prompt",
+     "label": "What is typed",
+     "type": "longtext",
+     "default": "Write a friendly reminder for clients who are 7 days late"
+    },
+    {
+     "key": "button",
+     "label": "Button",
+     "type": "text",
+     "default": "Generate"
+    },
+    {
+     "key": "results",
+     "label": "Results (title | text)",
+     "type": "list",
+     "default": [
+      "Friendly | Hi Selam, just a quick nudge about invoice #204…",
+      "Firm | This is a reminder that invoice #204 is now 7 days overdue…",
+      "Short | Invoice #204 is due. Pay in one tap here →"
+     ]
+    }
+   ],
+   "source": "pack"
+  },
+  "bars": {
+   "id": "bars",
+   "name": "Bar chart",
+   "category": "Data",
+   "description": "Bars that grow one after another with their values, the last (or highest) one in the accent. For comparisons and growth over time.",
+   "duration": 4,
+   "min": 3,
+   "poster": 0.9,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "title",
+     "label": "Title",
+     "type": "longtext",
+     "default": "Paid *faster* every month"
+    },
+    {
+     "key": "bars",
+     "label": "Bars (label | value)",
+     "type": "list",
+     "default": [
+      "Jan | 12",
+      "Feb | 19",
+      "Mar | 26",
+      "Apr | 34",
+      "May | 48"
+     ]
+    },
+    {
+     "key": "unit",
+     "label": "Unit after values",
+     "type": "text",
+     "default": "k"
+    },
+    {
+     "key": "prefix",
+     "label": "Before values",
+     "type": "text",
+     "default": "$"
+    }
+   ],
+   "source": "pack"
+  },
+  "big-number": {
+   "id": "big-number",
+   "name": "Big number",
+   "category": "Data",
+   "description": "One number that proves the point, counting up huge (prices, users, hours saved), with a label and a line of context.",
+   "duration": 3.4,
+   "min": 2.2,
+   "poster": 0.75,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "value",
+     "label": "Number",
+     "type": "text",
+     "default": "12,400+"
+    },
+    {
+     "key": "label",
+     "label": "What it counts",
+     "type": "text",
+     "default": "invoices paid on time"
+    },
+    {
+     "key": "sub",
+     "label": "Context",
+     "type": "text",
+     "default": "by small businesses in their first month"
+    },
+    {
+     "key": "icon",
+     "label": "Icon (name, or empty)",
+     "type": "text",
+     "default": "trending-up"
+    }
+   ],
+   "source": "pack"
+  },
+  "booking": {
+   "id": "booking",
+   "name": "Booking",
+   "category": "Product",
+   "description": "A calendar card: a day is picked, time slots appear, one is chosen and the booking is confirmed. For salons, clinics, classes and appointments.",
+   "duration": 4.6,
+   "min": 3.6,
+   "poster": 0.93,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "caption",
+     "label": "Headline",
+     "type": "longtext",
+     "default": "Book in *20 seconds*"
+    },
+    {
+     "key": "month",
+     "label": "Month",
+     "type": "text",
+     "default": "June 2026"
+    },
+    {
+     "key": "first",
+     "label": "Weekday of the 1st (0 = Monday)",
+     "type": "number",
+     "default": 0,
+     "min": 0,
+     "max": 6,
+     "step": 1
+    },
+    {
+     "key": "days",
+     "label": "Days in the month",
+     "type": "number",
+     "default": 30,
+     "min": 28,
+     "max": 31,
+     "step": 1
+    },
+    {
+     "key": "day",
+     "label": "Day that is picked",
+     "type": "number",
+     "default": 12,
+     "min": 1,
+     "max": 31,
+     "step": 1
+    },
+    {
+     "key": "slots",
+     "label": "Time slots",
+     "type": "list",
+     "default": [
+      "9:00",
+      "10:30",
+      "13:00",
+      "15:30"
+     ]
+    },
+    {
+     "key": "pick",
+     "label": "Slot that is picked (1 = first)",
+     "type": "number",
+     "default": 2,
+     "min": 1,
+     "max": 6,
+     "step": 1
+    },
+    {
+     "key": "done",
+     "label": "Confirmation",
+     "type": "text",
+     "default": "Booked · Fri 12, 10:30"
+    }
+   ],
+   "source": "pack"
+  },
+  "chat": {
+   "id": "chat",
+   "name": "Chat",
+   "category": "Product",
+   "description": "A messaging conversation on a phone: bubbles appear one by one, the other side types first. For support, bots, ordering by message or a customer story.",
+   "duration": 5,
+   "min": 3.5,
+   "poster": 0.92,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "caption",
+     "label": "Headline",
+     "type": "longtext",
+     "default": "Answers in *seconds*"
+    },
+    {
+     "key": "contact",
+     "label": "Contact name",
+     "type": "text",
+     "default": "Nimbo Assistant"
+    },
+    {
+     "key": "messages",
+     "label": "Messages (me | text, or them | text)",
+     "type": "list",
+     "default": [
+      "me | Did Kaffa Roasters pay yet?",
+      "them | Yes, $860 arrived this morning ✓",
+      "me | Send a reminder to the others",
+      "them | Done. 2 reminders sent."
+     ]
+    }
+   ],
+   "source": "pack"
+  },
+  "checklist": {
+   "id": "checklist",
+   "name": "Checklist",
+   "category": "Structure",
+   "description": "A title and up to 5 benefits that tick off one by one with drawn checks. Use for what you get or what is included.",
+   "duration": 4,
+   "min": 3,
+   "poster": 0.85,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "title",
+     "label": "Title",
+     "type": "longtext",
+     "default": "Everything *done for you*"
+    },
+    {
+     "key": "items",
+     "label": "Items",
+     "type": "list",
+     "default": [
+      "Invoices sent on time",
+      "Polite reminders",
+      "Paid by card or bank",
+      "Reports for tax time"
+     ]
+    }
+   ],
+   "source": "pack"
+  },
+  "checkout": {
+   "id": "checkout",
+   "name": "Checkout",
+   "category": "Product",
+   "description": "A payment sheet: items and total, a payment method is chosen, Pay is tapped and it turns into a success screen. For shops, bookings and paid plans.",
+   "duration": 4.6,
+   "min": 3.6,
+   "poster": 0.92,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "caption",
+     "label": "Headline",
+     "type": "longtext",
+     "default": "Paid in *one tap*"
+    },
+    {
+     "key": "title",
+     "label": "Sheet title",
+     "type": "text",
+     "default": "Checkout"
+    },
+    {
+     "key": "items",
+     "label": "Items (name | price)",
+     "type": "list",
+     "default": [
+      "Website design | $900",
+      "Logo refresh | $300"
+     ]
+    },
+    {
+     "key": "total",
+     "label": "Total",
+     "type": "text",
+     "default": "$1,200"
+    },
+    {
+     "key": "methods",
+     "label": "Payment methods",
+     "type": "list",
+     "default": [
+      "Card",
+      "Telebirr",
+      "Bank"
+     ]
+    },
+    {
+     "key": "button",
+     "label": "Button",
+     "type": "text",
+     "default": "Pay $1,200"
+    },
+    {
+     "key": "done",
+     "label": "Success message",
+     "type": "text",
+     "default": "Payment complete"
+    }
+   ],
+   "source": "pack"
+  },
+  "compare": {
+   "id": "compare",
+   "name": "Before and after",
+   "category": "Structure",
+   "description": "Two columns side by side: the old way (crossed out, dim) and your way (ticked, in the accent). Use for problem then solution.",
+   "duration": 4.8,
+   "min": 3.5,
+   "poster": 0.9,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "title",
+     "label": "Title",
+     "type": "longtext",
+     "default": "Stop chasing *payments*"
+    },
+    {
+     "key": "left_title",
+     "label": "Old way title",
+     "type": "text",
+     "default": "Before"
+    },
+    {
+     "key": "left",
+     "label": "Old way",
+     "type": "list",
+     "default": [
+      "Spreadsheets",
+      "Late payments",
+      "Awkward calls"
+     ]
+    },
+    {
+     "key": "right_title",
+     "label": "Your way title",
+     "type": "text",
+     "default": "With Nimbo"
+    },
+    {
+     "key": "right",
+     "label": "Your way",
+     "type": "list",
+     "default": [
+      "One dashboard",
+      "Paid in 3 days",
+      "Auto reminders"
+     ]
+    }
+   ],
+   "source": "pack"
+  },
+  "dashboard": {
+   "id": "dashboard",
+   "name": "Dashboard",
+   "category": "Product",
+   "description": "An analytics dashboard: KPI cards count up and a chart draws itself. For growth, results or what the product tracks.",
+   "duration": 4.5,
+   "min": 3.5,
+   "poster": 0.9,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "caption",
+     "label": "Headline",
+     "type": "longtext",
+     "default": "See your *cash flow* live"
+    },
+    {
+     "key": "product",
+     "label": "App name",
+     "type": "text",
+     "default": "Nimbo"
+    },
+    {
+     "key": "kpis",
+     "label": "KPI cards (label | value | change)",
+     "type": "list",
+     "default": [
+      "Revenue | $48,200 | +12%",
+      "Paid | 326 | +8%",
+      "Days to pay | 3.2 | -41%"
+     ]
+    },
+    {
+     "key": "chart_title",
+     "label": "Chart title",
+     "type": "text",
+     "default": "Payments this year"
+    },
+    {
+     "key": "series",
+     "label": "Chart values (comma separated)",
+     "type": "text",
+     "default": "12, 18, 15, 24, 22, 30, 28, 41"
+    }
+   ],
+   "source": "pack"
+  },
+  "end-card": {
+   "id": "end-card",
+   "name": "Call to action",
+   "category": "Brand",
+   "description": "The ending: brand mark, one line telling people what to do, a button that pulses and the address or handle. Use as the last scene.",
+   "duration": 3.4,
+   "min": 2.5,
+   "poster": 0.75,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "title",
+     "label": "Line",
+     "type": "longtext",
+     "default": "Start getting paid *today*"
+    },
+    {
+     "key": "button",
+     "label": "Button",
+     "type": "text",
+     "default": "Try it free"
+    },
+    {
+     "key": "url",
+     "label": "Address or handle",
+     "type": "text",
+     "default": "nimbo.app"
+    },
+    {
+     "key": "note",
+     "label": "Small print",
+     "type": "text",
+     "default": "No card needed · Cancel anytime"
+    }
+   ],
+   "source": "pack"
+  },
+  "features": {
+   "id": "features",
+   "name": "Feature grid",
+   "category": "Structure",
+   "description": "A title and 3 to 6 feature tiles (icon + short label) that pop in one after another. Use to show what is inside.",
+   "duration": 3.8,
+   "min": 2.8,
+   "poster": 0.85,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "title",
+     "label": "Title",
+     "type": "longtext",
+     "default": "All in *one place*"
+    },
+    {
+     "key": "items",
+     "label": "Tiles (icon | label)",
+     "type": "list",
+     "default": [
+      "send | Auto reminders",
+      "card | Card payments",
+      "chart-line | Live reports",
+      "users | Client list",
+      "languages | Amharic & English",
+      "shield-check | Bank-level security"
+     ]
+    }
+   ],
+   "source": "pack"
+  },
+  "hook": {
+   "id": "hook",
+   "name": "Hook headline",
+   "category": "Type",
+   "description": "Opening line that stops the scroll: a small label, a big headline built word by word (*starred* words in the accent) and one line under it.",
+   "duration": 3.6,
+   "min": 2,
+   "poster": 0.7,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "kicker",
+     "label": "Small label",
+     "type": "text",
+     "default": "New"
+    },
+    {
+     "key": "title",
+     "label": "Headline",
+     "type": "longtext",
+     "default": "Invoices that *chase themselves*"
+    },
+    {
+     "key": "sub",
+     "label": "Line under it",
+     "type": "text",
+     "default": "Send, remind and get paid without lifting a finger."
+    }
+   ],
+   "source": "pack"
+  },
+  "icon-hero": {
+   "id": "icon-hero",
+   "name": "Icon statement",
+   "category": "Type",
+   "description": "One big glossy 3D icon tile with a headline and a line under it. A clean way to state one benefit or idea.",
+   "duration": 3,
+   "min": 2.2,
+   "poster": 0.75,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "icon",
+     "label": "Icon",
+     "type": "text",
+     "default": "shield-check"
+    },
+    {
+     "key": "title",
+     "label": "Headline",
+     "type": "longtext",
+     "default": "Your money is *safe*"
+    },
+    {
+     "key": "sub",
+     "label": "Line under it",
+     "type": "text",
+     "default": "Payments are encrypted and go straight to your bank."
+    }
+   ],
+   "source": "pack"
+  },
+  "location": {
+   "id": "location",
+   "name": "Location",
+   "category": "Brand",
+   "description": "A drawn street map: a pin drops on your place with a pulse, and a card shows the name, address and opening hours. For shops, salons, cafés and events.",
+   "duration": 3.8,
+   "min": 3,
+   "poster": 0.85,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "caption",
+     "label": "Headline",
+     "type": "longtext",
+     "default": "Find us in *Bole*"
+    },
+    {
+     "key": "name",
+     "label": "Place name",
+     "type": "text",
+     "default": "Fade House Barbers"
+    },
+    {
+     "key": "address",
+     "label": "Address",
+     "type": "text",
+     "default": "Bole Rd, near Edna Mall"
+    },
+    {
+     "key": "hours",
+     "label": "Hours",
+     "type": "text",
+     "default": "Open daily · 8:00 – 21:00"
+    }
+   ],
+   "source": "pack"
+  },
+  "logo-reveal": {
+   "id": "logo-reveal",
+   "name": "Logo reveal",
+   "category": "Brand",
+   "description": "The brand mark lands with a ring of light, then the name and a tagline. Uses the uploaded logo, or the first letter on an accent tile. Good opener or closer.",
+   "duration": 3,
+   "min": 2.2,
+   "poster": 0.8,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "name",
+     "label": "Name (empty = the film's brand)",
+     "type": "text",
+     "default": ""
+    },
+    {
+     "key": "tagline",
+     "label": "Tagline",
+     "type": "text",
+     "default": "Get paid on time."
+    }
+   ],
+   "source": "pack"
+  },
+  "notifications": {
+   "id": "notifications",
+   "name": "Notifications",
+   "category": "Product",
+   "description": "A phone lock screen where notifications drop in one after another (payments, orders, bookings). Shows momentum or what users get.",
+   "duration": 4,
+   "min": 3,
+   "poster": 0.9,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "caption",
+     "label": "Headline",
+     "type": "longtext",
+     "default": "Watch the *payments* roll in"
+    },
+    {
+     "key": "time",
+     "label": "Clock",
+     "type": "text",
+     "default": "9:41"
+    },
+    {
+     "key": "date",
+     "label": "Date",
+     "type": "text",
+     "default": "Monday, June 9"
+    },
+    {
+     "key": "items",
+     "label": "Notifications (icon | app | title | text)",
+     "type": "list",
+     "default": [
+      "wallet | Nimbo | Payment received | Studio Bloom paid $1,200",
+      "wallet | Nimbo | Payment received | Kaffa Roasters paid $860",
+      "bell | Nimbo | Reminder sent | Lumen Dental, invoice #204",
+      "wallet | Nimbo | Payment received | Abebe Builders paid $3,100"
+     ]
+    }
+   ],
+   "source": "pack"
+  },
+  "offer": {
+   "id": "offer",
+   "name": "Offer",
+   "category": "Sales",
+   "description": "A deal: a spinning badge with the discount, the product, the old price crossed out, the new price landing and a deadline. For sales and launches.",
+   "duration": 3.6,
+   "min": 2.8,
+   "poster": 0.85,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "badge",
+     "label": "Badge",
+     "type": "text",
+     "default": "-30%"
+    },
+    {
+     "key": "title",
+     "label": "What is on offer",
+     "type": "longtext",
+     "default": "Pro plan, *first 3 months*"
+    },
+    {
+     "key": "old",
+     "label": "Old price",
+     "type": "text",
+     "default": "$29"
+    },
+    {
+     "key": "new",
+     "label": "New price",
+     "type": "text",
+     "default": "$19"
+    },
+    {
+     "key": "note",
+     "label": "Deadline or condition",
+     "type": "text",
+     "default": "Ends Sunday"
+    }
+   ],
+   "source": "pack"
+  },
+  "orbit": {
+   "id": "orbit",
+   "name": "Works with",
+   "category": "Brand",
+   "description": "Your brand mark in the middle with icons orbiting it on two rings. For integrations, 'works with everything' or many services in one place.",
+   "duration": 3.6,
+   "min": 2.6,
+   "poster": 0.8,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "title",
+     "label": "Title",
+     "type": "longtext",
+     "default": "Works with *what you use*"
+    },
+    {
+     "key": "icons",
+     "label": "Icons",
+     "type": "list",
+     "default": [
+      "card",
+      "bank",
+      "mail",
+      "chat",
+      "calendar",
+      "chart-line",
+      "users",
+      "cloud"
+     ]
+    }
+   ],
+   "source": "pack"
+  },
+  "phone-app": {
+   "id": "phone-app",
+   "name": "Phone app",
+   "category": "Product",
+   "description": "The product working on a phone: an app screen with rows that slide in, a tap on the main button and a success message. Use to show what the app does.",
+   "duration": 4.5,
+   "min": 3.5,
+   "poster": 0.86,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "caption",
+     "label": "Headline beside the phone",
+     "type": "longtext",
+     "default": "Every invoice, *one tap* away"
+    },
+    {
+     "key": "app",
+     "label": "App name",
+     "type": "text",
+     "default": "Nimbo"
+    },
+    {
+     "key": "title",
+     "label": "Screen title",
+     "type": "text",
+     "default": "Invoices"
+    },
+    {
+     "key": "summary",
+     "label": "Top card (label | value), or empty",
+     "type": "text",
+     "default": "Outstanding | $4,510"
+    },
+    {
+     "key": "rows",
+     "label": "Rows (icon | title | value)",
+     "type": "list",
+     "default": [
+      "file | Studio Bloom | $1,200",
+      "file | Kaffa Roasters | $860",
+      "file | Lumen Dental | $2,450",
+      "file | Abebe Builders | $3,100"
+     ]
+    },
+    {
+     "key": "button",
+     "label": "Button",
+     "type": "text",
+     "default": "Send all"
+    },
+    {
+     "key": "toast",
+     "label": "Message after the tap",
+     "type": "text",
+     "default": "3 invoices sent"
+    }
+   ],
+   "source": "pack"
+  },
+  "quote": {
+   "id": "quote",
+   "name": "Review",
+   "category": "Proof",
+   "description": "A customer review: stars, the quote with *starred* words in the accent, and the person's name and role. Use as social proof.",
+   "duration": 4,
+   "min": 3,
+   "poster": 0.85,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "quote",
+     "label": "Quote",
+     "type": "longtext",
+     "default": "We got paid *twice as fast* in the first month. I don't chase anyone anymore."
+    },
+    {
+     "key": "name",
+     "label": "Name",
+     "type": "text",
+     "default": "Selam Tadesse"
+    },
+    {
+     "key": "role",
+     "label": "Role",
+     "type": "text",
+     "default": "Owner, Bloom Studio"
+    },
+    {
+     "key": "stars",
+     "label": "Stars",
+     "type": "number",
+     "default": 5,
+     "min": 0,
+     "max": 5,
+     "step": 1
+    }
+   ],
+   "source": "pack"
+  },
+  "ring": {
+   "id": "ring",
+   "name": "Percent ring",
+   "category": "Data",
+   "description": "A ring that fills to a percentage with the number counting in the middle and a label under it. For rates, shares and progress.",
+   "duration": 3.2,
+   "min": 2.4,
+   "poster": 0.85,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "value",
+     "label": "Percent",
+     "type": "number",
+     "default": 92,
+     "min": 0,
+     "max": 100,
+     "step": 1
+    },
+    {
+     "key": "title",
+     "label": "What it means",
+     "type": "longtext",
+     "default": "of invoices paid *before* the due date"
+    },
+    {
+     "key": "kicker",
+     "label": "Small label",
+     "type": "text",
+     "default": "On time"
+    }
+   ],
+   "source": "pack"
+  },
+  "search": {
+   "id": "search",
+   "name": "Search",
+   "category": "Product",
+   "description": "A search bar types a question and results drop in below, the best one highlighted. For finding things, marketplaces and 'just search for it'.",
+   "duration": 4.2,
+   "min": 3.2,
+   "poster": 0.9,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "caption",
+     "label": "Headline",
+     "type": "longtext",
+     "default": "Find any invoice *instantly*"
+    },
+    {
+     "key": "query",
+     "label": "What is typed",
+     "type": "text",
+     "default": "unpaid in May"
+    },
+    {
+     "key": "results",
+     "label": "Results (icon | title | detail)",
+     "type": "list",
+     "default": [
+      "file | Lumen Dental #204 | $2,450 · due 12 days ago",
+      "file | Abebe Builders #198 | $3,100 · due 3 days ago",
+      "file | Mesi Catering #191 | $640 · due today"
+     ]
+    }
+   ],
+   "source": "pack"
+  },
+  "stats": {
+   "id": "stats",
+   "name": "Three numbers",
+   "category": "Data",
+   "description": "Two to four numbers side by side (or stacked on tall videos), each counting up with its label. For results at a glance.",
+   "duration": 3.6,
+   "min": 2.8,
+   "poster": 0.85,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "title",
+     "label": "Title",
+     "type": "longtext",
+     "default": "Trusted by *small businesses*"
+    },
+    {
+     "key": "stats",
+     "label": "Numbers (value | label)",
+     "type": "list",
+     "default": [
+      "2,400+ | businesses",
+      "$18M | paid on time",
+      "4.9 ★ | average rating"
+     ]
+    }
+   ],
+   "source": "pack"
+  },
+  "steps": {
+   "id": "steps",
+   "name": "How it works",
+   "category": "Structure",
+   "description": "2 to 4 numbered steps joined by a line that draws from one to the next, each with an icon, a short title and a line of text.",
+   "duration": 4.5,
+   "min": 3.5,
+   "poster": 0.9,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "title",
+     "label": "Title",
+     "type": "text",
+     "default": "How it works"
+    },
+    {
+     "key": "steps",
+     "label": "Steps (icon | title | text)",
+     "type": "list",
+     "default": [
+      "file | Create | Add the job and the price",
+      "send | Send | It goes out by email or SMS",
+      "wallet | Get paid | Card or bank, same day"
+     ]
+    }
+   ],
+   "source": "pack"
+  },
+  "title-card": {
+   "id": "title-card",
+   "name": "Chapter title",
+   "category": "Type",
+   "description": "A chapter break: a big outlined number, the chapter title and a line drawing under it. Use between parts of an explainer.",
+   "duration": 2.4,
+   "min": 1.8,
+   "poster": 0.7,
+   "sound": "whoosh",
+   "fields": [
+    {
+     "key": "number",
+     "label": "Number",
+     "type": "text",
+     "default": "01"
+    },
+    {
+     "key": "title",
+     "label": "Title",
+     "type": "longtext",
+     "default": "Create in *seconds*"
+    },
+    {
+     "key": "sub",
+     "label": "Small line",
+     "type": "text",
+     "default": "Step one"
+    }
+   ],
+   "source": "pack"
+  },
+  "website": {
+   "id": "website",
+   "name": "Website",
+   "category": "Product",
+   "description": "A browser window: the address types itself, the landing page builds, a cursor clicks the main button and it confirms. For sites, sign-ups and online shops.",
+   "duration": 4.8,
+   "min": 3.8,
+   "poster": 0.93,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "url",
+     "label": "Address",
+     "type": "text",
+     "default": "nimbo.app"
+    },
+    {
+     "key": "brand",
+     "label": "Name in the menu bar",
+     "type": "text",
+     "default": "Nimbo"
+    },
+    {
+     "key": "headline",
+     "label": "Page headline",
+     "type": "longtext",
+     "default": "Get paid *on time*, every time"
+    },
+    {
+     "key": "sub",
+     "label": "Page line",
+     "type": "text",
+     "default": "Invoices, reminders and payments in one simple app."
+    },
+    {
+     "key": "button",
+     "label": "Button",
+     "type": "text",
+     "default": "Start free"
+    },
+    {
+     "key": "done",
+     "label": "After the click",
+     "type": "text",
+     "default": "You're in!"
+    }
+   ],
+   "source": "pack"
+  },
+  "word-swap": {
+   "id": "word-swap",
+   "name": "Word swap",
+   "category": "Type",
+   "description": "A line whose last word keeps changing (Book your haircut / beard trim / kids cut): shows range or many uses in one beat.",
+   "duration": 3.6,
+   "min": 2.5,
+   "poster": 0.5,
+   "sound": "none",
+   "fields": [
+    {
+     "key": "lead",
+     "label": "Words that stay",
+     "type": "text",
+     "default": "Get paid for"
+    },
+    {
+     "key": "words",
+     "label": "Words that change",
+     "type": "list",
+     "default": [
+      "design work",
+      "consulting",
+      "your bakery",
+      "every job"
+     ]
+    },
+    {
+     "key": "sub",
+     "label": "Line under it",
+     "type": "text",
+     "default": "One app for every invoice you send."
+    }
+   ],
+   "source": "pack"
+  }
+ },
+ "icons": [
+  "activity",
+  "arrow-right",
+  "arrow-up-right",
+  "at",
+  "award",
+  "baby",
+  "banknote",
+  "badge",
+  "bell",
+  "bike",
+  "bolt",
+  "book",
+  "bot",
+  "brain",
+  "briefcase",
+  "building",
+  "bus",
+  "calculator",
+  "calendar",
+  "calendar-check",
+  "camera",
+  "car",
+  "chart-bar",
+  "chart-line",
+  "chart-pie",
+  "check",
+  "chevron-right",
+  "alert",
+  "check-circle",
+  "x-circle",
+  "clipboard",
+  "clock",
+  "cloud",
+  "code",
+  "coffee",
+  "coins",
+  "cpu",
+  "card",
+  "crown",
+  "database",
+  "dollar",
+  "download",
+  "droplet",
+  "dumbbell",
+  "eye",
+  "file",
+  "fingerprint",
+  "flame",
+  "folder",
+  "gem",
+  "gift",
+  "globe",
+  "school",
+  "hammer",
+  "handshake",
+  "hash",
+  "headphones",
+  "heart",
+  "health",
+  "hourglass",
+  "home",
+  "image",
+  "inbox",
+  "infinity",
+  "key",
+  "bank",
+  "languages",
+  "laptop",
+  "layers",
+  "dashboard",
+  "leaf",
+  "idea",
+  "link",
+  "checklist",
+  "lock",
+  "mail",
+  "map",
+  "pin",
+  "megaphone",
+  "chat",
+  "mic",
+  "monitor",
+  "moon",
+  "music",
+  "navigation",
+  "package",
+  "brush",
+  "palette",
+  "paw",
+  "pill",
+  "pen",
+  "percent",
+  "phone",
+  "piggy",
+  "plane",
+  "play",
+  "plus",
+  "puzzle",
+  "qr",
+  "receipt",
+  "refresh",
+  "rocket",
+  "scan",
+  "scissors",
+  "search",
+  "send",
+  "settings",
+  "share",
+  "shield",
+  "shield-check",
+  "shirt",
+  "bag",
+  "cart",
+  "smartphone",
+  "sparkles",
+  "sprout",
+  "star",
+  "stethoscope",
+  "store",
+  "sun",
+  "tag",
+  "target",
+  "terminal",
+  "thumbs-up",
+  "ticket",
+  "timer",
+  "trending-down",
+  "trending-up",
+  "trophy",
+  "truck",
+  "upload",
+  "user",
+  "users",
+  "food",
+  "video",
+  "wallet",
+  "magic",
+  "wifi",
+  "workflow",
+  "wrench",
+  "x",
+  "zap"
+ ]
+}

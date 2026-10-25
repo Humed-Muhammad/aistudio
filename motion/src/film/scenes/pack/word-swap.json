@@ -1,0 +1,15 @@
+{
+ "id": "word-swap",
+ "name": "Word swap",
+ "category": "Type",
+ "description": "A line whose last word keeps changing (Book your haircut / beard trim / kids cut): shows range or many uses in one beat.",
+ "duration": 3.6,
+ "min": 2.5,
+ "poster": 0.5,
+ "sound": "none",
+ "fields": [
+  { "key": "lead", "label": "Words that stay", "type": "text", "default": "Get paid for" },
+  { "key": "words", "label": "Words that change", "type": "list", "default": ["design work", "consulting", "your bakery", "every job"] },
+  { "key": "sub", "label": "Line under it", "type": "text", "default": "One app for every invoice you send." }
+ ]
+}

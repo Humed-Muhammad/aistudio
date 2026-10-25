@@ -1,0 +1,36 @@
+{
+ "id": "big-number",
+ "name": "Big number",
+ "category": "Data",
+ "description": "One number that proves the point, counting up huge (prices, users, hours saved), with a label and a line of context.",
+ "duration": 3.4,
+ "min": 2.2,
+ "poster": 0.75,
+ "sound": "none",
+ "fields": [
+  {
+   "key": "value",
+   "label": "Number",
+   "type": "text",
+   "default": "12,400+"
+  },
+  {
+   "key": "label",
+   "label": "What it counts",
+   "type": "text",
+   "default": "invoices paid on time"
+  },
+  {
+   "key": "sub",
+   "label": "Context",
+   "type": "text",
+   "default": "by small businesses in their first month"
+  },
+  {
+   "key": "icon",
+   "label": "Icon (name, or empty)",
+   "type": "text",
+   "default": "trending-up"
+  }
+ ]
+}

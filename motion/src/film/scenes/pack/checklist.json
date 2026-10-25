@@ -1,0 +1,14 @@
+{
+ "id": "checklist",
+ "name": "Checklist",
+ "category": "Structure",
+ "description": "A title and up to 5 benefits that tick off one by one with drawn checks. Use for what you get or what is included.",
+ "duration": 4,
+ "min": 3,
+ "poster": 0.85,
+ "sound": "none",
+ "fields": [
+  { "key": "title", "label": "Title", "type": "longtext", "default": "Everything *done for you*" },
+  { "key": "items", "label": "Items", "type": "list", "default": ["Invoices sent on time", "Polite reminders", "Paid by card or bank", "Reports for tax time"] }
+ ]
+}

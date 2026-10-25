@@ -1,0 +1,19 @@
+{
+ "id": "checkout",
+ "name": "Checkout",
+ "category": "Product",
+ "description": "A payment sheet: items and total, a payment method is chosen, Pay is tapped and it turns into a success screen. For shops, bookings and paid plans.",
+ "duration": 4.6,
+ "min": 3.6,
+ "poster": 0.92,
+ "sound": "none",
+ "fields": [
+  { "key": "caption", "label": "Headline", "type": "longtext", "default": "Paid in *one tap*" },
+  { "key": "title", "label": "Sheet title", "type": "text", "default": "Checkout" },
+  { "key": "items", "label": "Items (name | price)", "type": "list", "default": ["Website design | $900", "Logo refresh | $300"] },
+  { "key": "total", "label": "Total", "type": "text", "default": "$1,200" },
+  { "key": "methods", "label": "Payment methods", "type": "list", "default": ["Card", "Telebirr", "Bank"] },
+  { "key": "button", "label": "Button", "type": "text", "default": "Pay $1,200" },
+  { "key": "done", "label": "Success message", "type": "text", "default": "Payment complete" }
+ ]
+}

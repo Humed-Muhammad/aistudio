@@ -1,0 +1,14 @@
+{
+ "id": "orbit",
+ "name": "Works with",
+ "category": "Brand",
+ "description": "Your brand mark in the middle with icons orbiting it on two rings. For integrations, 'works with everything' or many services in one place.",
+ "duration": 3.6,
+ "min": 2.6,
+ "poster": 0.8,
+ "sound": "none",
+ "fields": [
+  { "key": "title", "label": "Title", "type": "longtext", "default": "Works with *what you use*" },
+  { "key": "icons", "label": "Icons", "type": "list", "default": ["card", "bank", "mail", "chat", "calendar", "chart-line", "users", "cloud"] }
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "id": "notifications",
+ "name": "Notifications",
+ "category": "Product",
+ "description": "A phone lock screen where notifications drop in one after another (payments, orders, bookings). Shows momentum or what users get.",
+ "duration": 4,
+ "min": 3,
+ "poster": 0.9,
+ "sound": "none",
+ "fields": [
+  { "key": "caption", "label": "Headline", "type": "longtext", "default": "Watch the *payments* roll in" },
+  { "key": "time", "label": "Clock", "type": "text", "default": "9:41" },
+  { "key": "date", "label": "Date", "type": "text", "default": "Monday, June 9" },
+  { "key": "items", "label": "Notifications (icon | app | title | text)", "type": "list", "default": ["wallet | Nimbo | Payment received | Studio Bloom paid $1,200", "wallet | Nimbo | Payment received | Kaffa Roasters paid $860", "bell | Nimbo | Reminder sent | Lumen Dental, invoice #204", "wallet | Nimbo | Payment received | Abebe Builders paid $3,100"] }
+ ]
+}

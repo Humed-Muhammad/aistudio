@@ -1,0 +1,14 @@
+{
+ "id": "logo-reveal",
+ "name": "Logo reveal",
+ "category": "Brand",
+ "description": "The brand mark lands with a ring of light, then the name and a tagline. Uses the uploaded logo, or the first letter on an accent tile. Good opener or closer.",
+ "duration": 3,
+ "min": 2.2,
+ "poster": 0.8,
+ "sound": "none",
+ "fields": [
+  { "key": "name", "label": "Name (empty = the film's brand)", "type": "text", "default": "" },
+  { "key": "tagline", "label": "Tagline", "type": "text", "default": "Get paid on time." }
+ ]
+}

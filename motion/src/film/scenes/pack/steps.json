@@ -1,0 +1,14 @@
+{
+ "id": "steps",
+ "name": "How it works",
+ "category": "Structure",
+ "description": "2 to 4 numbered steps joined by a line that draws from one to the next, each with an icon, a short title and a line of text.",
+ "duration": 4.5,
+ "min": 3.5,
+ "poster": 0.9,
+ "sound": "none",
+ "fields": [
+  { "key": "title", "label": "Title", "type": "text", "default": "How it works" },
+  { "key": "steps", "label": "Steps (icon | title | text)", "type": "list", "default": ["file | Create | Add the job and the price", "send | Send | It goes out by email or SMS", "wallet | Get paid | Card or bank, same day"] }
+ ]
+}

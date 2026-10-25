@@ -1,0 +1,30 @@
+{
+ "id": "hook",
+ "name": "Hook headline",
+ "category": "Type",
+ "description": "Opening line that stops the scroll: a small label, a big headline built word by word (*starred* words in the accent) and one line under it.",
+ "duration": 3.6,
+ "min": 2,
+ "poster": 0.7,
+ "sound": "none",
+ "fields": [
+  {
+   "key": "kicker",
+   "label": "Small label",
+   "type": "text",
+   "default": "New"
+  },
+  {
+   "key": "title",
+   "label": "Headline",
+   "type": "longtext",
+   "default": "Invoices that *chase themselves*"
+  },
+  {
+   "key": "sub",
+   "label": "Line under it",
+   "type": "text",
+   "default": "Send, remind and get paid without lifting a finger."
+  }
+ ]
+}

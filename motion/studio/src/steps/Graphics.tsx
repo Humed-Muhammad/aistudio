@@ -3,7 +3,7 @@ import type { ShortEvent } from "../../../src/types";
 import { api, clock, fileUrl, jobUrl } from "../api";
 import type { JobApi } from "../JobView";
 import { ELEMENTS } from "../../../src/elements/registry.gen";
-import type { ElementMeta } from "../../../src/elements/types";
+import type { ElementMeta, FieldValue } from "../../../src/elements/types";
 import { BLANK, EventEditor, problem } from "./EventEditor";
 import { Library } from "./Library";
 
@@ -120,6 +120,8 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
   // The graphic being edited: changes play in the preview at once and save after a short pause.
   const [editing, setEditing] = useState<{ i: number; e: ShortEvent } | null>(null);
   const [saving, setSaving] = useState(false);
+  // "Swap for another graphic": the next library click replaces the open graphic instead of adding one.
+  const [swapping, setSwapping] = useState(false);
   const timer = useRef<number>(undefined);
   useEffect(() => {
     api<{ id: string }[]>("/shorts/looks").then((l) => setLooks(l.map((x) => x.id)), () => {});
@@ -175,6 +177,7 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
     else if (best !== editing.i) setEditing({ i: best, e: editing.e });
   }, [p.events]); // eslint-disable-line react-hooks/exhaustive-deps
   const open = async (i: number) => {
+    setSwapping(false);
     if (editing?.i === i) {
       await flush();
       setEditing(null);
@@ -200,6 +203,7 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
     seek(at + meta.duration * (meta.poster ?? 0.55));
   };
   const remove = (i: number) => {
+    setSwapping(false);
     window.clearTimeout(timer.current);
     pending.current = null;
     setEditing(null);
@@ -207,6 +211,59 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
     const q = structuredClone(p);
     q.events.splice(i, 1);
     savePlan(q);
+  };
+  // Replace the open graphic with a library one in place: same timing, position, size and accent,
+  // and its words carried into the new fields (same key first, then text into text, list into list).
+  const swapElement = (meta: ElementMeta) => {
+    if (!editing) return;
+    const old = editing.e;
+    const before = ELEMENTS[old.element ?? ""]?.meta;
+    const texts: string[] = [];
+    let lines: string[] | undefined;
+    if (old.type === "element" && before) {
+      for (const f of before.fields) {
+        const v = old.props?.[f.key];
+        if (v === undefined) continue;
+        if ((f.type === "text" || f.type === "longtext") && typeof v === "string") texts.push(v);
+        if (f.type === "list" && Array.isArray(v)) lines ??= v;
+      }
+    } else {
+      if (old.text) texts.push(old.text);
+      if (old.items?.length) lines = old.items;
+    }
+    const props: Record<string, FieldValue> = {};
+    const kept = new Set<string>();
+    for (const f of meta.fields) {
+      const v = old.type === "element" ? old.props?.[f.key] : undefined;
+      if (v !== undefined && before?.fields.some((g) => g.key === f.key && g.type === f.type)) {
+        props[f.key] = v as FieldValue;
+        if (typeof v === "string") kept.add(v);
+      }
+    }
+    const spare = texts.filter((t) => !kept.has(t));
+    for (const f of meta.fields) {
+      if (f.key in props) continue;
+      if ((f.type === "text" || f.type === "longtext") && spare.length) props[f.key] = spare.shift()!;
+      else if (f.type === "list" && lines) props[f.key] = lines;
+    }
+    const anchored = meta.layout === "anchored" && (old.type !== "element" || before?.layout === "anchored");
+    const e: ShortEvent = {
+      ...BLANK,
+      type: "element",
+      element: meta.id,
+      props,
+      start: old.start,
+      end: old.end > old.start + 0.3 ? old.end : old.start + meta.duration,
+      x: anchored && old.type === "element" ? old.x : meta.x,
+      y: anchored && old.type === "element" ? old.y : meta.y,
+      size: old.type === "element" ? old.size : 1,
+      accent: old.accent ?? "",
+      behind_subject: old.behind_subject,
+    };
+    setSwapping(false);
+    edit(editing.i, e);
+    seek(e.start + (e.end - e.start) * (meta.poster ?? 0.55));
+    toast(`Swapped for ${meta.name}.`);
   };
   // A library graphic used in this video: remove the one nearest the paused preview.
   const removeElement = (id: string) => {
@@ -431,6 +488,19 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
                   ) : null}
                   {on ? (
                     <div className="row" style={{ justifyContent: "flex-end", padding: "0 12px 12px" }}>
+                      {e.type === "element" || e.type === "card" || e.type === "text" ? (
+                        <button
+                          type="button"
+                          className="btn secondary small"
+                          disabled={busy}
+                          onClick={() => {
+                            setSwapping(true);
+                            document.getElementById("library")?.scrollIntoView({ behavior: "smooth" });
+                          }}
+                        >
+                          Swap for another graphic
+                        </button>
+                      ) : null}
                       <button type="button" className="btn ghost small" disabled={busy} onClick={() => remove(i)}>
                         Remove this graphic
                       </button>
@@ -440,7 +510,17 @@ export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, saveP
               );
             })}
           </div>
-          <Library style={p.graphics_style} accent={p.highlight_color} disabled={busy} used={used} onAdd={addElement} onRemove={removeElement} toast={toast} />
+          <Library
+            style={p.graphics_style}
+            accent={p.highlight_color}
+            disabled={busy}
+            used={used}
+            swapping={swapping && editing ? describe(editing.e).join(": ") + " at " + clock(editing.e.start) : undefined}
+            onCancelSwap={() => setSwapping(false)}
+            onAdd={(m) => (swapping && editing ? swapElement(m) : addElement(m))}
+            onRemove={removeElement}
+            toast={toast}
+          />
 
           <div className="row" style={{ marginTop: 10 }}>
             <span className="hint">Hide captions from</span>

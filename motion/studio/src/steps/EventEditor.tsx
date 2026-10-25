@@ -362,6 +362,10 @@ export const EventEditor: React.FC<{
                 </>
               ) : null}
               <ColorRow label="Accent colour" value={e.accent ?? ""} empty="" palette={palette} onChange={(accent) => set({ accent })} />
+              <label className="check">
+                <input type="checkbox" checked={e.behind_subject} onChange={(x) => set({ behind_subject: x.target.checked })} />
+                Behind me (your head and shoulders cover the graphic where they overlap)
+              </label>
               <button type="button" className="btn secondary small" onClick={() => set({ props: {} })}>
                 Reset to the graphic's defaults
               </button>

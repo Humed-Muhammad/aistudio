@@ -90,10 +90,13 @@ export const Library: React.FC<{
   disabled: boolean;
   /** How many times each graphic is in this video. */
   used: Record<string, number>;
+  /** Set while a planned graphic waits to be swapped: what it is, for the banner. */
+  swapping?: string;
+  onCancelSwap: () => void;
   onAdd: (meta: ElementMeta) => void;
   onRemove: (id: string) => void;
   toast: (msg: string, error?: boolean) => void;
-}> = ({ style, accent, disabled, used, onAdd, onRemove, toast }) => {
+}> = ({ style, accent, disabled, used, swapping, onCancelSwap, onAdd, onRemove, toast }) => {
   const all = useMemo(() => Object.values(ELEMENTS).map((e) => ({ ...e.meta, source: e.source })), []);
   const categories = useMemo(() => ["All", "Mine", ...new Set(all.map((m) => m.category))], [all]);
   const [category, setCategory] = useState("All");
@@ -247,7 +250,17 @@ export const Library: React.FC<{
         ) : null}
         <input className="libsearch" placeholder="Search…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search graphics" />
       </div>
-      <div className="libgrid">
+      {swapping ? (
+        <div className="libstatus swap">
+          <span style={{ flex: 1 }}>
+            Swapping <b>{swapping}</b>. Click a graphic to put it in its place: same time, position and size, your words kept where they fit.
+          </span>
+          <button type="button" className="btn ghost small" onClick={onCancelSwap}>
+            Cancel
+          </button>
+        </div>
+      ) : null}
+      <div className={"libgrid" + (swapping ? " swapping" : "")}>
         {shown.map((m) => {
           const mine = m.source === "mine";
           return (

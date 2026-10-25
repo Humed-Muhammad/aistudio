@@ -391,6 +391,8 @@ class AmharicTests(unittest.TestCase):
   units=shorts.make_units(caps)
   self.assertEqual([u['text'] for u in units],['ሰላም ነው።','እ ቦቱ ይሰራል፣','easy'])
   self.assertTrue(shorts.is_filler(caps[2]));self.assertFalse(shorts.is_filler(caps[3]))
+  for t in ['Eh,','ehhh','Ummm.','mmm','እህህ','ኧኧኧ።','እምምም']:self.assertTrue(shorts.is_filler(self.w(t,0,1)),t)
+  for t in ['me','a','em','En','hum','ye']:self.assertFalse(shorts.is_filler(self.w(t,0,1)),t)
 
  def test_scribe_words_become_captions(self):
   data={'language_code':'amh','words':[{'text':'ሰላም','type':'word','start':.1,'end':.5,'logprob':0},{'text':' ','type':'spacing','start':.5,'end':.6},
@@ -451,10 +453,19 @@ class JoinTests(unittest.TestCase):
     seg=pcm[int(s*48000):int(e*48000)];self.assertAlmostEqual(np.argmax(np.abs(np.fft.rfft(seg)))*48000/len(seg),hz,delta=10)
    self.assertLess(np.abs(pcm[int(1.7*48000):int(1.95*48000)]).max(),300)  # padded silence where part 1 had no audio
 
- def test_landscape_part_is_refused(self):
+ def test_landscape_part_is_fitted_on_a_vertical_frame(self):
   with tempfile.TemporaryDirectory() as d:
-   a=Path(d)/'a.mp4';self.clip(a,1,90,300,size=(112,64))
-   with self.assertRaises(ValueError):shorts.join_recordings([a],Path(d)/'o.mp4',lambda *x:None)
+   a=Path(d)/'a.mp4';self.clip(a,1,200,300,size=(112,64))
+   shorts.join_recordings([a],Path(d)/'o.mp4',lambda *x:None)
+   info=shorts.probe(Path(d)/'o.mp4');self.assertEqual((info['width'],info['height']),(1080,1920))
+   import av
+   with av.open(str(Path(d)/'o.mp4')) as c:g=next(c.decode(video=0)).to_ndarray(format='gray')
+   self.assertGreater(g[960].mean(),180);self.assertLess(g[80].mean(),120)  # whole picture across the middle, darker blur above
+
+ def test_wide_frame_keeps_the_whole_picture(self):
+  from PIL import Image
+  im=Image.new('RGB',(320,180),(255,255,255));out=shorts.fit_frame(im,*shorts.output_size(320,180))
+  self.assertEqual(out.size,(1080,1920));self.assertEqual(out.getpixel((0,960)),(255,255,255));self.assertEqual(out.getpixel((1079,960)),(255,255,255))
 
 class NoiseTests(unittest.TestCase):
  def speechy(self,seconds=3):
@@ -570,6 +581,16 @@ class CancelTests(unittest.TestCase):
   self.assertEqual(len(shorts.cut_ranges(cut,caps,units,3,np.zeros(300,bool))),2)  # silent gap removed
   speech=np.zeros(300,bool);speech[50:220]=True
   self.assertEqual(len(shorts.cut_ranges(cut,caps,units,3,speech)),1)  # untranscribed speech kept
+
+ def test_held_hesitation_is_not_speech(self):
+  import numpy as np
+  t=np.arange(16000)/16000
+  ehh=sum(np.sin(2*np.pi*120*k*t)/k for k in range(1,12))*.1  # one held vowel at 120 Hz
+  rng=np.random.default_rng(0);words=ehh.copy()
+  for k in range(0,16000,1600):words[k+900:k+1600]=rng.normal(0,.1,700)  # a consonant every 100 ms
+  voiced=np.ones(100,bool)
+  self.assertTrue(shorts.held_sounds(ehh,voiced)[10:90].all())
+  self.assertFalse(shorts.held_sounds(words,voiced).any())
 
 class CardAndSoundTests(unittest.TestCase):
  def test_cards_are_checked(self):

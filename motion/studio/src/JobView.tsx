@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlayerRef } from "@remotion/player";
 import type { Setup } from "./App";
 import { ACTION, ago, api, clock, FAIL, fileUrl, friendly, jobUrl, sendJSON, statusOf, type Client, type Job, type Plan } from "./api";
+import { CutPreview } from "./CutPreview";
 import { Preview } from "./Preview";
 import { CaptionsTab } from "./steps/CaptionsTab";
 import { Cut } from "./steps/Cut";
@@ -39,7 +40,7 @@ const SECTIONS: [Tab, string, string][] = [
   ["sound", "♪", "Sound"],
   ["export", "⇪", "Deliver"],
 ];
-type View = "live" | "draft" | "final" | "cut";
+type View = "live" | "draft" | "final" | "cut" | "trim";
 
 export const JobView: React.FC<{
   id: string;
@@ -134,8 +135,19 @@ export const JobView: React.FC<{
   const cutChanged = !!job.files["source.mp4"] && (job.cut_mtime ?? 0) > job.files["source.mp4"];
   const client = clients.find((c) => c.id === job.client) ?? null;
   const s = statusOf(job);
-  // The overview opens on the rendered file; editing sections show the live edit with unsaved changes.
-  const shownView: View = view ?? (!built ? "cut" : current === "review" && finalFile ? "final" : current === "review" && draftFile && !changedSinceDraft ? "draft" : "live");
+  // The overview opens on the rendered file; the Cut section plays the current cut; other sections show the live edit.
+  const ranges = job.cut_summary?.ranges;
+  const shownView: View =
+    view ??
+    (current === "cut" && ranges
+      ? "trim"
+      : !built
+        ? "cut"
+        : current === "review" && finalFile
+          ? "final"
+          : current === "review" && draftFile && !changedSinceDraft
+            ? "draft"
+            : "live");
 
   const render = (final: boolean) => {
     const d = new FormData();
@@ -343,24 +355,37 @@ export const JobView: React.FC<{
             </div>
           ) : null}
 
-          {built ? (
+          {built || ranges ? (
             <div className="seg viewer-tabs">
-              <button type="button" className={shownView === "live" ? "on" : ""} onClick={() => setView("live")}>
-                Live edit
-              </button>
-              <button type="button" className={shownView === "draft" ? "on" : ""} disabled={!draftFile} onClick={() => setView("draft")}>
-                Draft{draftFile && changedSinceDraft ? " (older)" : ""}
-              </button>
-              <button type="button" className={shownView === "final" ? "on" : ""} disabled={!finalFile} onClick={() => setView("final")}>
-                Final
-              </button>
-              <button type="button" className={shownView === "cut" ? "on" : ""} onClick={() => setView("cut")}>
-                Plain cut
-              </button>
+              {ranges ? (
+                <button type="button" className={shownView === "trim" ? "on" : ""} onClick={() => setView("trim")}>
+                  Cut preview
+                </button>
+              ) : null}
+              {built ? (
+                <>
+                  <button type="button" className={shownView === "live" ? "on" : ""} onClick={() => setView("live")}>
+                    Live edit
+                  </button>
+                  <button type="button" className={shownView === "draft" ? "on" : ""} disabled={!draftFile} onClick={() => setView("draft")}>
+                    Draft{draftFile && changedSinceDraft ? " (older)" : ""}
+                  </button>
+                  <button type="button" className={shownView === "final" ? "on" : ""} disabled={!finalFile} onClick={() => setView("final")}>
+                    Final
+                  </button>
+                  <button type="button" className={shownView === "cut" ? "on" : ""} onClick={() => setView("cut")}>
+                    Plain cut
+                  </button>
+                </>
+              ) : null}
             </div>
           ) : null}
           <div className="viewer">
-            {shownView === "live" && built ? (
+            {shownView === "trim" && ranges ? (
+              <div className="frame">
+                <CutPreview src={fileUrl(id, "upload.mp4")} ranges={ranges} duration={job.cut_summary!.original} />
+              </div>
+            ) : shownView === "live" && built ? (
               <Preview ref={player} id={id} version={JSON.stringify(job.plan) + job.files["source.mp4"] + "/" + job.files["captions.json"]} override={override} />
             ) : (
               <div className="frame">
@@ -389,15 +414,19 @@ export const JobView: React.FC<{
             )}
           </div>
           <span className="hint viewer-hint">
-            {shownView === "live"
-              ? "The edit plays live, exactly as it will render. Space to play."
-              : shownView === "draft"
-                ? "Half-resolution draft render."
-                : shownView === "final"
-                  ? "Full-quality final."
-                  : built
-                    ? "Your cut with your original voice, no graphics."
-                    : "Your recording as uploaded."}
+            {shownView === "trim"
+              ? cutChanged
+                ? "Your cut as you have it now, skipping what you unticked. Rebuild to put it in your edit."
+                : "Your cut, skipping the parts you unticked. Nothing is deleted: tick a part again to bring it back."
+              : shownView === "live"
+                ? "The edit plays live, exactly as it will render. Space to play."
+                : shownView === "draft"
+                  ? "Half-resolution draft render."
+                  : shownView === "final"
+                    ? "Full-quality final."
+                    : built
+                      ? "Your cut with your original voice, no graphics."
+                      : "Your recording as uploaded."}
           </span>
         </section>
 

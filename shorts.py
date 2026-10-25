@@ -48,7 +48,7 @@ class Event(BaseModel):
     size:float=Field(1.0,description='text: 1 = 96px headline. sticker: 1 = one hand length (hand anchor) or full frame width x 0.3 (screen/face anchor)')
     x:float=Field(0.5,description='screen anchor / text: horizontal centre 0-1')
     y:float=Field(0.3,description='screen anchor / text: vertical centre 0-1')
-    behind_subject:bool=Field(False,description='text, or a card with scene overlay: place behind the person (person cutout drawn on top)')
+    behind_subject:bool=Field(False,description='text, a card with scene overlay, or a library element: place behind the person (person cutout drawn on top)')
     asset:str=Field('',description='sticker: uploaded image filename from assets/')
     emoji:str=Field('',description='sticker: emoji to use when no asset')
     anchor:Literal['screen','hand','face']='screen'
@@ -154,6 +154,8 @@ class Plan(BaseModel):
     notes:str=Field('',description='one short paragraph explaining the edit choices to the creator')
 
 FILLERS={'um','umm','uh','uhh','uhm','er','erm','ah','ahh','hmm','mm','mhm','እ','እእ','እህ','ኧ','ኧኧ','እም','እምም'}
+# Drawn-out hesitations in any length: eh, ehhh, ummm, mmm, እህህ, ኧኧኧ, እምምም.
+FILLER_RE=re.compile(r'(?:e+h+m*|e{2,}|u+h+m*|u+m+|a+h+|h*m{2,}|hm+|er+m*|[እኧ]+[ህም]*|ም{2,})')
 # Sentence ends and pauses, including Ethiopic (Amharic) punctuation.
 SENTENCE_END='.?!።፧';CLAUSE_END=',;:፣፤፥፦،、'
 # Scribe sometimes writes look-alike letters from other scripts inside Amharic words.
@@ -312,11 +314,10 @@ def normalize(src,dst,audio=None,progress=lambda p:None):
     with av.open(str(src)) as inp:
         vs=inp.streams.video[0]
         duration=float(vs.duration*vs.time_base) if vs.duration else float(inp.duration/av.time_base)
-        limit=float(setting('SHORTS_MAX_SECONDS','600'))
-        if duration>limit:raise ValueError(f'Use a clip of {limit/60:g} minutes or less (SHORTS_MAX_SECONDS).')
+        limit,rule=max_seconds(Path(dst).parent)
+        if duration>limit:raise ValueError(f'Use a clip of {rule}.')
         frames=iter(inp.decode(video=0));cur=next(frames);nxt=next(frames,None)
         w,h=output_size(*upright(cur).size)
-        if h<w:raise ValueError('This editor expects vertical (9:16) footage.')
         tmp=Path(dst).with_suffix('.part.mp4')
         with av.open(str(tmp),'w') as out:
             st=out.add_stream('libx264',rate=FPS);st.width,st.height,st.pix_fmt=w,h,'yuv420p';st.options={'crf':'17','preset':'medium'}
@@ -327,7 +328,7 @@ def normalize(src,dst,audio=None,progress=lambda p:None):
             for i in range(count):
                 t=i/FPS  # absolute timeline keeps the untouched audio in sync
                 while nxt is not None and float(nxt.time)<=t:cur=nxt;nxt=next(frames,None)
-                im=upright(cur);f=av.VideoFrame.from_image(im if im.size==(w,h) else im.resize((w,h)))
+                f=av.VideoFrame.from_image(fit_frame(upright(cur),w,h))
                 f.pts=i;f.time_base=Fraction(1,FPS)
                 for p in st.encode(f):out.mux(p)
                 if i%30==0:progress(.95*i/count)
@@ -356,7 +357,21 @@ def probe(src):
         return {'duration':duration,'width':w,'height':h,'audio':bool(inp.streams.audio)}
 
 def output_size(w,h):
+    """Vertical footage keeps its shape (at most 1080 wide); wide footage (screen recordings) goes on a 1080x1920 frame."""
+    if w>h:return 1080,1920
     scale=min(1,1080/w);return int(w*scale)//2*2,int(h*scale)//2*2
+
+def fit_frame(im,w,h):
+    """Picture at the output size. A wide picture is shown whole across the middle over a blurred, darkened copy of itself."""
+    if im.size==(w,h):return im
+    if im.width<=im.height or h<=w:return im.resize((w,h))
+    from PIL import ImageEnhance,ImageFilter
+    im=im.convert('RGB');sc=max(w/im.width,h/im.height)/10  # blur a tenth-size cover crop, then scale it up
+    bg=im.resize((max(1,round(im.width*sc)),max(1,round(im.height*sc))),reducing_gap=2.)
+    l,t=(bg.width-w//10)//2,(bg.height-h//10)//2
+    bg=bg.crop((l,t,l+w//10,t+h//10)).filter(ImageFilter.GaussianBlur(4)).resize((w,h))
+    bg=ImageEnhance.Brightness(bg).enhance(.45)
+    fh=round(im.height*w/im.width)//2*2;bg.paste(im.resize((w,fh),reducing_gap=2.),(0,(h-fh)//2));return bg
 
 def speech_wav(src,dst):
     """16 kHz mono for whisper.cpp."""
@@ -456,13 +471,36 @@ def job_language(folder):
     except (OSError,ValueError):lang=None
     return lang if lang in LANGUAGES else (setting('SHORTS_LANGUAGE','am').strip().lower() or 'am')
 
+def held_sounds(a,voiced):
+    """Voiced stretches that are a held hesitation ("ehh", "mmm", "እህ"), not words: voiced almost throughout
+    and with a nearly unchanging spectrum, where words keep changing at every consonant. Transcribers often
+    leave these out, so without this they look like missed speech and the cut keeps them."""
+    n=len(voiced);held=np.zeros(n,bool)
+    if n<3:return held
+    edge=np.diff(np.r_[0,voiced.astype(np.int8),0]);runs=[]
+    for s,e in zip(np.nonzero(edge==1)[0],np.nonzero(edge==-1)[0]):
+        if runs and s-runs[-1][1]<6:runs[-1][1]=e  # one sound with a dip under 60 ms
+        else:runs.append([s,e])
+    bins=np.fft.rfftfreq(1024,1/16000);edges=np.geomspace(100,4000,25)
+    for s,e in runs:
+        if e-s<25:continue
+        x=np.pad(a[s*160:e*160+640],(0,640));fr=x[np.arange(640)[None,:]+160*np.arange(e-s)[:,None]]
+        fr=(fr-fr.mean(1,keepdims=True))*np.hanning(640);sp=np.abs(np.fft.rfft(fr,1024))**2
+        ac=np.fft.irfft(sp,1024)[:,:229];ac/=ac[:,:1]+1e-12
+        pitched=(ac[:,40:229].max(1)>.5).mean()  # 70-400 Hz voice
+        lg=np.log(np.stack([sp[:,(bins>=lo)&(bins<hi)].sum(1) for lo,hi in zip(edges,edges[1:])],1)+1e-9);lg-=lg.mean(1,keepdims=True)
+        flux=np.sqrt(((lg[1:]-lg[:-1])**2).mean(1))[2:-2]
+        if pitched>=.75 and len(flux) and np.median(flux)<=.45:held[s:e]=True
+    return held
+
 def voice_map(folder):
-    """Per 10 ms of the recording: is someone speaking? (from audio energy, cached)."""
-    folder=Path(folder);cache=folder/'voice.npy'
+    """Per 10 ms of the recording: is someone speaking? From audio energy, leaving out held hesitations (cached)."""
+    folder=Path(folder);cache=folder/'speech-map.npy'
     if cache.exists():return np.load(cache)
     with wave.open(str(folder/'speech-16k.wav')) as w:a=np.frombuffer(w.readframes(w.getnframes()),'<i2').astype(np.float32)/32768
     n=len(a)//160;env=np.sqrt((a[:n*160].reshape(n,160)**2).mean(1)) if n else np.zeros(0)
     voiced=env>max(float(np.percentile(env,25))*2.5,float(env.max())*.03) if n else np.zeros(0,bool)
+    voiced&=~held_sounds(a,voiced)
     np.save(cache,voiced);return voiced
 
 def transcript_check(folder):
@@ -523,10 +561,11 @@ def transcribe(src,folder,name='full-captions.json',status=say,audio=None):
     if transcriber()=='elevenlabs':transcribe_scribe(wav,out,status,language)
     else:run_with_progress(['node','transcribe.mjs',str(wav),str(out),setting('SHORTS_WHISPER_MODEL','small'),language],status,'Transcribing your recording (runs on this Mac)',cwd=MOTION)
     captions=clean_captions(out);data=json.loads(out.read_text());data['captions']=refine_timing(captions,wav)
-    out.write_text(json.dumps(data,indent=1));(folder/'voice.npy').unlink(missing_ok=True);(folder/'transcript-check.json').unlink(missing_ok=True)
+    out.write_text(json.dumps(data,indent=1));(folder/'speech-map.npy').unlink(missing_ok=True);(folder/'transcript-check.json').unlink(missing_ok=True)
     return data['captions']
 
-def is_filler(c):return c['text'].strip().lower().strip('.,!?;:"\'…-'+SENTENCE_END+CLAUSE_END) in FILLERS
+def is_filler(c):
+    w=c['text'].strip().lower().strip('.,!?;:"\'…-'+SENTENCE_END+CLAUSE_END);return w in FILLERS or bool(FILLER_RE.fullmatch(w))
 
 def make_units(captions):
     """Transcript parts the cut keeps or drops: sentences, split further at pauses."""
@@ -648,7 +687,6 @@ def layout(ranges):
 def cut_media(src,dst,ranges,progress=lambda p:None,audio=None):
     """Join source ranges into a 30 fps video; audio is cut at the same points with 8 ms fades."""
     info=probe(src);w,h=output_size(info['width'],info['height'])
-    if h<w:raise ValueError('This editor expects vertical (9:16) footage.')
     total=sum(r['frames'] for r in ranges);tmp=Path(dst).with_suffix('.part.mp4')
     with av.open(str(tmp),'w') as out:
         st=out.add_stream('libx264',rate=FPS);st.width,st.height,st.pix_fmt=w,h,'yuv420p';st.options={'crf':'17','preset':'medium'}
@@ -663,7 +701,7 @@ def cut_media(src,dst,ranges,progress=lambda p:None,audio=None):
                 for k in range(r['frames']):
                     t=r['start']+k/FPS
                     while nxt is not None and float(nxt.time)<=t:cur=nxt;nxt=next(frames,None)
-                    im=upright(cur);f=av.VideoFrame.from_image(im if im.size==(w,h) else im.resize((w,h)))
+                    f=av.VideoFrame.from_image(fit_frame(upright(cur),w,h))
                     f.pts=index;f.time_base=Fraction(1,FPS);index+=1
                     for p in st.encode(f):out.mux(p)
                     if index%30==0:progress(.9*index/total)
@@ -764,6 +802,12 @@ def job_noise(folder):
     except (OSError,ValueError):mode='off'
     return mode if mode in NOISE else 'off'
 
+def max_seconds(folder):
+    """Longest accepted recording. Tracking off (screen recordings) skips the slow per-frame tracking, so it may run longer."""
+    off=job_tracking(folder)=='off'
+    limit=float(setting('SHORTS_MAX_SECONDS_OFF','3600') if off else setting('SHORTS_MAX_SECONDS','600'))
+    return limit,f'{limit/60:g} minutes or less ('+('SHORTS_MAX_SECONDS_OFF' if off else 'SHORTS_MAX_SECONDS; tracking off allows longer')+')'
+
 def job_tracking(folder):
     try:mode=json.loads((Path(folder)/'workflow-mode.json').read_text()).get('tracking','full')
     except (OSError,ValueError):mode='full'
@@ -841,13 +885,11 @@ def job_audio(folder,status=say):
     write_wav(align_to(clean,ref),path.with_suffix('.part.wav'));path.with_suffix('.part.wav').replace(path);return path
 
 def join_recordings(parts,dst,status=say):
-    """Several recordings, in order, as one 30 fps video (first clip's size) with re-encoded audio.
+    """Several recordings, in order, as one 30 fps video (first clip's size; 1080x1920 when it is wide) with re-encoded audio.
     Each part's audio is padded or trimmed to its video length so later parts stay in sync."""
     parts=[Path(x) for x in parts];infos=[probe(x) for x in parts]
-    limit=float(setting('SHORTS_MAX_SECONDS','600'))
-    if sum(i['duration'] for i in infos)>limit:raise ValueError(f'Together the recordings must be {limit/60:g} minutes or less (SHORTS_MAX_SECONDS).')
-    for x,i in zip(parts,infos):
-        if i['height']<i['width']:raise ValueError(f'{x.name} is not vertical; this editor expects 9:16 footage.')
+    limit,rule=max_seconds(Path(dst).parent)
+    if sum(i['duration'] for i in infos)>limit:raise ValueError(f'Together the recordings must be {rule}.')
     w,h=output_size(infos[0]['width'],infos[0]['height']);tmp=Path(dst).with_suffix('.joining.mp4')
     with av.open(str(tmp),'w') as out:
         vs=out.add_stream('libx264',rate=FPS);vs.width,vs.height,vs.pix_fmt=w,h,'yuv420p';vs.options={'crf':'17','preset':'medium'}
@@ -862,7 +904,8 @@ def join_recordings(parts,dst,status=say):
                     while nxt is not None and float(nxt.time)<=i/FPS:cur=nxt;nxt=next(frames,None)
                     im=upright(cur)
                     if i%30==0:status(f'Joining recording {k+1} of {len(parts)}',(k+i/count)/len(parts))
-                    if im.size!=(w,h):  # cover-fit a clip with a different size
+                    if im.width>im.height:im=fit_frame(im,w,h)  # wide: whole picture over a blurred fill
+                    elif im.size!=(w,h):  # cover-fit a clip with a different size
                         sc=max(w/im.width,h/im.height);im=im.resize((max(w,round(im.width*sc)),max(h,round(im.height*sc))))
                         l,t=(im.width-w)//2,(im.height-h)//2;im=im.crop((l,t,l+w,t+h))
                     f=av.VideoFrame.from_image(im);f.pts=frame_no;f.time_base=Fraction(1,FPS);frame_no+=1
@@ -894,19 +937,20 @@ def cut_summary(folder):
     """Kept duration and ranges for the current cut, without touching media."""
     folder=Path(folder);captions=json.loads((folder/'full-captions.json').read_text())['captions']
     units=json.loads((folder/'units.json').read_text());cut=load_cut(folder);info=json.loads((folder/'source-info.json').read_text())
-    if not captions:return {'original':info['duration'],'kept':info['duration'],'parts':0,'kept_parts':0,'whole':True}
+    if not captions:return {'original':info['duration'],'kept':info['duration'],'parts':0,'kept_parts':0,'whole':True,'ranges':[[0,info['duration']]]}
     ranges=layout(cut_ranges(cut,captions,units,info['duration'],voice_or_none(folder)))
     whole=not cut.tighten and cut.keep==list(range(len(units)))
-    return {'original':info['duration'],'kept':info['duration'] if whole else sum(r['frames'] for r in ranges)/FPS,'parts':len(units),'kept_parts':len(cut.keep),'jumps':len(ranges),'whole':whole}
+    # ranges: recording seconds played in order, so the studio can preview a cut before it is built.
+    return {'original':info['duration'],'kept':info['duration'] if whole else sum(r['frames'] for r in ranges)/FPS,'parts':len(units),'kept_parts':len(cut.keep),'jumps':len(ranges),'whole':whole,
+            'ranges':[[0,info['duration']]] if whole else [[round(r['start'],3),round(r['start']+r['frames']/FPS,3)] for r in ranges]}
 
 def prepare(src,folder,preset='bold',status=say):
     """Step 1: check the recording and transcribe all of it so the cut can be chosen."""
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True);(folder/'assets').mkdir(exist_ok=True);check_tools()
     (folder/'workflow-mode.json').write_text(json.dumps({'mode':'shorts','preset':preset,'noise':job_noise(folder),'language':job_language(folder),'tracking':job_tracking(folder)}))
     status('Reading your video',0);info=probe(src)
-    limit=float(setting('SHORTS_MAX_SECONDS','600'))
-    if info['duration']>limit:raise ValueError(f'Use a recording of {limit/60:g} minutes or less (SHORTS_MAX_SECONDS).')
-    if info['height']<info['width']:raise ValueError('This editor expects vertical (9:16) footage.')
+    limit,rule=max_seconds(folder)
+    if info['duration']>limit:raise ValueError(f'Use a recording of {rule}.')
     (folder/'source-info.json').write_text(json.dumps(info))
     try:thumbnail(src,folder/'thumb.jpg')
     except Exception:pass  # the list just shows no picture
@@ -1659,7 +1703,9 @@ def render(folder,final=False,status=say):
     bad=torn_frames(partial)
     if bad and len(bad)<=TORN_MAX:
         status(f'{label} · fixing {len(bad)} glitched {"frame" if len(bad)==1 else "frames"}',.99)
-        repair_frames(folder,partial,bad,final)
+        try:repair_frames(folder,partial,bad,final,lambda k:status(f'{label} · fixing glitched frame {k+1} of {len(bad)} (about 15 s each)',.99))
+        finally:
+            for png in Path(folder).glob('.still-*.png'):png.unlink(missing_ok=True)
     partial.replace(folder/name);return folder/name,warnings
 
 TORN_MAX=30  # more than this is not the occasional glitch: leave the render as it is
@@ -1686,12 +1732,12 @@ def torn_frames(path):
         if odd>3*base+2:out.append(i)
     return out
 
-def repair_frames(folder,video,bad,final):
+def repair_frames(folder,video,bad,final,progress=lambda k:None):
     """Render each glitched frame again as a still and put it in place; the sound is copied unchanged."""
     from PIL import Image
     folder=Path(folder).resolve();stills={}
-    for n in bad:
-        png=folder/f'.still-{n}.png'
+    for k,n in enumerate(bad):
+        progress(k);png=folder/f'.still-{n}.png'
         for _ in range(3):
             cmd=['npx','remotion','still','src/index.ts','Shorts',str(png),'--props',str(folder/'render-props.json'),'--public-dir',str(folder),
                  '--frame',str(n),'--log','error']+browser_args()+([] if final else ['--scale','0.5'])

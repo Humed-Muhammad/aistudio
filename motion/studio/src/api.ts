@@ -92,6 +92,8 @@ export type Job = JobSummary & {
     kept_parts: number;
     jumps: number;
     whole: boolean;
+    /** Recording seconds [start, end] played in order (a hook first): previews the cut before it is built. */
+    ranges?: [number, number][];
   } | null;
   tracking: { frames: number; cuts: number; face: number; left: number; right: number } | null;
   transcript: { language: string | null; text: string };

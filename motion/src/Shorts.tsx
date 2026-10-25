@@ -137,6 +137,18 @@ const Edit: React.FC<ShortsProps> = ({
     translate: `${camera.dx + (fx.x ?? 0) * width}px ${camera.dy}px`,
     filter: fx.filter,
   };
+  // The person, framed exactly as the picture, drawn again over a graphic placed "behind me".
+  const person = (from: number) => (
+    <AbsoluteFill style={outer}>
+      <AbsoluteFill style={inner}>
+        {subject ? (
+          <Subject bg={look} foreground={subject} trimBefore={from} />
+        ) : (
+          <OffthreadVideo src={media(foreground!)} muted transparent trimBefore={from} />
+        )}
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
@@ -286,17 +298,7 @@ const Edit: React.FC<ShortsProps> = ({
                 assets={assets}
                 style={plan.graphics_style}
               />
-              {tucked ? (
-                <AbsoluteFill style={outer}>
-                  <AbsoluteFill style={inner}>
-                    {subject ? (
-                      <Subject bg={look} foreground={subject} trimBefore={from} />
-                    ) : (
-                      <OffthreadVideo src={media(foreground!)} muted transparent trimBefore={from} />
-                    )}
-                  </AbsoluteFill>
-                </AbsoluteFill>
-              ) : null}
+              {tucked ? person(from) : null}
             </Sequence>
           );
         })}
@@ -308,6 +310,7 @@ const Edit: React.FC<ShortsProps> = ({
           return (
             <Sequence key={`el${i}`} from={from} durationInFrames={duration} layout="none">
               <ElementLayer event={e} duration={duration} accent={plan.highlight_color} style={plan.graphics_style} />
+              {e.behind_subject && foreground ? person(from) : null}
             </Sequence>
           );
         })}

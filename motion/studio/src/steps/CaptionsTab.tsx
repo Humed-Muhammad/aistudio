@@ -22,7 +22,6 @@ const STYLES: [Plan["caption_preset"], string, string][] = [
   ["bold", "Bold", "Big words, one at a time"],
   ["boxed", "Boxed", "Highlight box on the word"],
   ["minimal", "Minimal", "Small clean phrases"],
-  ["none", "None", "No captions"],
 ];
 // Names match the families loaded in styles.css, so each option shows in its own letters.
 const FONTS: [NonNullable<Plan["caption_font"]>, string, React.CSSProperties][] = [
@@ -83,6 +82,12 @@ export const CaptionsTab: React.FC<JobApi> = ({ job, busy, setup, savePlan, prev
   useEffect(() => () => preview.set(undefined), []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => preview.set(draft), [draft]); // eslint-disable-line react-hooks/exhaustive-deps
   const duo = draft.caption_preset === "duo";
+  const off = draft.caption_preset === "none";
+  // Turning captions back on brings back the last style used.
+  const last = useRef<Plan["caption_preset"]>(plan.caption_preset !== "none" ? plan.caption_preset : "duo");
+  useEffect(() => {
+    if (!off) last.current = draft.caption_preset;
+  }, [draft.caption_preset, off]);
   const palette = Object.entries(setup.palette);
 
   return (
@@ -101,12 +106,22 @@ export const CaptionsTab: React.FC<JobApi> = ({ job, busy, setup, savePlan, prev
           <p className="lead">Every choice plays in the preview right away. Press play or scrub to a spoken part.</p>
 
           <div className="section">
+            <label className="check">
+              <input type="checkbox" checked={!off} disabled={busy} onChange={(e) => change({ caption_preset: e.target.checked ? last.current : "none" })} />
+              Show captions
+            </label>
+            {off ? <p className="hint" style={{ marginTop: 6 }}>No captions in this video. Tick to bring back your last style.</p> : null}
+          </div>
+
+          {off ? null : (
+          <>
+          <div className="section">
             <h3>Style</h3>
             <div className="looks">
               {STYLES.map(([id, name, note]) => (
                 <button key={id} type="button" className={"look" + (draft.caption_preset === id ? " on" : "")} disabled={busy} onClick={() => change({ caption_preset: id })}>
                   <span className={"capsample cap-" + id}>
-                    {id === "none" ? "—" : id === "duo" ? (
+                    {id === "duo" ? (
                       <>
                         <b>ሰላም HELLO</b>
                         <b className="two">ጓደኞቼ</b>
@@ -243,6 +258,8 @@ export const CaptionsTab: React.FC<JobApi> = ({ job, busy, setup, savePlan, prev
               </p>
             )}
           </div>
+          </>
+          )}
     </div>
   );
 };

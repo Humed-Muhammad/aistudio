@@ -107,6 +107,10 @@ input.title-input:focus, .edbar input.title-input:focus { border-color: var(--ac
 .viewer { width: 100%; display: flex; justify-content: center; min-height: 0; }
 .viewer .frame { height: min(calc(100vh - 220px), 760px); flex-shrink: 0; aspect-ratio: 9 / 16; width: auto !important; background: #000; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
 .viewer .frame > video { width: 100%; height: 100%; display: block; background: #000; }
+.cutpreview { height: 100%; display: grid; grid-template-rows: 1fr auto; }
+.cutpreview video { width: 100%; height: 100%; min-height: 0; display: block; background: #000; }
+.cutstrip { position: relative; height: 10px; background: color-mix(in srgb, var(--danger) 45%, #000); }
+.cutstrip span { position: absolute; top: 0; bottom: 0; background: var(--accent); cursor: pointer; }
 .framewait { height: 100%; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
 .viewer-hint { text-align: center; }
 .panel { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; min-height: 0; }
@@ -385,6 +389,8 @@ span.playbtn { border: 0; background: none; }
 .libstatus { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: var(--raised); font-size: 13px; white-space: pre-wrap; }
 .libstatus.error { background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .libstatus.done { background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.libstatus.swap { margin-bottom: 10px; background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.libgrid.swapping .libtile { border-style: dashed; }
 .libacts { display: flex; gap: 2px; flex-wrap: wrap; }
 .libacts button { border: 0; background: none; padding: 2px 5px; border-radius: 6px; color: var(--muted); font: 600 11px var(--font); cursor: pointer; }
 .libacts button:hover:not(:disabled) { color: var(--text); background: var(--raised); }

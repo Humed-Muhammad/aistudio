@@ -114,6 +114,38 @@ input.title-input:focus, .edbar input.title-input:focus { border-color: var(--ac
 .framewait { height: 100%; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
 .viewer-hint { text-align: center; }
 .panel { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; min-height: 0; }
+.edbody.withchat { grid-template-columns: 76px minmax(280px, 340px) minmax(300px, 1fr) minmax(360px, 440px); }
+.edbody.withchat.widepanel { grid-template-columns: 76px minmax(260px, 300px) minmax(260px, 1fr) minmax(420px, 560px); }
+.sections .chattoggle { margin-top: 10px; border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; padding-top: 12px; }
+.chat { display: grid; grid-template-rows: auto 1fr auto; min-height: 0; border-right: 1px solid var(--line); background: var(--panel); }
+.chathead { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.chathead b { flex: 1; }
+.chathead .iconbtn { width: 30px; height: 30px; font-size: 14px; }
+.chatlist { overflow: auto; min-height: 0; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; }
+.chatempty { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
+.chatempty p { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.chatempty .chip { text-align: left; }
+.msg { max-width: 92%; padding: 9px 12px; border-radius: 14px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg.me { align-self: flex-end; background: var(--soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-bottom-right-radius: 4px; }
+.msg.claude { align-self: flex-start; display: grid; gap: 7px; justify-items: start; background: var(--sunken); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.msg.claude p { margin: 0; }
+.msg.claude .err { color: var(--danger); font-size: 12.5px; }
+.msg.claude .warnings { margin: 0; }
+.msg.undone { opacity: .6; }
+.msg.undone .changes { text-decoration: line-through; }
+.changes { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.changes li::before { content: "✓ "; color: var(--accent); }
+.msg.thinking { grid-auto-flow: column; align-items: center; gap: 5px; }
+.msg.thinking i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: chatdot 1.2s infinite ease-in-out; }
+.msg.thinking i:nth-child(2) { animation-delay: .15s; }
+.msg.thinking i:nth-child(3) { animation-delay: .3s; }
+.msg.thinking .hint { margin-left: 4px; }
+@keyframes chatdot { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .msg.thinking i { animation: none; } }
+.chatinput { display: grid; gap: 7px; padding: 10px 12px 12px; border-top: 1px solid var(--line); }
+.chatinput textarea { resize: none; }
+.chatinput .row { justify-content: space-between; flex-wrap: nowrap; }
+.chatinput .hint { font-size: 11.5px; }
 .inspector { padding: 18px 20px 40px; }
 .inspector .compare { margin-bottom: 10px; }
 .inspector .looks { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
@@ -271,8 +303,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .railfoot .themes { justify-self: start; margin: 0 6px; gap: 6px; padding: 5px; }
 
 @media (max-width: 1100px) {
-  .edbody, .edbody.widepanel { grid-template-columns: 64px 1fr; grid-template-rows: auto auto; overflow: auto; }
+  .edbody, .edbody.widepanel, .edbody.withchat, .edbody.withchat.widepanel { grid-template-columns: 64px 1fr; grid-template-rows: auto auto; overflow: auto; }
   .panel { grid-column: 2; border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .chat { grid-column: 2; order: 3; border-right: 0; border-top: 1px solid var(--line); max-height: 70vh; }
   .center { overflow: visible; }
   .clientsplit { grid-template-columns: 1fr; }
   .vrow { grid-template-columns: 44px minmax(0, 1fr) auto 14px; }

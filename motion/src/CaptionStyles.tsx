@@ -1,3 +1,4 @@
+import { createContext, useContext } from "react";
 import {
   Easing,
   interpolate,
@@ -51,9 +52,13 @@ const SERIF = `${loadSerif("normal", { weights: ["500"], subsets: ["ethiopic", "
 const quietCase = (w: string) =>
   /^[A-Z0-9]{2,5}$/.test(w) || /[a-z][A-Z]/.test(w) ? w : w.toLowerCase();
 
+/** The creator's caption size (plan.caption_size): every style measures its type in k, so this scales them all. */
+export const CaptionScale = createContext(1);
+
 const useTiming = (page: TikTokPage) => {
   const frame = useCurrentFrame();
   const { fps, width, durationInFrames } = useVideoConfig();
+  const scale = useContext(CaptionScale);
   const now = page.startMs + (frame / fps) * 1000;
   /** Frames since a word started (negative before), lead in so it lands on the voice. */
   const since = (t: Token, leadMs = 60) =>
@@ -64,7 +69,7 @@ const useTiming = (page: TikTokPage) => {
     [0, 1],
     clamp,
   );
-  return { frame, fps, k: width / 1080, now, since, exit };
+  return { frame, fps, k: (width / 1080) * scale, now, since, exit };
 };
 
 const soft = (size: number, a = 0.5) =>

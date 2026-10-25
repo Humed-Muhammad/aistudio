@@ -4,7 +4,7 @@ import type { JobApi } from "../JobView";
 
 type Captions = Pick<
   Plan,
-  "caption_preset" | "caption_font" | "caption_motion" | "caption_fill" | "highlight_color" | "caption_y" | "caption_place" | "caption_case" | "caption_speed" | "captions_auto"
+  "caption_preset" | "caption_font" | "caption_motion" | "caption_fill" | "highlight_color" | "caption_y" | "caption_place" | "caption_case" | "caption_speed" | "caption_size" | "captions_auto"
 >;
 
 const STYLES: [Plan["caption_preset"], string, string][] = [
@@ -57,6 +57,7 @@ const pick = (p: Plan): Captions => ({
   caption_place: p.caption_place ?? "face",
   caption_case: p.caption_case ?? "capital",
   caption_speed: p.caption_speed ?? 1,
+  caption_size: p.caption_size ?? 1,
   captions_auto: p.captions_auto ?? true,
 });
 
@@ -180,6 +181,22 @@ export const CaptionsTab: React.FC<JobApi> = ({ job, busy, setup, savePlan, prev
             </div>
           ) : null}
 
+          <div className="section">
+            <h3>Size</h3>
+            <label className="slider">
+              Text size
+              <input
+                type="range"
+                min={0.6}
+                max={1.4}
+                step={0.05}
+                value={draft.caption_size ?? 1}
+                disabled={busy}
+                onChange={(e) => change({ caption_size: Number(e.target.value) })}
+              />
+              <output>{Math.round((draft.caption_size ?? 1) * 100)}%</output>
+            </label>
+          </div>
           {["duo", "rise", "sweep"].includes(draft.caption_preset) ? (
             <div className="section">
               <h3>Animation speed</h3>

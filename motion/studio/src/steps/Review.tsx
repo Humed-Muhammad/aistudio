@@ -145,7 +145,7 @@ const Result: React.FC<JobApi> = ({ job, busy, setup, post, goto }) => {
 
       <div className="ai" style={{ marginTop: 16 }}>
         <label className="field">
-          <span>Want changes? Say it in your words</span>
+          <span>Redo the edit with Claude</span>
           <textarea
             rows={3}
             value={notes}
@@ -169,7 +169,7 @@ const Result: React.FC<JobApi> = ({ job, busy, setup, post, goto }) => {
         <span className="hint">
           {setup.planner_available
             ? scope === "graphics"
-              ? "Updates the look and graphics, then renders a new draft."
+              ? "Plans the look and graphics again, then renders a new draft. For one change, use the chat on the left."
               : "Redoes the cut too; the edit is rebuilt and tracked again (takes longer)."
             : "Add ANTHROPIC_API_KEY to .env, or ask Claude Code for the change."}
         </span>

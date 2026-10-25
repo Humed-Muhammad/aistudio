@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlayerRef } from "@remotion/player";
 import type { Setup } from "./App";
 import { ACTION, ago, api, clock, FAIL, fileUrl, friendly, jobUrl, sendJSON, statusOf, type Client, type Job, type Plan } from "./api";
+import { ChatPanel } from "./ChatPanel";
 import { CutPreview } from "./CutPreview";
 import { Preview } from "./Preview";
 import { CaptionsTab } from "./steps/CaptionsTab";
@@ -55,6 +56,13 @@ export const JobView: React.FC<{
   const [view, setView] = useState<View | null>(null);
   const [override, setOverride] = useState<Partial<Plan> | undefined>(undefined);
   const [notice, setNotice] = useState<{ msg: string; error: boolean } | null>(null);
+  const [chat, setChat] = useState(() => {
+    try {
+      return localStorage.getItem("shorts-chat") !== "closed";
+    } catch {
+      return true;
+    }
+  });
   const [now, setNow] = useState(Date.now());
   const player = useRef<PlayerRef>(null);
   const poll = useRef<number>(undefined);
@@ -115,6 +123,14 @@ export const JobView: React.FC<{
       show(await sendJSON(jobUrl(id, "plan"), "PUT", plan));
     } catch (e) {
       toast((e as Error).message, true);
+    }
+  };
+  const toggleChat = (open: boolean) => {
+    setChat(open);
+    try {
+      localStorage.setItem("shorts-chat", open ? "open" : "closed");
+    } catch {
+      /* the choice is only a convenience */
     }
   };
   const goto = (t: Tab) => {
@@ -281,7 +297,7 @@ export const JobView: React.FC<{
         </div>
       </header>
 
-      <div className={"edbody" + (current === "cut" ? " widepanel" : "")}>
+      <div className={"edbody" + (current === "cut" ? " widepanel" : "") + (chat ? " withchat" : "")}>
         <nav className="sections" aria-label="Editor sections">
           {SECTIONS.map(([k, icon, label]) => (
             <button
@@ -296,7 +312,13 @@ export const JobView: React.FC<{
               <span>{label}</span>
             </button>
           ))}
+          <button type="button" className={"chattoggle" + (chat ? " on" : "")} onClick={() => toggleChat(!chat)} title={chat ? "Hide the chat" : "Chat with Claude"}>
+            <span className="ico">✦</span>
+            <span>Chat</span>
+          </button>
         </nav>
+
+        {chat ? <ChatPanel id={id} built={built} locked={locked} show={show} toast={toast} onClose={() => toggleChat(false)} /> : null}
 
         <section className="center">
           {busy ? (

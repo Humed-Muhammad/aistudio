@@ -109,6 +109,8 @@ export type BackgroundLook = {
   reframe: number;
   grade: number;
   grain: number;
+  /** Brighten dim footage (the person and the real room, not generated walls), 0-1. */
+  lift: number;
   tube: "none" | "left" | "right" | "both";
   lamp?: "tube" | "twin" | "neon" | "globe" | "ring" | "arch" | "hex";
   pattern:
@@ -159,6 +161,8 @@ export type Plan = {
   caption_case?: "capital" | "upper" | "spoken";
   /** Caption animation length: 1 as designed, up to 2 slower, down to 0.6 faster. */
   caption_speed?: number;
+  /** Caption text size chosen by the creator (0.6-1.4, 1 as designed). */
+  caption_size?: number;
   transition?: "bloom" | "leak" | "blur" | "whip" | "dip" | "flash" | "none";
   graphics_style?:
     | "glass"

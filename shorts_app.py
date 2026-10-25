@@ -4,7 +4,7 @@ import threading,uuid,shutil,json,re,time
 from fastapi import APIRouter,UploadFile,File,Form,HTTPException,Body
 from fastapi.responses import FileResponse,HTMLResponse
 from pydantic import ValidationError
-import shorts,clients
+import shorts,shorts_chat,clients
 ROOT=Path(__file__).resolve().parent;RUNS=ROOT/'runs'
 router=APIRouter();active={};cancels={};lock=threading.Lock()
 IMAGES=['.png','.jpg','.jpeg','.webp','.gif']
@@ -196,6 +196,44 @@ def revise(ident:str,notes:str=Form(...),scope:str=Form('graphics')):
             shorts.plan_auto(path,ask,status=status,asked=notes)
             shorts.render(path,False,lambda m,p=None:status('Step 2 of 2 · '+m,p));return 'New draft ready with your changes'
     start(path,'auto','Making your changes',work);return state(ident)
+
+chatting=set()  # jobs with a chat message in progress (one at a time per video)
+
+def chat_view(ident,chat):return {'messages':chat['messages'],'available':bool(shorts.setting('ANTHROPIC_API_KEY')),'job':state(ident)}
+
+@router.get('/shorts/jobs/{ident}/chat')
+def get_chat(ident:str):return chat_view(ident,shorts_chat.load(folder(ident)))
+
+@router.post('/shorts/jobs/{ident}/chat')
+def send_chat(ident:str,message:str=Form(...)):
+    """The edit chat: Claude changes the plan or caption words in place (no rebuild or render), keeping the conversation."""
+    path=folder(ident)
+    if not (path/'plan.json').exists() or not (path/'tracks.json').exists():raise HTTPException(409,'Build your edit first.')
+    if not shorts.setting('ANTHROPIC_API_KEY'):raise HTTPException(400,'Set ANTHROPIC_API_KEY in .env to chat with Claude, or ask Claude Code for the change.')
+    if edit_locked(ident):raise HTTPException(409,'This video is still busy. Wait for the current step to finish.')
+    with lock:
+        if ident in chatting:raise HTTPException(409,'Claude is still working on your last message.')
+        chatting.add(ident)
+    try:chat=shorts_chat.send(path,message)
+    except ValueError as e:raise HTTPException(422,str(e))
+    except Exception as e:raise HTTPException(502,f'Claude could not finish: {e}')
+    finally:chatting.discard(ident)
+    return chat_view(ident,chat)
+
+@router.post('/shorts/jobs/{ident}/chat/undo')
+def undo_chat(ident:str):
+    path=folder(ident)
+    if edit_locked(ident) or ident in chatting:raise HTTPException(409,'Wait for the current step to finish.')
+    try:chat=shorts_chat.undo(path)
+    except ValueError as e:raise HTTPException(409,str(e))
+    return chat_view(ident,chat)
+
+@router.delete('/shorts/jobs/{ident}/chat')
+def clear_chat(ident:str):
+    """Start a new conversation. The edit stays as it is."""
+    path=folder(ident)
+    if ident in chatting:raise HTTPException(409,'Claude is still working on your last message.')
+    shorts_chat.clear(path);return chat_view(ident,{'messages':[]})
 
 @router.get('/shorts/looks')
 def looks():return [{'id':k,'note':shorts.LOOK_NOTES[k],**shorts.look(k).model_dump()} for k in shorts.LOOKS]

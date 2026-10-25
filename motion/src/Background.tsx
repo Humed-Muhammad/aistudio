@@ -33,6 +33,7 @@ export const DEFAULT_LOOK: BackgroundLook = {
   reframe: 0,
   grade: 0,
   grain: 0,
+  lift: 0,
   tube: "none",
   lamp: "tube",
   pattern: "pool",
@@ -73,13 +74,19 @@ export const needsSubject = (bg: BackgroundLook) =>
 export const footageStyle = (
   bg: BackgroundLook,
   k: number,
-): React.CSSProperties | undefined =>
-  bg.mode === "blur"
-    ? {
-        filter: `blur(${bg.blur * 44 * k}px) brightness(${1 - bg.dim * 0.8}) saturate(1.1)`,
-        scale: 1.12, // hides the soft edge a blur leaves at the frame border
-      }
-    : undefined;
+  cutout: boolean,
+): React.CSSProperties | undefined => {
+  const lift = liftFilter(bg);
+  if (!(cutout && bg.mode === "blur")) return lift ? { filter: lift } : undefined;
+  return {
+    filter: `blur(${bg.blur * 44 * k}px) brightness(${1 - bg.dim * 0.8}) saturate(1.1)` + (lift ? " " + lift : ""),
+    scale: 1.12, // hides the soft edge a blur leaves at the frame border
+  };
+};
+
+/** Brightens dim footage (the person and the real room). Generated walls keep their designed colours. */
+export const liftFilter = (bg: BackgroundLook) =>
+  bg.lift > 0 ? `brightness(${1 + 0.35 * bg.lift}) saturate(${1 + 0.1 * bg.lift})` : undefined;
 
 /** Replacement background plus any LED light tubes standing on it. */
 export const Backdrop: React.FC<{
@@ -398,7 +405,8 @@ export const Subject: React.FC<{
   const id = "wrap" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const wall = wallColor(bg);
   const wrap = bg.wrap > 0 && wall ? bg.wrap : 0;
-  const filters: string[] = wrap ? [`url(#${id})`] : [];
+  const lift = liftFilter(bg);
+  const filters: string[] = [...(lift ? [lift] : []), ...(wrap ? [`url(#${id})`] : [])];
   if (bg.outline > 0) {
     const o = Math.max(1, bg.outline * 10 * k);
     for (const [dx, dy] of [

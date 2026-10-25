@@ -70,7 +70,7 @@ export const LookSwitch: React.FC<{
         src={media(video)}
         muted
         trimBefore={from}
-        style={subject ? footageStyle(look, k) : undefined}
+        style={footageStyle(look, k, !!subject)}
       />
       {subject ? <Backdrop bg={look} tracks={tracks} reframe={reframe} /> : null}
       {subject ? <BackLight bg={look} tracks={tracks} /> : null}

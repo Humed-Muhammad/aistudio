@@ -18,6 +18,7 @@ import {
   Finish,
   footageStyle,
   gradeFilter,
+  liftFilter,
   needsSubject,
   Subject,
   Vignette,
@@ -121,6 +122,7 @@ const Edit: React.FC<ShortsProps> = ({
     (e) => e.type === "text" && !e.behind_subject,
   );
   const stickers = plan.events.filter((e) => e.type === "sticker");
+  const onHand = plan.events.filter((e) => e.type === "element" && e.anchor === "hand");
   const switches = plan.events
     .filter((e) => e.type === "look" && e.look && looks[e.look])
     .sort((a, b) => a.start - b.start);
@@ -144,7 +146,7 @@ const Edit: React.FC<ShortsProps> = ({
         {subject ? (
           <Subject bg={look} foreground={subject} trimBefore={from} />
         ) : (
-          <OffthreadVideo src={media(foreground!)} muted transparent trimBefore={from} />
+          <OffthreadVideo src={media(foreground!)} muted transparent trimBefore={from} style={{ filter: liftFilter(look) }} />
         )}
       </AbsoluteFill>
     </AbsoluteFill>
@@ -159,7 +161,7 @@ const Edit: React.FC<ShortsProps> = ({
             <Video
               src={media(video)}
               muted={!!voice}
-              style={subject ? footageStyle(look, k) : undefined}
+              style={footageStyle(look, k, !!subject)}
             />
           ) : null}
           {subject ? <Backdrop bg={look} tracks={tracks} reframe={reframe} /> : null}
@@ -198,7 +200,7 @@ const Edit: React.FC<ShortsProps> = ({
                     durationInFrames={duration + hold}
                   >
                     <LookSwitch
-                      look={looks[e.look!]}
+                      look={{ ...looks[e.look!], lift: look.lift }}
                       video={video}
                       foreground={foreground}
                       tracks={tracks}
@@ -304,7 +306,7 @@ const Edit: React.FC<ShortsProps> = ({
         })}
 
       {plan.events
-        .filter((e) => e.type === "element")
+        .filter((e) => e.type === "element" && e.anchor !== "hand")
         .map((e, i) => {
           const { from, duration } = frames(e, fps);
           return (
@@ -314,6 +316,22 @@ const Edit: React.FC<ShortsProps> = ({
             </Sequence>
           );
         })}
+
+      {/* Graphics riding on a hand: framed like the picture, and above the person drawn again for "behind me" graphics. */}
+      {onHand.length ? (
+        <AbsoluteFill style={{ ...outer, filter: undefined }}>
+          <AbsoluteFill style={inner}>
+            {onHand.map((e, i) => {
+              const { from, duration } = frames(e, fps);
+              return (
+                <Sequence key={`eh${i}`} from={from} durationInFrames={duration} layout="none">
+                  <ElementLayer event={e} duration={duration} accent={plan.highlight_color} style={plan.graphics_style} tracks={tracks} from={from} />
+                </Sequence>
+              );
+            })}
+          </AbsoluteFill>
+        </AbsoluteFill>
+      ) : null}
 
       <Captions
         captions={captions}

@@ -12,6 +12,7 @@ import { createTikTokStyleCaptions } from "@remotion/captions";
 import type { Caption, TikTokPage } from "@remotion/captions";
 import { captionFace, caseText, letterCase } from "./captionFonts";
 import {
+  CaptionScale,
   Float,
   Karaoke,
   Pill,
@@ -93,7 +94,7 @@ const Duo: React.FC<{
 }> = ({ page, plan, style }) => {
   const frame = useCurrentFrame();
   const { fps, width, durationInFrames } = useVideoConfig();
-  const k = width / 1080;
+  const k = (width / 1080) * (plan.caption_size ?? 1);
   const face = captionFace(plan.caption_font ?? "noto_black") ?? {
     family: HEADLINE_FONT,
     weight: 900,
@@ -271,7 +272,7 @@ const Page: React.FC<{
 }> = ({ page, preset, plan, y }) => {
   const frame = useCurrentFrame();
   const { fps, width, durationInFrames } = useVideoConfig();
-  const k = width / 1080;
+  const k = (width / 1080) * (plan.caption_size ?? 1);
   const now = page.startMs + (frame / fps) * 1000;
   // The chosen caption face replaces each preset's own sans; the italic serif accent stays.
   const face = captionFace(plan.caption_font);
@@ -689,6 +690,7 @@ export const Captions: React.FC<{
   );
   if (preset === "none") return null;
   return (
+    <CaptionScale.Provider value={plan.caption_size ?? 1}>
     <AbsoluteFill>
       {pages.map((page, i) => {
         const next = pages[i + 1];
@@ -718,5 +720,6 @@ export const Captions: React.FC<{
         );
       })}
     </AbsoluteFill>
+    </CaptionScale.Provider>
   );
 };

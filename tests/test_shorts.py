@@ -27,6 +27,15 @@ class ShortsPlanTests(unittest.TestCase):
    self.assertTrue(any('missing.png' in w for w in warnings));self.assertTrue(any('no left hand' in w for w in warnings))
    self.assertEqual(json.loads((p/'plan-warnings.json').read_text()),warnings)
 
+ def test_element_on_a_hand_needs_that_hand(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d)
+   ev=lambda hand:{'type':'element','element':'sticky-note','start':0,'end':1,'anchor':'hand','hand':hand,'point':'above_palm'}
+   plan,warnings=shorts.save_plan(p,{'events':[ev('left')]})
+   self.assertEqual((plan.events[0].anchor,warnings),('hand',[]))
+   _,warnings=shorts.save_plan(p,{'events':[ev('right')]})
+   self.assertTrue(any('no right hand' in w for w in warnings))
+
  def test_no_captions_window_is_kept_and_clamped(self):
   with tempfile.TemporaryDirectory() as d:
    p=job(d)

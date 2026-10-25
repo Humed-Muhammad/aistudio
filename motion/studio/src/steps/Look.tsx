@@ -110,7 +110,7 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast, preview }) 
     const { id, note, ...rest } = p;
     void note;
     // Switching wall colour keeps the light design you picked.
-    change({ ...DEFAULT_LOOK, ...rest, pattern: look.pattern ?? "pool", look: id }, true);
+    change({ ...DEFAULT_LOOK, ...rest, pattern: look.pattern ?? "pool", lift: look.lift ?? 0, look: id }, true);
   };
   const giveBack = async () => {
     if (!job.plan) return;
@@ -313,6 +313,7 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast, preview }) 
                 </div>
               </div>
               <h3 style={{ marginTop: 10 }}>You</h3>
+              {slider("lift", "Brighten")}
               {slider("shadow", "Shadow")}
               {slider("outline", "Outline")}
               {look.outline > 0 ? colors("outline_color", "Outline color") : null}

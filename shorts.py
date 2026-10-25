@@ -51,7 +51,7 @@ class Event(BaseModel):
     behind_subject:bool=Field(False,description='text, a card with scene overlay, or a library element: place behind the person (person cutout drawn on top)')
     asset:str=Field('',description='sticker: uploaded image filename from assets/')
     emoji:str=Field('',description='sticker: emoji to use when no asset')
-    anchor:Literal['screen','hand','face']='screen'
+    anchor:Literal['screen','hand','face']=Field('screen',description='sticker, or a library element (hand only): screen position, or ride on the tracked hand / face')
     hand:Literal['any','left','right']=Field('any',description='screen side of the hand as seen by the viewer')
     point:Literal['palm','above_palm','fingertip','above_head','beside_face']='above_palm'
     trigger:Literal['time','open_palm','fist','point','pinch','peace','thumbs_up','rock']=Field('time',description='hand stickers: appear on first matching gesture inside start-end')
@@ -94,6 +94,7 @@ class Background(BaseModel):
     # reframe = punch in to a steady chest-up framing from the face track; tube = LED light tubes on the wall;
     # grade = cinematic contrast and a colour-matched tone; grain = fine moving film grain. 0-1 strengths.
     wrap:float=.0;reframe:float=.0;grade:float=.0;grain:float=.0
+    lift:float=Field(.0,description='brighten dim footage: the person and the real room (not the generated walls), 0-1')
     tube:Literal['none','left','right','both']='none'
     lamp:Literal[tuple(LAMPS)]=Field('tube',description='design of the lamp on the wall (placed by tube): tube (LED tube), twin (two tubes), neon (horizontal bar), globe (hanging bulb), ring (round LED ring), arch (neon arch), hex (hexagon panels)')
     pattern:Literal[tuple(LIGHT_PATTERNS)]=Field('pool',description='studio wall light design: pool (lamp pool behind the head), halo, split (two lamps, the second in light_color), beam (ceiling cone), wash (corner uplights), slash, blinds, window, leaves (dappled), bokeh, ring (LED ring behind the head), side (light_color washing in from the lower right)')
@@ -144,6 +145,7 @@ class Plan(BaseModel):
     transition:Literal[tuple(TRANSITIONS)]=Field('bloom',description='the creator\'s switch effect for flash events: bloom (soft glow), leak (film light leak), blur (zoom-blur punch), whip (whip pan), dip (dip to black), flash (white flash), none')
     caption_y:float=Field(0.72,description='vertical centre of captions 0-1 when caption_place is fixed (and with no face)')
     caption_speed:float=Field(1.0,description='caption animation length chosen by the creator: 1 as designed, 2 slower, 0.6 faster')
+    caption_size:float=Field(1.0,description='caption text size chosen by the creator: 1 as designed, 0.6 smaller, 1.4 bigger')
     caption_case:Literal['capital','upper','spoken']=Field('capital',description='Latin letters in captions: capital (Each Word Capitalized), upper (ALL CAPS), spoken (as transcribed)')
     caption_place:Literal['face','fixed']=Field('face',description='face: just under the chin, following the speaker, inside the platform safe zone; fixed: at caption_y')
     highlight_color:str=ACCENT
@@ -611,33 +613,41 @@ def edit_part(folder,ident,text):
     if not (folder/'captions.json').exists():return True
     return refresh_edit_captions(folder)
 
-def refresh_edit_captions(folder):
-    """Rewrite captions.json of the built edit from the corrected transcript. A word fix never changes the audio,
-    so the words are placed through the cut the edit was built with (cut-map.json). A corrected word that lands in
+def edit_words(folder):
+    """Each transcript part in the built edit with its caption words at edit times: [(part, words)].
+    Words are placed through the cut the edit was built with (cut-map.json). A corrected word that lands in
     a trimmed pause moves to the nearest kept moment of its own part, so a correction never drops words; parts
-    that are not in the built edit stay out. Changing which parts are kept still needs a rebuild."""
-    folder=Path(folder);data=json.loads((folder/'full-captions.json').read_text());captions=data['captions']
+    that are not in the built edit stay out."""
+    folder=Path(folder);captions=json.loads((folder/'full-captions.json').read_text())['captions']
+    units=json.loads((folder/'units.json').read_text())
     built=json.loads((folder/'cut-map.json').read_text()) if (folder/'cut-map.json').exists() else []
-    if not built:kept=[c for c in captions if not is_filler(c)]
-    else:
-        spans=[(r['start'],r['start']+r['frames']/FPS,r['out']) for r in built]
-        def place(a,b):  # recording seconds -> edit seconds, through the first built range the word overlaps
-            for s,e,o in spans:
-                x,y=max(a,s),min(b,e)
-                if y>x:return x-s+o,y-s+o
-            return None
-        def snap(a,b):  # into the nearest built range, at its edge
-            s,e,o=min(spans,key=lambda r:max(r[0]-b,a-r[1],0))
-            x=min(max(a,s),e-.08);return x-s+o,min(x+max(b-a,.08),e)-s+o
-        kept=[]
-        for u in json.loads((folder/'units.json').read_text()):
-            words=[c for c in captions[u['first']:u['last']+1] if not is_filler(c)]
-            placed=[place(c['startMs']/1000,c['endMs']/1000) for c in words]
-            if not any(placed):continue  # this part was cut from the built edit
-            for c,p in zip(words,placed):
-                x,y=p or snap(c['startMs']/1000,c['endMs']/1000)
-                kept.append({**c,'startMs':round(x*1000),'endMs':round(y*1000),'timestampMs':None})
-        kept.sort(key=lambda c:c['startMs'])
+    if not built:return [(u,[c for c in captions[u['first']:u['last']+1] if not is_filler(c)]) for u in units]
+    spans=[(r['start'],r['start']+r['frames']/FPS,r['out']) for r in built]
+    def place(a,b):  # recording seconds -> edit seconds, through the first built range the word overlaps
+        for s,e,o in spans:
+            x,y=max(a,s),min(b,e)
+            if y>x:return x-s+o,y-s+o
+        return None
+    def snap(a,b):  # into the nearest built range, at its edge
+        s,e,o=min(spans,key=lambda r:max(r[0]-b,a-r[1],0))
+        x=min(max(a,s),e-.08);return x-s+o,min(x+max(b-a,.08),e)-s+o
+    out=[]
+    for u in units:
+        words=[c for c in captions[u['first']:u['last']+1] if not is_filler(c)]
+        placed=[place(c['startMs']/1000,c['endMs']/1000) for c in words]
+        if not any(placed):continue  # this part was cut from the built edit
+        timed=[]
+        for c,p in zip(words,placed):
+            x,y=p or snap(c['startMs']/1000,c['endMs']/1000)
+            timed.append({**c,'startMs':round(x*1000),'endMs':round(y*1000),'timestampMs':None})
+        out.append((u,timed))
+    return out
+
+def refresh_edit_captions(folder):
+    """Rewrite captions.json of the built edit from the corrected transcript (see edit_words). A word fix never
+    changes the audio, so the cut stays. Changing which parts are kept still needs a rebuild."""
+    folder=Path(folder);data=json.loads((folder/'full-captions.json').read_text())
+    kept=sorted((c for _,words in edit_words(folder) for c in words),key=lambda c:c['startMs'])
     (folder/'captions.json').write_text(json.dumps({'language':data.get('language'),'captions':kept},indent=1));return True
 
 def load_cut(folder):return CutPlan.model_validate_json((Path(folder)/'cut.json').read_text())
@@ -989,7 +999,7 @@ def apply_cut(folder,status=say):
     run_with_progress([str(ROOT/'.venv-face/bin/python'),str(ROOT/'shorts_worker.py'),str(folder),tracking],status,step)
     preset=json.loads((folder/'workflow-mode.json').read_text()).get('preset','bold')
     preset=preset if preset in PRESETS else 'duo'
-    keep={k:getattr(before,k) for k in ['caption_font','caption_motion','caption_fill','caption_place','caption_case','caption_speed','captions_auto','background','transition','progress_bar','auto_sound']}
+    keep={k:getattr(before,k) for k in ['caption_font','caption_motion','caption_fill','caption_place','caption_case','caption_speed','caption_size','captions_auto','background','transition','progress_bar','auto_sound']}
     if not before.graphics_auto:keep.update(graphics_style=before.graphics_style,graphics_auto=False)
     if not before.captions_auto:keep.update(caption_preset=before.caption_preset,highlight_color=before.highlight_color,caption_y=before.caption_y)
     save_plan(folder,Plan(**{'caption_preset':preset,'highlight_color':ACCENT,**keep}))
@@ -1020,7 +1030,7 @@ def with_client(folder,notes=''):
 
 # Brand kit: a client's saved style, copied from one of their videos and applied to their new ones.
 KIT_PLAN=['background','caption_preset','caption_font','caption_motion','caption_fill','caption_case','caption_place','caption_y',
-          'caption_speed','highlight_color','graphics_style','transition','progress_bar','auto_sound']
+          'caption_speed','caption_size','highlight_color','graphics_style','transition','progress_bar','auto_sound']
 KIT_MODE=['noise','voice','language']
 
 def kit_from(folder):
@@ -1216,7 +1226,7 @@ def check_plan(plan,folder):
     folder=Path(folder);meta=json.loads((folder/'manifest.json').read_text());tracks=json.loads((folder/'tracks.json').read_text())
     duration=meta['duration'];warnings=[];kept=[]
     seen=lambda t:any(t);clips=load_clips(folder);broll_until=-1.
-    plan.caption_y=min(max(plan.caption_y,.1),.92);plan.caption_speed=min(max(plan.caption_speed,.6),2.)
+    plan.caption_y=min(max(plan.caption_y,.1),.92);plan.caption_speed=min(max(plan.caption_speed,.6),2.);plan.caption_size=min(max(plan.caption_size,.6),1.4)
     try:captions=json.loads((folder/'captions.json').read_text())['captions']
     except (OSError,ValueError,KeyError):captions=[]
     for e in merge_cards(sorted(plan.events,key=lambda e:e.start)):
@@ -1253,6 +1263,10 @@ def check_plan(plan,folder):
             meta=element_catalog().get(e.element)
             if not meta:warnings.append(f'{where}: graphic "{e.element}" is not in the library; skipped');continue
             e.props=element_values(meta,e.props or {});e.x=min(max(e.x,0.),1.);e.y=min(max(e.y,0.),1.);e.size=min(max(e.size,.3),3.)
+            if e.anchor=='hand':
+                sides=['left','right'] if e.hand=='any' else [e.hand]
+                if meta.get('layout')=='full':e.anchor='screen';warnings.append(f'{where}: "{e.element}" fills the frame, so it cannot sit on a hand')
+                elif not any(seen(tracks['hands'][s][round(e.start*FPS):round(e.end*FPS)+1]) for s in sides):warnings.append(f'{where}: no {e.hand} hand is tracked in this window; it will not appear')
             kept.append(e);continue
         if e.type=='look':
             where=f'look switch at {e.start:.2f}s'
@@ -1283,7 +1297,7 @@ def check_background(plan,folder,warnings):
     if plan.highlight_color.upper()=='#FFD60A':plan.highlight_color=ACCENT
     for k in ['color','color2','light_color']:
         if getattr(bg,k).upper()=='#FFD60A':setattr(bg,k,LOOKS.get(bg.look,{}).get(k) or getattr(Background(),k))
-    for k in ['blur','dim','glow','rim','vignette','spotlight','shadow','outline','wrap','reframe','grade','grain']:setattr(bg,k,min(max(getattr(bg,k),0.),1.))
+    for k in ['blur','dim','glow','rim','vignette','spotlight','shadow','outline','wrap','reframe','grade','grain','lift']:setattr(bg,k,min(max(getattr(bg,k),0.),1.))
     bg.scale=min(max(bg.scale,1.),1.2)
     for k in ['color','color2','light_color','outline_color']:
         if not HEX.match(getattr(bg,k)):setattr(bg,k,getattr(Background(),k));warnings.append(f'Background: {k} must be a hex color like #6EC1FF; reset')
@@ -1423,7 +1437,7 @@ def plan_auto(folder,notes='',preset=None,status=None,asked=None):
         if not before.graphics_auto:plan.graphics_style,plan.graphics_auto=before.graphics_style,False
         plan.caption_font,plan.caption_motion,plan.caption_fill,plan.caption_place,plan.caption_case,plan.captions_auto=before.caption_font,before.caption_motion,before.caption_fill,before.caption_place,before.caption_case,before.captions_auto
         plan.transition=before.transition  # the creator's switch effect
-        plan.caption_speed=before.caption_speed
+        plan.caption_speed,plan.caption_size=before.caption_speed,before.caption_size
         if not before.captions_auto:plan.caption_preset,plan.highlight_color,plan.caption_y=before.caption_preset,before.highlight_color,before.caption_y
     except (OSError,ValueError):pass
     if (preset or mode not in (None,'auto')) and plan.captions_auto:plan.caption_preset=preset or mode

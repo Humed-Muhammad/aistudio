@@ -1,7 +1,8 @@
 import { Component as ReactComponent, type ReactNode } from "react";
-import { AbsoluteFill, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { kitFor } from "../graphicKits";
-import type { ShortEvent } from "../types";
+import { findTrigger, follow } from "../tracking";
+import type { ShortEvent, Tracks } from "../types";
 import { ELEMENTS } from "./registry.gen";
 import type { ElementMeta, ElementValues } from "./types";
 
@@ -28,14 +29,36 @@ class Guard extends ReactComponent<{ children: ReactNode }, { failed: boolean }>
   }
 }
 
-/** One library graphic in the edit: looked up by id, placed at (x, y) and scaled by size unless it is full-frame. */
+/**
+ * Where a hand-anchored graphic sits now (video pixels), or null before its hand shows up or after it is lost.
+ * Same tracking as hand stickers: palm centre, resting on top of the palm (above_palm) or at the fingertip.
+ */
+const handSpot = (e: ShortEvent, tracks: Tracks, abs: number, fps: number, width: number, height: number) => {
+  const trigger = findTrigger(tracks, e, fps);
+  if (!trigger || abs < trigger.frame) return null;
+  const track = tracks.hands[trigger.side];
+  const now = follow(track, abs, 12); // bridge 0.4 s of lost tracking
+  if (!now) return null;
+  const [px, py, tx, ty, s] = now.sample;
+  const before = follow(track, abs - 2);
+  const tilt = before ? Math.max(-12, Math.min(12, (px - before.sample[0]) * width * 0.4)) : 0;
+  const handPx = s * height;
+  const [x, y] = e.point === "fingertip" ? [tx * width, ty * height] : e.point === "palm" ? [px * width, py * height] : [px * width, py * height - handPx * 0.3];
+  return { x, y, tilt, visible: now.visible, rest: e.point !== "palm" };
+};
+
+/** One library graphic in the edit: looked up by id, placed at (x, y) and scaled by size unless it is full-frame.
+ * With anchor "hand" it rides on the tracked hand instead (draw it inside the camera layer, like stickers). */
 export const ElementLayer: React.FC<{
   event: ShortEvent;
   duration: number;
   accent: string;
   style?: string;
-}> = ({ event: e, duration, accent, style }) => {
-  const { width, height } = useVideoConfig();
+  tracks?: Tracks;
+  from?: number;
+}> = ({ event: e, duration, accent, style, tracks, from = 0 }) => {
+  const { width, height, fps } = useVideoConfig();
+  const frame = useCurrentFrame();
   const entry = ELEMENTS[e.element ?? ""];
   if (!entry) return null;
   const { meta, Component } = entry;
@@ -55,6 +78,27 @@ export const ElementLayer: React.FC<{
     </Guard>
   );
   if (meta.layout === "full") return <AbsoluteFill>{drawn}</AbsoluteFill>;
+  if (e.anchor === "hand") {
+    const spot = tracks ? handSpot(e, tracks, from + frame, fps, width, height) : null;
+    if (!spot) return null;
+    return (
+      <AbsoluteFill style={{ pointerEvents: "none" }}>
+        <div
+          style={{
+            position: "absolute",
+            left: spot.x,
+            top: spot.y,
+            opacity: spot.visible,
+            // Resting on the palm: the graphic's bottom edge sits on the hand.
+            transform: `translate(-50%, ${spot.rest ? "-100%" : "-50%"}) rotate(${spot.tilt}deg) scale(${e.size || 1})`,
+            transformOrigin: spot.rest ? "50% 100%" : "50% 50%",
+          }}
+        >
+          {drawn}
+        </div>
+      </AbsoluteFill>
+    );
+  }
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       <div

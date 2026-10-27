@@ -71,7 +71,8 @@ export const KITS: Record<string, Kit> = {
       ...base,
       text: "#ffffff",
       sub: "rgba(255,255,255,.72)",
-      card: "linear-gradient(160deg, rgba(255,255,255,.22), rgba(255,255,255,.08))",
+      // A light sheen over a smoked tint, so white and accent text still read over white clothes or bright rooms.
+      card: "linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.03)), rgba(12,14,22,.68)",
       chip: "rgba(255,255,255,.16)",
       border: "rgba(255,255,255,.38)",
       shadow: "0 30px 80px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5)",
@@ -477,6 +478,8 @@ export const accentCss = (
       return {
         fontFamily: ACCENT_FONT,
         fontStyle: "italic",
+        // Ethiopic has no italic: keep it upright instead of a fake slant (Latin uses the real italic face).
+        fontSynthesis: "none",
         fontWeight: 400,
         fontSize: size * 1.3,
         color: accent,

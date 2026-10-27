@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import patch,Mock
 from pydantic import ValidationError
 import shorts
+from shorts import graphic_half
 
 def job(d,frames=90,left=None,face=None):
  p=Path(d);(p/'assets').mkdir(parents=True,exist_ok=True)
@@ -616,6 +617,21 @@ class CardAndSoundTests(unittest.TestCase):
    self.assertTrue(any('logo.png' in w for w in warnings))
    self.assertEqual(plan.caption_preset,'duo')
 
+ def test_graphics_are_moved_off_the_face(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d,frames=300)  # face centre .3, height .2: the head runs from about .12 to the chin at .40
+   plan,warnings=shorts.save_plan(p,{'caption_place':'fixed','caption_y':.77,'events':[
+    {'type':'text','start':0,'end':2,'text':'Hook','y':.2},
+    {'type':'card','template':'steps','start':3,'end':5,'items':['A','B'],'y':.17},
+    {'type':'text','start':6,'end':7,'text':'Clear','y':.55},
+    {'type':'text','start':8,'end':9,'text':'Behind','y':.3,'behind_subject':True},
+    {'type':'element','element':'sparkles','start':10,'end':11,'y':.3}]})
+   hook,steps,clear,behind,sparkles=plan.events
+   for e in (hook,steps):self.assertTrue(.4<e.y-graphic_half(e) and e.y+graphic_half(e)<.71,e.y)  # under the chin, above the captions
+   self.assertEqual((clear.y,behind.y,sparkles.y),(.55,.3,.3))
+   self.assertEqual(sum('moved off the face' in w for w in warnings),2)
+   self.assertIn('Face position',shorts.face_note(p,plan))
+
  def test_auto_sound_is_sparse_and_under_the_voice(self):
   E=shorts.Event
   kit={'whoosh-soft':(.07,.1,.15),'pop':(.2,.1,.4),'ui-click':(.2,.1,.4),'camera-click':(.24,.1,.5),'impact':(.01,.2,.7),'riser-bass':(1.9,.2,2.0),'riser-metal':(1.9,.2,2.0),'hit':(.01,.2,1.0)}
@@ -671,6 +687,8 @@ class CardAndSoundTests(unittest.TestCase):
      out.mux(vs.encode(shorts.av.VideoFrame.from_image(img).reformat(format='yuv420p')))
     out.mux(vs.encode())
    self.assertEqual(shorts.torn_frames(path),[8])
+  calm=shorts.np.full((96,54),120.0);dim=calm.copy();dim[40:60]=60  # a glass panel drawn without its tint or text
+  self.assertTrue(shorts.blink(calm,dim,calm+.5));self.assertFalse(shorts.blink(calm,dim,dim))  # a cut is not a blink
 
  def test_switch_effect_sets_the_flash_sound(self):
   kit={'whoosh-soft':(.1,.05,.5),'camera-click':(.01,.05,.2)}

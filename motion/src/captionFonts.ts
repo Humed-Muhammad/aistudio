@@ -6,6 +6,7 @@ import {
   loadFont as loadNoto,
   loadVariableFont as loadNotoVariable,
 } from "@remotion/google-fonts/NotoSansEthiopic";
+import { ARABIC_FONT } from "./fonts";
 import type { Plan } from "./types";
 
 // Caption typefaces that carry both Ethiopic (Amharic) and Latin letters. Mirrors CAPTION_FONTS in shorts.py.
@@ -87,7 +88,7 @@ export const captionFace = (id: Plan["caption_font"]): CaptionFace | null => {
   const face = loaded.get(id)!;
   return {
     ...face,
-    family: `${face.family}, "Noto Sans Ethiopic", "Geeza Pro", sans-serif`,
+    family: `${face.family}, "Noto Sans Ethiopic", ${ARABIC_FONT}, "Geeza Pro", sans-serif`,
   };
 };
 

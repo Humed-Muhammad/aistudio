@@ -76,7 +76,6 @@ export const useEnter = (step = 0, role: Role = "text", delay = 0): React.CSSPro
     scale: r.scale ? r.scale + (1 - r.scale) * p - gone * 0.03 : 1 - gone * 0.03,
     rotate: r.rotate ? `${r.rotate * (1 - p)}deg` : undefined,
     filter: r.blur || gone ? `blur(${((r.blur ?? 0) * (1 - enter) + gone * 6) * k}px)` : undefined,
-    willChange: "transform, opacity",
   };
 };
 

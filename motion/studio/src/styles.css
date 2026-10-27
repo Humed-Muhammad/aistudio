@@ -432,6 +432,8 @@ span.playbtn { border: 0; background: none; }
 
 /* Motion Studio films */
 .filmviewer .frame.filmframe { height: min(calc(100vh - 330px), 700px); }
+/* The live film draws 3D layers and blend modes: keep them inside the frame so the page around it never repaints. */
+.frame.filmframe { isolation: isolate; contain: paint; overflow: hidden; transform: translateZ(0); }
 .filmviewer.landscape .frame.filmframe { height: auto !important; width: min(100%, 980px) !important; aspect-ratio: 16 / 9; }
 .filmviewer.square .frame.filmframe, .filmviewer.feed .frame.filmframe { height: min(calc(100vh - 330px), 620px); }
 .scenestrip { width: 100%; max-width: 980px; display: flex; gap: 8px; align-items: stretch; }

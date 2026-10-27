@@ -40,7 +40,7 @@ export const Backdrop: React.FC<{
       const by = y + Math.sin(t * speed * 0.8 + phase) * 7;
       return `radial-gradient(${r}% ${r * 0.8}% at ${bx}% ${by}%, ${c}${Math.round(alpha * 255)
         .toString(16)
-        .padStart(2, "0")}, transparent 70%)`;
+        .padStart(2, "0")}, ${c}00 78%)`;
     };
     const mesh = name === "mesh";
     layer = (
@@ -52,7 +52,6 @@ export const Backdrop: React.FC<{
             blob(mix(accent, accent2, 0.5), mesh ? 85 : 70, mesh ? 15 : 30, mesh ? 45 : 50, 0.26, 4, glow * 0.6),
             blob(dark ? "#ffffff" : accent, 30, 85, 40, 0.15, 1, dark ? 0.05 : 0.12),
           ].join(", "),
-          filter: mesh ? undefined : `blur(${40 * k}px)`,
           scale: mesh ? 1 : 1.15,
           translate: `${px}px ${py}px`,
         }}

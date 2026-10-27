@@ -9,6 +9,8 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { mix, onAccent } from "./colors";
+import { Icon, ICON_NAMES } from "./film/icons";
 import { useMedia } from "./media";
 import { Push } from "./Push";
 import type { ShortEvent, Tracks } from "./types";
@@ -100,26 +102,27 @@ const Steps: React.FC<{
   });
   const label = ease(frame, since + 4, 10);
   const now = e.items[active - 1] ?? "";
+  // Dots and the step name sit on one panel in the style's surface, so they read over any footage (white clothes too).
+  const ink = theme.text;
+  const faint = (alpha: string) =>
+    /^#[\da-f]{6}$/i.test(ink) ? ink + alpha : ink;
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 26 * k,
+        gap: 22 * k,
+        padding: `${24 * k}px ${34 * k}px ${30 * k}px`,
+        borderRadius: 44 * k * theme.radius,
+        background:
+          theme.card === "transparent" ? "rgba(12,14,22,.68)" : theme.card,
+        backdropFilter: theme.blur,
+        border: `${1.5 * k * (theme.line ?? 1)}px solid ${theme.border}`,
+        boxShadow: theme.shadow,
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          padding: `${16 * k}px ${22 * k}px`,
-          borderRadius: 999,
-          background: theme.chip,
-          border: `${1.5 * k}px solid rgba(255,255,255,.14)`,
-          boxShadow: `0 ${16 * k}px ${40 * k}px rgba(0,0,0,.35)`,
-        }}
-      >
+      <div style={{ display: "flex", alignItems: "center" }}>
         {e.items.map((_, i) => {
           const n = i + 1;
           const current = n === active;
@@ -131,7 +134,7 @@ const Steps: React.FC<{
                   style={{
                     width: gap,
                     height: 4 * k,
-                    background: "rgba(255,255,255,.18)",
+                    background: faint("38"),
                     position: "relative",
                   }}
                 >
@@ -139,7 +142,7 @@ const Steps: React.FC<{
                     style={{
                       position: "absolute",
                       inset: 0,
-                      background: "white",
+                      background: ink,
                       transformOrigin: "left",
                       scale: `${n < active ? 1 : current ? grow : 0} 1`,
                     }}
@@ -156,9 +159,9 @@ const Steps: React.FC<{
                   fontFamily: theme.body,
                   fontWeight: 700,
                   fontSize: 28 * k * theme.type,
-                  color: done ? "#0b0d18" : "white",
-                  background: done ? "white" : "transparent",
-                  border: `${3 * k}px solid ${done ? "white" : "rgba(255,255,255,.5)"}`,
+                  color: done ? onAccent(ink) : faint("D9"),
+                  background: done ? ink : "transparent",
+                  border: `${3 * k}px solid ${done ? ink : faint("8C")}`,
                   boxShadow: current
                     ? `0 0 ${28 * k}px ${8 * k}px ${accent}99`
                     : "none",
@@ -174,19 +177,14 @@ const Steps: React.FC<{
         })}
       </div>
       {e.text || now ? (
-        <div
-          style={{
-            textAlign: "center",
-            textShadow: `0 ${2 * k}px ${16 * k}px rgba(0,0,0,.8)`,
-          }}
-        >
+        <div style={{ textAlign: "center" }}>
           {e.text && norm(e.text) !== norm(now) ? (
             <div
               style={{
                 fontFamily: theme.body,
                 fontWeight: 600,
                 fontSize: 40 * k * theme.type,
-                color: theme.inkSub ?? theme.sub,
+                color: theme.sub,
               }}
             >
               {e.text.replace(/\*/g, "")}
@@ -199,7 +197,7 @@ const Steps: React.FC<{
                 fontFamily: theme.head,
                 fontWeight: theme.headWeight,
                 textTransform: theme.upper ? "uppercase" : undefined,
-
+                color: ink,
                 fontSize: 78 * k * theme.type,
                 lineHeight: 1.05,
                 opacity: label,
@@ -336,6 +334,8 @@ const Stat: React.FC<{
   });
   const w = 760 * k;
   const h = 300 * k;
+  // Only growth figures (+240%, 3x) get the rising chart; "500 years" or a price is just the big counting number.
+  const growth = /[%+↑×]|\dx\b/i.test(e.value);
   // A rising line with a little character, the same every render.
   const pts = Array.from({ length: 9 }, (_, i) => {
     const x = (i / 8) * w;
@@ -366,7 +366,10 @@ const Stat: React.FC<{
   return (
     <div
       style={{
-        width: w + 100 * k,
+        width: growth ? w + 100 * k : "max-content",
+        minWidth: growth ? undefined : 560 * k,
+        maxWidth: 960 * k,
+        textAlign: growth ? undefined : "center",
         padding: `${44 * k}px ${50 * k}px`,
         borderRadius: 48 * k * theme.radius,
         background: theme.card,
@@ -407,59 +410,71 @@ const Stat: React.FC<{
             fontFamily: theme.body,
             fontSize: 28 * k * theme.type,
             color: theme.sub,
-            marginBottom: 24 * k,
+            marginBottom: growth ? 24 * k : 0,
           }}
         >
           {e.label}
         </div>
       ) : null}
-      <svg width={w} height={h} style={{ overflow: "visible" }}>
-        <defs>
-          <linearGradient id="statfill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={accent} stopOpacity={0.35} />
-            <stop offset="1" stopColor={accent} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <path
-          d={`${path} L ${w} ${h} L 0 ${h} Z`}
-          fill="url(#statfill)"
-          opacity={draw}
-        />
-        <path
-          d={path}
-          fill="none"
-          stroke={accent}
-          strokeWidth={6 * k}
-          strokeLinecap="round"
-          strokeDasharray={len}
-          strokeDashoffset={len * (1 - draw)}
-          style={{ filter: `drop-shadow(0 0 ${10 * k}px ${accent})` }}
-        />
-        <circle
-          cx={dot[0]}
-          cy={dot[1]}
-          r={13 * k}
-          fill="white"
-          style={{ filter: `drop-shadow(0 0 ${16 * k}px ${accent})` }}
-        />
-      </svg>
+      {growth ? (
+        <svg width={w} height={h} style={{ overflow: "visible" }}>
+          <defs>
+            <linearGradient id="statfill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={accent} stopOpacity={0.35} />
+              <stop offset="1" stopColor={accent} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <path
+            d={`${path} L ${w} ${h} L 0 ${h} Z`}
+            fill="url(#statfill)"
+            opacity={draw}
+          />
+          <path
+            d={path}
+            fill="none"
+            stroke={accent}
+            strokeWidth={6 * k}
+            strokeLinecap="round"
+            strokeDasharray={len}
+            strokeDashoffset={len * (1 - draw)}
+            style={{ filter: `drop-shadow(0 0 ${10 * k}px ${accent})` }}
+          />
+          <circle
+            cx={dot[0]}
+            cy={dot[1]}
+            r={13 * k}
+            fill="white"
+            style={{ filter: `drop-shadow(0 0 ${16 * k}px ${accent})` }}
+          />
+        </svg>
+      ) : null}
     </div>
   );
 };
 
 const IMAGE = /\.(png|jpe?g|webp|gif)$/i;
 
-/** Icon from an item: uploaded image, "emoji Label", or a letter tile. */
-const parseIcon = (item: string, assets: string[]) => {
+/**
+ * Icon from an item: "car Label" draws a named icon (motion/src/film/icons.tsx), else an uploaded image, "emoji Label"
+ * or a letter tile. A leading - crosses the item out (what not to do), a leading + ticks it.
+ */
+const parseIcon = (raw: string, assets: string[]) => {
+  const mark = raw.startsWith("-") ? "no" : raw.startsWith("+") ? "yes" : null;
+  const item = mark ? raw.slice(1).trim() : raw;
   if (IMAGE.test(item))
     return assets.includes(item)
-      ? { image: item, label: "" }
-      : { glyph: item.slice(0, 1).toUpperCase(), label: "" };
+      ? { image: item, label: "", mark }
+      : { glyph: item.slice(0, 1).toUpperCase(), label: "", mark };
   const [first, ...rest] = item.split(" ");
+  if (ICON_NAMES.includes(first.toLowerCase()))
+    return { name: first.toLowerCase(), label: rest.join(" "), mark };
   if (!/^[\p{L}\p{N}]/u.test(first))
-    return { glyph: first, label: rest.join(" ") };
-  return { glyph: item.slice(0, 2), label: item };
+    return { glyph: first, label: rest.join(" "), mark };
+  return { glyph: item.slice(0, 2), label: item, mark };
 };
+
+const NO = "#FF5C5C";
+const YES = "#3DDC97";
 
 const Icons: React.FC<{
   e: ShortEvent;
@@ -474,6 +489,8 @@ const Icons: React.FC<{
   const { fps } = useVideoConfig();
   const n = e.items.length;
   const size = (n > 3 ? 170 : 210) * k;
+  const surface =
+    theme.card === "transparent" ? "rgba(12,14,22,.55)" : theme.card;
   return (
     <div
       style={{
@@ -489,7 +506,8 @@ const Icons: React.FC<{
       <div style={{ display: "flex", gap: 34 * k }}>
         {e.items.map((item, i) => {
           const icon = parseIcon(item, assets);
-          const s = pop(frame, fps, beat.reveal(i));
+          const at = beat.reveal(i);
+          const s = pop(frame, fps, at);
           const current = i + 1 === beat.active;
           const press = current
             ? interpolate(
@@ -503,6 +521,14 @@ const Icons: React.FC<{
                 clamp,
               )
             : 1;
+          // The strike draws across a crossed-out item just after it lands; a tick badge pops on a ticked one.
+          const strike = interpolate(frame, [at + 7, at + 15], [0, 1], {
+            ...clamp,
+            easing: Easing.out(Easing.cubic),
+          });
+          const tick = pop(frame, fps, at + 7);
+          const lit = current && icon.mark !== "no";
+          const ink = lit ? onAccent(accent) : theme.text;
           return (
             <div
               key={i}
@@ -517,45 +543,113 @@ const Icons: React.FC<{
             >
               <div
                 style={{
+                  position: "relative",
                   width: size,
                   height: size,
                   borderRadius: size * 0.26 * theme.radius,
                   display: "grid",
                   placeItems: "center",
-                  overflow: "hidden",
-                  background: current
-                    ? `linear-gradient(150deg, ${accent}, #1b2a8a)`
-                    : "linear-gradient(150deg, #2b3350, #0d1020)",
-                  border: `${2 * k}px solid ${current ? "rgba(255,255,255,.55)" : "rgba(255,255,255,.14)"}`,
-                  boxShadow: current
-                    ? `0 0 ${60 * k}px ${accent}, inset 0 ${8 * k}px ${18 * k}px rgba(255,255,255,.35)`
-                    : `0 ${18 * k}px ${40 * k}px rgba(0,0,0,.45), inset 0 ${6 * k}px ${14 * k}px rgba(255,255,255,.12)`,
+                  background: lit
+                    ? `linear-gradient(150deg, ${accent}, ${mix(accent, "#000000", 0.35)})`
+                    : surface,
+                  backdropFilter: lit ? undefined : theme.blur,
+                  border: `${2 * k * (theme.line ?? 1)}px solid ${lit ? "rgba(255,255,255,.55)" : theme.border}`,
+                  boxShadow: lit
+                    ? `0 0 ${60 * k}px ${accent}88, inset 0 ${8 * k}px ${18 * k}px rgba(255,255,255,.3)`
+                    : theme.shadow,
                   fontSize: size * 0.5 * theme.type,
                   fontFamily: theme.head,
                   fontWeight: 800,
-                  color: "white",
+                  color: ink,
                 }}
               >
-                {"image" in icon && icon.image ? (
-                  <Img
-                    src={media(`assets/${icon.image}`)}
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "grid",
+                    placeItems: "center",
+                    overflow: "hidden",
+                    borderRadius: "inherit",
+                    opacity: icon.mark === "no" ? 1 - strike * 0.3 : 1,
+                  }}
+                >
+                  {"image" in icon && icon.image ? (
+                    <Img
+                      src={media(`assets/${icon.image}`)}
+                      style={{
+                        width: "72%",
+                        height: "72%",
+                        objectFit: "contain",
+                      }}
+                    />
+                  ) : "name" in icon && icon.name ? (
+                    <Icon
+                      name={icon.name}
+                      size={size * 0.52}
+                      color={ink}
+                      stroke={1.75}
+                    />
+                  ) : (
+                    icon.glyph
+                  )}
+                </div>
+                {icon.mark === "no" ? (
+                  <svg
+                    viewBox="0 0 100 100"
                     style={{
-                      width: "72%",
-                      height: "72%",
-                      objectFit: "contain",
+                      position: "absolute",
+                      inset: 0,
+                      overflow: "visible",
+                      filter: `drop-shadow(0 ${3 * k}px ${8 * k}px rgba(0,0,0,.45))`,
                     }}
-                  />
-                ) : (
-                  icon.glyph
-                )}
+                  >
+                    <line
+                      x1={16}
+                      y1={16}
+                      x2={16 + 68 * strike}
+                      y2={16 + 68 * strike}
+                      stroke={NO}
+                      strokeWidth={9}
+                      strokeLinecap="round"
+                      opacity={strike > 0 ? 1 : 0}
+                    />
+                  </svg>
+                ) : null}
+                {icon.mark === "yes" ? (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: -size * 0.12,
+                      top: -size * 0.12,
+                      width: size * 0.38,
+                      height: size * 0.38,
+                      borderRadius: "50%",
+                      display: "grid",
+                      placeItems: "center",
+                      background: YES,
+                      boxShadow: `0 ${6 * k}px ${16 * k}px rgba(0,0,0,.35)`,
+                      scale: tick,
+                    }}
+                  >
+                    <Icon
+                      name="check"
+                      size={size * 0.24}
+                      color="#06281A"
+                      stroke={3}
+                    />
+                  </div>
+                ) : null}
               </div>
               {icon.label ? (
                 <div
                   style={{
                     fontFamily: theme.body,
-                    fontWeight: 600,
-                    fontSize: 28 * k * theme.type,
-                    color: theme.text,
+                    fontWeight: 700,
+                    fontSize: 34 * k * theme.type,
+                    color: theme.ink ?? theme.text,
+                    textShadow: `0 ${2 * k}px ${12 * k}px rgba(0,0,0,.55)`,
+                    opacity: icon.mark === "no" ? 1 - strike * 0.35 : 1,
                   }}
                 >
                   {icon.label}
@@ -1021,7 +1115,13 @@ export const Card: React.FC<Props> = ({
   const accent = e.accent || videoAccent;
   const styled = e.scene === "light" ? kit.light : kit.dark;
   const theme = e.ink
-    ? { ...styled, text: e.ink, ink: e.ink, sub: e.ink + "BF", inkSub: e.ink + "BF" }
+    ? {
+        ...styled,
+        text: e.ink,
+        ink: e.ink,
+        sub: e.ink + "BF",
+        inkSub: e.ink + "BF",
+      }
     : styled;
   // Timeline in frames from the card's start; without one, items cascade in quickly.
   const marks = e.timeline.map(

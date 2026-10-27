@@ -1,13 +1,13 @@
 import {
-  Activity, ArrowRight, ArrowUpRight, AtSign, Award, Baby, Banknote, BadgeCheck, Bell, Bike, Bolt, BookOpen, Bot, Brain, Briefcase, Building, Bus,
-  Calculator, Calendar, CalendarCheck, Camera, Car, ChartColumn, ChartLine, ChartPie, Check, ChevronRight, CircleAlert, CircleCheck, CircleX,
-  ClipboardCheck, Clock, Cloud, Code, Coffee, Coins, Cpu, CreditCard, Crown, Database, DollarSign, Download, Droplet, Dumbbell, Eye, FileText,
-  FingerprintPattern, Flame, Folder, Gem, Gift, Globe, GraduationCap, Hammer, Handshake, Hash, Headphones, Heart, HeartPulse, Hourglass, House,
+  Activity, AlarmClock, ArrowRight, ArrowUpRight, AtSign, Award, Baby, Banknote, BadgeCheck, Bell, Bike, Bolt, BookOpen, Bot, Brain, Briefcase, Building, Bus,
+  Calculator, Calendar, CalendarCheck, Camera, Car, ChartColumn, Church, ChartLine, ChartPie, Check, ChevronRight, CircleAlert, CircleCheck, CircleX,
+  ClipboardCheck, Clock, Cloud, Code, Coffee, Coins, Cpu, CreditCard, Crown, Database, DollarSign, Download, Droplet, Dumbbell, Ear, Eye, FileText,
+  FingerprintPattern, Flame, Folder, Footprints, Gem, Gift, Globe, GraduationCap, Hammer, Hand, Handshake, Hash, Headphones, Heart, HeartPulse, Hourglass, House,
   Image, Inbox, Infinity as InfinityIcon, Key, Landmark, Languages, Laptop, Layers, LayoutDashboard, Leaf, Lightbulb, Link, ListChecks, Lock,
-  Mail, Map, MapPin, Megaphone, MessageCircle, Mic, Monitor, Moon, Music, Navigation, Package, Paintbrush, Palette, PawPrint, Pill, PenTool,
-  Percent, Phone, PiggyBank, Plane, Play, Plus, Puzzle, QrCode, Receipt, RefreshCw, Rocket, ScanLine, Scissors, Search, Send, Settings, Share2,
-  Shield, ShieldCheck, Shirt, ShoppingBag, ShoppingCart, Smartphone, Sparkles, Sprout, Star, Stethoscope, Store, Sun, Tag, Target, Terminal,
-  ThumbsUp, Ticket, Timer, TrendingDown, TrendingUp, Trophy, Truck, Upload, User, Users, Utensils, Video, Wallet, WandSparkles, Wifi, Workflow,
+  Mail, Map, MapPin, Megaphone, MessageCircle, Mic, Monitor, Moon, Mosque, Motorbike, Music, Navigation, Package, Paintbrush, Palette, PawPrint, Pill, PenTool,
+  Percent, PersonStanding, Phone, PiggyBank, Plane, Play, Plus, Puzzle, QrCode, Receipt, RefreshCw, Rocket, ScanLine, Scissors, Scooter, Search, Send, Settings, Share2,
+  Shield, ShieldCheck, Shirt, ShoppingBag, ShoppingCart, ShowerHead, Smartphone, Sparkles, Sprout, Star, Stethoscope, Store, Sun, Sunrise, Tag, Target, Terminal,
+  ThumbsUp, Ticket, Timer, TrendingDown, TrendingUp, Trophy, Truck, Upload, User, Users, Utensils, Video, VolumeX, Wallet, WandSparkles, Wifi, Workflow,
   Wrench, X, Zap, type LucideIcon,
 } from "lucide-react";
 
@@ -15,9 +15,10 @@ import {
 // films.py reads this list (ICON_NAMES) to check plans; unknown names fall back to a dot.
 
 const ICONS: Record<string, LucideIcon> = {
-  activity: Activity, "arrow-right": ArrowRight, "arrow-up-right": ArrowUpRight, at: AtSign, award: Award, baby: Baby, banknote: Banknote,
+  activity: Activity, alarm: AlarmClock, "arrow-right": ArrowRight, "arrow-up-right": ArrowUpRight, at: AtSign, award: Award, baby: Baby, banknote: Banknote,
   badge: BadgeCheck, bell: Bell, bike: Bike, bolt: Bolt, book: BookOpen, bot: Bot, brain: Brain, briefcase: Briefcase, building: Building,
-  bus: Bus, calculator: Calculator, calendar: Calendar, "calendar-check": CalendarCheck, camera: Camera, car: Car, "chart-bar": ChartColumn,
+  bus: Bus, motorbike: Motorbike, scooter: Scooter, walk: Footprints, person: PersonStanding, mosque: Mosque, church: Church,
+  shower: ShowerHead, sunrise: Sunrise, ear: Ear, mute: VolumeX, hand: Hand, calculator: Calculator, calendar: Calendar, "calendar-check": CalendarCheck, camera: Camera, car: Car, "chart-bar": ChartColumn,
   "chart-line": ChartLine, "chart-pie": ChartPie, check: Check, "chevron-right": ChevronRight, alert: CircleAlert, "check-circle": CircleCheck,
   "x-circle": CircleX, clipboard: ClipboardCheck, clock: Clock, cloud: Cloud, code: Code, coffee: Coffee, coins: Coins, cpu: Cpu,
   card: CreditCard, crown: Crown, database: Database, dollar: DollarSign, download: Download, droplet: Droplet, dumbbell: Dumbbell, eye: Eye,

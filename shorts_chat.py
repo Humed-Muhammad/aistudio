@@ -36,7 +36,10 @@ the live preview, and you change the edit with your tools: precisely, in place, 
 - Graphics style, switch effect and sounds: update_settings graphics_style, transition, auto_sound; one-off sounds are sfx events.
 - You cannot cut, reorder, re-transcribe, re-track or render. To remove or reorder spoken parts, tell the creator to untick them
   in the Cut section and rebuild. To see changes in a file, they render a new draft.
-- Never yellow, no hard black text outlines, no emoji on cards unless the creator asks.
+- Never cover the speaker's face: put text pops, cards and graphics where the face position line says there is room (the check
+  moves anything that would cover it). Things the speaker names (vehicles, places, actions) go on an icons card with real icons
+  ("car መኪና", "-car" crossed out, "+walk" ticked; icon names below), not chips.
+- No yellow unless the creator asks (gold or cream then), no hard black text outlines, no emoji on cards unless the creator asks.
 - When a tool returns an error, fix the call and try again, or tell the creator what is not possible.
 - After the tools, reply in one or two short sentences in the creator's language (Amharic or English, as they wrote), saying
   what you changed or asking your question. No JSON, no lists of fields."""
@@ -68,6 +71,7 @@ def reference():
      'Video settings (JSON schema):\n'+json.dumps({k:v for k,v in Plan.model_json_schema()['properties'].items() if k in SETTING_KEYS},ensure_ascii=False,separators=(',',':')),
      'Looks: '+'; '.join(f'{k} = {v}' for k,v in LOOK_NOTES.items()),
      'Accent palette: '+', '.join(f'{k} {v}' for k,v in PALETTE.items()),
+     'Icon names for icons cards: '+', '.join(shorts.icon_names()),
      'Graphics library (type element; id: what it is · fields key=default):\n'+'\n'.join(
         f"- {i}: {m['description']} · "+', '.join(f"{f['key']}={json.dumps(f['default'],ensure_ascii=False)}" for f in m['fields']) for i,m in lib.items())]
     if shorts.STYLE_GUIDE.exists():parts.append('The creator\'s style guide:\n'+shorts.STYLE_GUIDE.read_text())
@@ -84,7 +88,7 @@ def state_text(folder,plan):
     folder=Path(folder);duration=json.loads((folder/'manifest.json').read_text())['duration']
     lines=[f'The edit now ({duration:.2f}s long; all times are edit seconds):',
      'Settings: '+json.dumps(plan.model_dump(include=SETTING_KEYS|{'captions_auto','graphics_auto'}),ensure_ascii=False),
-     'Background: '+json.dumps(plan.background.model_dump(),ensure_ascii=False),'Events:']
+     'Background: '+json.dumps(plan.background.model_dump(),ensure_ascii=False),shorts.face_note(folder,plan),'Events:']
     lines+=[f'#{i} '+json.dumps({k:round(v,3) if isinstance(v,float) else v for k,v in e.model_dump(exclude_defaults=True).items()},ensure_ascii=False)
             for i,e in enumerate(plan.events)] or ['(none)']
     lines.append('Transcript parts in the edit, [start s]word:')

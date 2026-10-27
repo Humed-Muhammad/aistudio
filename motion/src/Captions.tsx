@@ -10,6 +10,7 @@ import {
 } from "remotion";
 import { createTikTokStyleCaptions } from "@remotion/captions";
 import type { Caption, TikTokPage } from "@remotion/captions";
+import { bidi, letters, spokenIndex } from "./bidi";
 import { captionFace, caseText, letterCase } from "./captionFonts";
 import {
   CaptionScale,
@@ -120,7 +121,7 @@ const Duo: React.FC<{
       extrapolateRight: "clamp",
     },
   );
-  const word = (t: TikTokPage["tokens"][number], color: string, i: number) => {
+  const word = (t: TikTokPage["tokens"][number], color: string, i: number, bloom: boolean) => {
     const local = Math.round(
       frame - ((t.fromMs - 60 - page.startMs) / 1000) * fps,
     );
@@ -153,10 +154,7 @@ const Duo: React.FC<{
       kind === "solid"
         ? { color }
         : kind === "glow"
-          ? {
-              color: mix(color, "#ffffff", 0.35),
-              textShadow: `0 0 ${size * 0.12}px ${color}, 0 0 ${size * 0.4}px ${color}aa`,
-            }
+          ? { color: mix(color, "#ffffff", 0.06) }
           : {
               backgroundImage: `linear-gradient(105deg, transparent 40%, rgba(255,255,255,.75) 50%, transparent 60%), ${kind === "chrome" ? chrome(color) : glass(color)}`,
               backgroundSize: "300% 100%, 100% 100%",
@@ -167,33 +165,50 @@ const Duo: React.FC<{
               color: "transparent",
               WebkitTextStroke: `${Math.max(1, size * 0.018)}px rgba(255,255,255,.45)`,
             };
+    // Readability on bright footage (white clothes, light walls) from soft depth, never a hard outline: a tight
+    // contact shadow, a soft dark halo hugging the letters and a wide soft shadow. Text shadows, not a drop-shadow
+    // filter: over moving letters, headless Chrome captures some frames before the filtered layer is redrawn and
+    // the whole caption blinks out of the render.
+    const shadow = [
+      // Glow: a tight glow in the colour; the wide one stays soft so white clothes or walls keep their contrast.
+      kind === "glow" ? `0 0 ${size * 0.08}px ${color}cc, 0 0 ${size * 0.3}px ${color}44` : "",
+      bloom ? `0 0 ${size * 0.18}px ${color}44` : "", // the accent line blooms softly, as if lit from inside
+      `0 ${size * 0.04}px ${size * 0.05}px rgba(0,0,0,.6), 0 0 ${size * 0.14}px rgba(0,0,0,.7), 0 ${size * 0.1}px ${size * 0.3}px rgba(0,0,0,.4)`,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    // A fill clipped to the letters would be covered by its own text shadow, so the shadow is a copy just beneath.
+    const paint = (text: string, css: React.CSSProperties, key?: number) =>
+      kind === "solid" || kind === "glow" ? (
+        <span key={key} style={{ ...css, ...fill, textShadow: shadow }}>
+          {text}
+        </span>
+      ) : (
+        <span key={key} style={{ ...css, position: "relative" }}>
+          <span aria-hidden style={{ position: "absolute", inset: 0, whiteSpace: "nowrap", color: "transparent", textShadow: shadow }}>
+            {text}
+          </span>
+          <span style={{ position: "relative", ...fill }}>{text}</span>
+        </span>
+      );
     // Lift: the word's letters rise one after another as it is spoken, each carrying the fill.
     if (motion === "lift")
       return (
         <span key={i} style={{ display: "inline-block", whiteSpace: "nowrap" }}>
-          {Array.from(caseText(t.text.trim(), plan)).map((c, j) => (
-            <span key={j} style={{ ...fill, ...waveLetter(now, t.fromMs, j, slow), textTransform: "none" }}>
-              {c}
-            </span>
-          ))}
+          {letters(caseText(t.text.trim(), plan)).map((c, j) =>
+            paint(c, { ...waveLetter(now, t.fromMs, j, slow), textTransform: "none" }, j),
+          )}
         </span>
       );
-    const inner = (
-      <span
-        style={{
-          display: "inline-block",
-          ...fill,
-          opacity:
-            motion === "pop"
-              ? 1
-              : interpolate(p, [0, 0.3], [0, 1], { extrapolateRight: "clamp" }),
-          scale: motion === "word" ? interpolate(p, [0, 1], [0.55, 1]) : 1,
-          translate: motion === "rise" ? `0 ${(1 - p) * 110}%` : undefined,
-        }}
-      >
-        {t.text.trim()}
-      </span>
-    );
+    const inner = paint(t.text.trim(), {
+      display: "inline-block",
+      opacity:
+        motion === "pop"
+          ? 1
+          : interpolate(p, [0, 0.3], [0, 1], { extrapolateRight: "clamp" }),
+      scale: motion === "word" ? interpolate(p, [0, 1], [0.55, 1]) : 1,
+      translate: motion === "rise" ? `0 ${(1 - p) * 110}%` : undefined,
+    });
     // Rise is masked just below the baseline so words come up from behind it; the outline stays visible above.
     return motion === "rise" ? (
       <span
@@ -225,8 +240,6 @@ const Duo: React.FC<{
         lineHeight: 1.1,
         textAlign: "center",
         textTransform: letterCase(plan),
-        // Readability on bright footage from soft depth: a tight contact shadow and a wide soft one.
-        filter: `drop-shadow(0 ${size * 0.04}px ${size * 0.05}px rgba(0,0,0,.55)) drop-shadow(0 ${size * 0.1}px ${size * 0.3}px rgba(0,0,0,.4))`,
         opacity:
           (motion === "pop"
             ? interpolate(pop, [0, 0.4], [0, 1], { extrapolateRight: "clamp" })
@@ -239,24 +252,21 @@ const Duo: React.FC<{
     >
       {lines
         .filter((l) => l.length)
+        .map((l) => bidi(l))
         .map((line, n) => (
           <div
             key={n}
             style={{
               display: "flex",
+              direction: line.dir,
               flexWrap: "wrap",
               justifyContent: "center",
               columnGap: "0.28em",
               maxWidth: 940 * k,
-              // The accent line blooms softly in its own colour, as if lit from inside.
-              filter:
-                n === 1 && plan.caption_fill !== "solid"
-                  ? `drop-shadow(0 0 ${size * 0.22}px ${plan.highlight_color}66)`
-                  : undefined,
             }}
           >
-            {line.map((t, i) =>
-              word(t, n === 1 ? plan.highlight_color : "white", i),
+            {line.tokens.map((t, i) =>
+              word(t, n === 1 ? plan.highlight_color : "white", i, n === 1 && plan.caption_fill !== "solid"),
             )}
           </div>
         ))}
@@ -269,7 +279,10 @@ const Page: React.FC<{
   preset: Preset;
   plan: Plan;
   y: number;
-}> = ({ page, preset, plan, y }) => {
+}> = ({ page: spoken, preset, plan, y }) => {
+  // Words in drawing order (right-to-left runs reversed); duo splits its lines first and orders each line.
+  const order = bidi(spoken.tokens);
+  const page = { ...spoken, tokens: order.tokens };
   const frame = useCurrentFrame();
   const { fps, width, durationInFrames } = useVideoConfig();
   const k = (width / 1080) * (plan.caption_size ?? 1);
@@ -291,6 +304,7 @@ const Page: React.FC<{
     right: 80 * k,
     top: `${y * 100}%`,
     translate: "0 -50%",
+    direction: order.dir,
     display: "flex",
     flexWrap: "wrap",
     justifyContent: "center",
@@ -301,7 +315,7 @@ const Page: React.FC<{
   };
 
   if (preset === "duo")
-    return <Duo page={page} plan={plan} style={container} />;
+    return <Duo page={spoken} plan={plan} style={container} />;
   if (preset in STYLES) {
     const Style = STYLES[preset as keyof typeof STYLES];
     return (
@@ -317,10 +331,7 @@ const Page: React.FC<{
   if (preset === "clean") {
     // Bold white phrase on a dark rounded box; the word being said turns accent-coloured with a small pop.
     const ink = onAccent(plan.highlight_color);
-    const current = page.tokens.reduce(
-      (at, t, i) => (t.fromMs <= now ? i : at),
-      -1,
-    );
+    const current = spokenIndex(page.tokens, now);
     return (
       <div
         style={{
@@ -691,7 +702,9 @@ export const Captions: React.FC<{
   if (preset === "none") return null;
   return (
     <CaptionScale.Provider value={plan.caption_size ?? 1}>
-    <AbsoluteFill>
+    <AbsoluteFill className="captions">
+      {/* Each word takes its own direction, so a quote mark sits on the right side of an Arabic word. */}
+      <style>{".captions span { unicode-bidi: plaintext; }"}</style>
       {pages.map((page, i) => {
         const next = pages[i + 1];
         const from = Math.round((page.startMs / 1000) * fps);

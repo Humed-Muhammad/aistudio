@@ -25,9 +25,10 @@ TRANSITIONS=['bloom','leak','blur','whip','dip','flash','none']  # what flash ev
 SOUNDS=['whoosh','whip','pop','ding','switch','mouse-click','shutter-modern','vine-boom','record-scratch','page-turn','anime-wow','yippee',
         'whoosh-soft','whoosh-deep','whoosh-long','riser-bass','riser-metal','hit','impact','ui-click','scifi-click','gears','camera-click','success']
 Sound=Literal[tuple(SOUNDS)]
-ACCENT='#6EC1FF'  # default accent: sky blue. The creator does not want yellow (2026-10-23)
-# Accents Claude picks from per video, chosen to stand out from the look; never yellow.
-PALETTE={'sky':'#6EC1FF','mint':'#5EEAD4','coral':'#FF7A59','pink':'#FF6FAE','lavender':'#B79CFF','lime':'#B8F35A','white':'#FFFFFF'}
+ACCENT='#6EC1FF'  # default accent: sky blue. The creator does not want the old bright yellow (2026-10-23)
+# Accents Claude picks from per video, chosen to stand out from the look; gold and cream only when the creator asks (2026-10-26).
+PALETTE={'sky':'#6EC1FF','mint':'#5EEAD4','coral':'#FF7A59','pink':'#FF6FAE','lavender':'#B79CFF','lime':'#B8F35A','white':'#FFFFFF',
+         'gold':'#F5C451','cream':'#FFE9A8'}
 ACCENT_BLUE='#3D7BFF'
 TEMPLATES=['steps','slider','stat','icons','list','chips','quote','title','progress']
 SCENES=['overlay','dim','dark','light','split']
@@ -66,8 +67,8 @@ class Event(BaseModel):
     speed:float=Field(1.,description='broll: playback speed of the recording, 0.25-4')
     layout:Literal['full','split','bubble','front']=Field('split',description='broll: full screen, split (recording top, speaker bottom), bubble (speaker face in a corner circle) or front (speaker cut out in front)')
     corner:Literal['top_left','top_right','bottom_left','bottom_right']=Field('top_right',description='broll bubble position')
-    template:Literal[tuple(TEMPLATES)]=Field('list',description='card: steps tracker, slider, stat (counting number + chart), icons (glossy tiles), list, chips (around the headline), quote box, title')
-    items:list[str]=Field([],description='card: steps / list rows / chips / icons (emoji, "emoji Label" or uploaded image name)')
+    template:Literal[tuple(TEMPLATES)]=Field('list',description='card: steps tracker, slider, stat (counting number; a chart only for growth like +240% or 3x), icons (icon tiles), list, chips (around the headline), quote box, title')
+    items:list[str]=Field([],description='card: steps / list rows / chips / icons ("car መኪና": icon name then label; "-car" crossed out, "+walk" ticked; or an uploaded image name)')
     value:str=Field('',description='card: stat number with unit (400%, $70,318); slider end position 0-100')
     label:str=Field('',description='card: stat caption, slider ends "Beginner|Pro", quote author, title subtitle')
     active:int=Field(1,description='card: 1-based current step / highlighted item')
@@ -217,10 +218,10 @@ class PCard(BaseModel):
     type:Literal['card'];start:Num;end:Num
     template:str=choice(TEMPLATES);scene:str=choice(SCENES)
     text:str=Field(description='headline, 1-7 words, *stars* around the accent words; empty for none')
-    items:list[str]=Field(description='steps, list rows, chips or icons (emoji, "emoji Label", uploaded image name); 2-6 short entries; empty for stat/slider/quote/title')
+    items:list[str]=Field(description='steps, list rows, chips or icons ("car መኪና": icon name then label, "-car መኪና" crossed out, "+walk በእግር" ticked, or an uploaded image name); 2-6 short entries; empty for stat/slider/quote/title')
     value:str=Field(description='stat: number with unit e.g. 400% or $70,318; slider: end position 0-100; else empty')
     label:str=Field(description='stat caption; slider end labels "Beginner|Pro"; quote author; title subtitle; else empty')
-    active:int=Field(description='steps/list/icons: 1-based current item, else 1');y:Num=Field(description='overlay/dim: vertical centre 0-1')
+    active:int=Field(description='steps/list/icons: 1-based current item, else 1');y:Num=Field(description='overlay/dim: vertical centre 0-1, in the free band clear of the face and captions')
     side:str=choice(['top','bottom','left','right'],'split and full-screen scenes: edge the graphic pushes in from')
 class PNoCaptions(BaseModel):
     type:Literal['no_captions'];start:Num;end:Num
@@ -231,7 +232,7 @@ class PElement(BaseModel):
     element:str=Field(description='id from the graphics library list')
     props:dict[str,Any]=Field(description='field values by key, in the language spoken (Ethiopic script for Amharic); only fields you change')
     x:Num=Field(description='horizontal centre 0-1 (anchored graphics; use the library default unless it would cover the face)')
-    y:Num=Field(description='vertical centre 0-1 (anchored graphics)')
+    y:Num=Field(description='vertical centre 0-1 (anchored graphics), in the free band clear of the face and captions')
 class PlannerPlan(BaseModel):
     caption_preset:str=choice(PRESETS);caption_y:Num=Field(description='captions vertical centre 0-1, clear of face and stickers')
     graphics_style:str=choice(GRAPHIC_STYLES,'design of all cards and text pops for this video')
@@ -1221,6 +1222,70 @@ def element_values(meta,props):
         out[k]=v
     return out
 
+# Face-safe placement. Text pops, overlay cards, images and library graphics never cover the face: one that would is
+# moved under the chin (clear of the captions) or above the head, whichever is nearer and fits inside the platform safe
+# zone. Positions are in the final frame, after the cutout scale and the steady reframe (motion/src/tracking.ts).
+SAFE_TOP,SAFE_BOTTOM=.12,.82  # platform titles and buttons cover the edges
+POINTERS={'arrow-callout','circle-highlight','focus-brackets','sparkles','tap-ripple','cursor-click','spotlight'}  # sit on what they point at
+CARD_HALF={'steps':.075,'chips':.07,'icons':.1,'list':.12,'stat':.1,'quote':.11,'title':.08,'slider':.09,'progress':.08}  # half-height, share of the frame
+
+def frame_y(tracks,bg):
+    """Where a height in the recording lands in the final frame: the cutout grows from the bottom edge, then the reframe."""
+    faces=[f for f in tracks['face'] if f];med=lambda i:sorted(f[i] for f in faces)[len(faces)//2]
+    move=lambda y:y
+    if bg.reframe>0 and len(faces)>=10:
+        oy,h=med(1),med(2);sc=min(1.6,max(1,1+(.27/h-1)*bg.reframe));ty=min(oy*(sc-1),max((1-oy)*(1-sc),(.38-oy)*bg.reframe))
+        move=lambda y:oy+(y-oy)*sc+ty
+    return lambda y:move(1-(1-y)*bg.scale)
+
+def head_band(tracks,at,start,end):
+    """Top of the head and the chin (0-1 of the frame height) while an event is up, or None without a face."""
+    faces=[f for f in tracks['face'][round(start*FPS):round(end*FPS)+1] if f]
+    if len(faces)<3:return None
+    tops=sorted(at(f[1]-.9*f[2]) for f in faces);chins=sorted(at(f[1]+.5*f[2]) for f in faces)
+    return tops[len(tops)//10],chins[-1-len(chins)//10],sorted(f[0] for f in faces)[len(faces)//2]
+
+def caption_band(plan,head):
+    """The captions' top and bottom while the face is at head, or None when there are none."""
+    if plan.caption_preset=='none':return None
+    half=(.11 if plan.caption_preset=='stack' else .06)*plan.caption_size
+    y=plan.caption_y if plan.caption_place=='fixed' or not head else min(SAFE_BOTTOM-.02-half,max(SAFE_TOP+.02+half,head[1]+.015+half))
+    return y-half,y+half
+
+def graphic_half(e):
+    """Rough half-height of a screen-placed graphic as a share of the frame height, or None if it may sit anywhere."""
+    if e.type=='text' and not e.behind_subject:return (.05 if len(e.text)<=18 else .09)*e.size+(.015 if e.background=='pill' else 0)
+    if e.type=='card' and e.scene in ('overlay','dim'):return CARD_HALF.get(e.template,.1)
+    if e.type=='sticker' and e.anchor=='screen':return .085*e.size
+    if e.type=='element' and e.anchor=='screen' and e.element not in POINTERS and element_catalog().get(e.element,{}).get('layout')!='full':return .08*e.size
+    return None
+
+def clear_face(e,half,head,caps):
+    """Centre for a graphic clear of the face: its own when already clear, the nearest free spot, or None without room."""
+    top,chin,fx=head;gap=.02
+    hits=lambda y:y+half>top-gap/2 and y-half<chin+gap/2
+    if not hits(e.y) or abs(e.x-fx)>.42:return e.y
+    spots=[chin+gap+half,top-gap-half]+([caps[1]+gap+half,caps[0]-gap-half] if caps else [])
+    fits=[y for y in spots if SAFE_TOP+half<=y<=SAFE_BOTTOM-half and not hits(y) and not (caps and y+half>caps[0] and y-half<caps[1])]
+    return min(fits,key=lambda y:abs(y-e.y)) if fits else None
+
+def face_note(folder,plan):
+    """Where the face usually is, for the planner and the chat."""
+    tracks=json.loads((Path(folder)/'tracks.json').read_text());head=head_band(tracks,frame_y(tracks,plan.background),0,len(tracks['face'])/FPS)
+    if not head:return 'Face position: no face tracked; place graphics freely.'
+    caps=caption_band(plan,head)
+    return (f'Face position (0 = top of the frame, 1 = bottom): the head runs from about {head[0]:.2f} to the chin at {head[1]:.2f}'
+            +(f'; captions sit at {caps[0]:.2f}-{caps[1]:.2f}' if caps else '')+'. Give text pops, overlay and dim cards and library graphics a y '
+            f'that keeps them off the face: under the chin and clear of the captions, or above the head when there is room (nothing higher than {SAFE_TOP}). '
+            'The plan check moves anything that would cover the face.')
+
+ICON_FILE=MOTION/'src'/'film'/'icons.tsx'
+def icon_names():
+    """Icons the icons card and film scenes can draw by name (the ICONS map in motion/src/film/icons.tsx)."""
+    try:block=ICON_FILE.read_text().split('const ICONS',1)[1].split('};',1)[0]
+    except (OSError,IndexError):return []
+    return [a or b for a,b in re.findall(r'(?:"([a-z-]+)"|\b([a-z]+)):\s*[A-Z]',block)]
+
 def check_plan(plan,folder):
     """Clamp to the clip and report anything the renderer cannot honour."""
     folder=Path(folder);meta=json.loads((folder/'manifest.json').read_text());tracks=json.loads((folder/'tracks.json').read_text())
@@ -1288,6 +1353,15 @@ def check_plan(plan,folder):
         cover=tracks.get('person',[])[round(e.start*FPS):round(e.end*FPS)+1]
         if e.type=='text' and e.behind_subject and cover and sum(cover)/len(cover)>.55:warnings.append(f'{where}: the person fills ~{round(100*sum(cover)/len(cover))}% of the frame, so text behind them will be mostly hidden')
         kept.append(e)
+    at=frame_y(tracks,plan.background) if any(tracks['face']) else None
+    for e in kept if at else []:
+        half=graphic_half(e);head=half and head_band(tracks,at,e.start,e.end)
+        if not head:continue
+        # Dim cards drop the captions to the bottom, out of the way.
+        y=clear_face(e,half,head,None if e.type=='card' and e.scene=='dim' else caption_band(plan,head))
+        what=f"{e.template} card" if e.type=='card' else {'text':'text pop','sticker':'image','element':'graphic'}[e.type]
+        if y is None:warnings.append(f'{what} at {e.start:.2f}s covers the face and there is no free space around it: make it smaller or shorter')
+        elif y!=e.y:warnings.append(f'{what} at {e.start:.2f}s was moved off the face (to {round(100*y)}% from the top)');e.y=round(y,3)
     plan.events=sorted(kept,key=lambda e:e.start);return check_background(plan,folder,warnings),warnings
 
 HEX=re.compile(r'^#[0-9a-fA-F]{6}$')
@@ -1333,7 +1407,8 @@ def planner_context(folder,notes=''):
     where=lambda v:f"{v[5]} ({['upper','middle','lower'][min(2,int(v[1]*3))]} third)" if v else None
     lines=[f"Clip: {meta['duration']:.2f}s, {meta['width']}x{meta['height']}, vertical.",
      f"Scene cuts at: {', '.join(f'{c/fps:.2f}s' for c in tracks['cuts']) or 'none'}",
-     'Face visible: '+('; '.join(r.replace(' visible','') for r in runs(tracks['face'],fps,lambda v:'visible' if v else None)) or 'never')]
+     'Face visible: '+('; '.join(r.replace(' visible','') for r in runs(tracks['face'],fps,lambda v:'visible' if v else None)) or 'never'),
+     face_note(folder,load_plan(folder))]
     tracking=meta.get('tracking','full')
     if tracking!='full':lines.append('No person cutout (tracking '+tracking+'): keep look original, no behind_subject text, no broll layout front.'
         +(' Nothing was tracked: no face or hand anchors, no gesture triggers; zooms use focus center.' if tracking=='off' else ''))
@@ -1348,6 +1423,7 @@ def planner_context(folder,notes=''):
         f"- {i}: {m['description']} · "+', '.join(f"{f['key']}={json.dumps(f['default'],ensure_ascii=False)}" for f in m['fields']) for i,m in lib.items()) if lib else 'Graphics library: empty')
     lines.append('Transcript, [start s] word:\n'+' '.join(f"[{c['startMs']/1000:.2f}]{c['text'].strip()}" for c in captions) if captions else 'No speech detected.')
     lines.append('Accent palette (field highlight_color): '+', '.join(f'{k} {v}' for k,v in PALETTE.items()))
+    lines.append('Icon names for icons cards: '+', '.join(icon_names()))
     lines.append('Background looks (field look): '+'; '.join(f'{k} = {v}' for k,v in LOOK_NOTES.items()))
     if notes.strip():lines.append('Creator instructions (follow these first):\n'+notes.strip())
     images=[]
@@ -1361,14 +1437,16 @@ def planner_context(folder,notes=''):
 
 PLANNER_SYSTEM="""You are a senior short-form video editor. You plan motion graphics for a vertical talking video that is rendered with Remotion from your JSON plan.
 Style goals: retention-focused like top YouTube Shorts/TikTok creators, but never cluttered. One focal element at a time.
+- Never cover the speaker's face. The context gives where the head and captions are: place every text pop, overlay or dim card and library graphic in the free space (usually under the chin, above the captions). Dim scenes blur the speaker, so keep them short (2-4 s).
 - Captions run automatically for every word; do not duplicate them as text events. Add a no_captions event (start, end) only where the creator asks for no captions. Pick caption_preset unless the creator chose one, Captions sit just under the speaker's chin automatically (caption_place face); caption_y is only the fallback, keep it about 0.7.
 - Hook: a short bold text or a title card in the first 1-2 s that teases the payoff.
+- Never clutter: besides the captions, at most one short block of text on screen. On bright footage (white clothes, light walls) put words on a panel (pill text pops, cards) instead of bare text over the video.
 - Emphasize key numbers, claims and punchlines with text pops (1-5 words), zoom punch-ins (1.1-1.3, 0.4-1.5 s) and the occasional flash or shake. Space emphasis 2-5 s apart.
 - Put text behind_subject only when a large headline sits where the person overlaps it, for a premium look.
 - Stickers anchored to a hand only where that hand is visible in the tracking data; prefer a gesture trigger matching what the hand does (e.g. open_palm to reveal an object on the palm). Hand left/right means screen side. Use uploaded images when they fit the words; use emoji stickers sparingly.
 - Screen recordings (broll): cut to them when the speaker talks about what is on screen ("open the app", "look at this", "here's the dashboard"), usually 2-8 s each, never overlapping. Pick src_start from the recording frames so the screen shows what is being said; raise speed (up to 3) to fit a longer action. Layouts: split for demos where the speaker keeps explaining, bubble when the screen needs the whole frame but the speaker's face matters, full for quick cutaways, front for a premium intro of the app. No hand stickers or text behind the subject during broll; captions stay on top.
-- Motion-graphic cards (type card) carry structure: steps for numbered points, stat for numbers, icons for tools/apps, list/chips for examples, slider for before/after, progress for 'almost finished, then stopped' moments, quote and title for key lines. Split and full-screen scenes push the speaker video out of the way from `side`. Do not use emoji (stickers or card items): they look unprofessional to this creator; use words, uploaded images or cards. About one card per 6-12 s; full-screen scenes (dark/light/split) 2-4 s, never overlapping a screen recording. Fill emphasis for editorial and rise captions.
-- Captions default to duo (two short lines, line 2 in the accent color). Other styles when the content asks for it: karaoke (word by word, energetic talking), pill (punchy tips, hooks), typewriter (tutorials, tech, step-by-step), quiet (calm storytelling, reflective), float (premium, aspirational), stack (short loud statements, under 40 s). Keep one caption style for the whole video. Pick highlight_color from the palette for contrast with the chosen look and the footage: sky or mint on warm or red scenes, coral or pink on blue or cool scenes, white when the scene is busy. Never yellow.
+- Motion-graphic cards (type card) carry structure: steps for numbered points, stat for numbers, icons for tools/apps, list/chips for examples, slider for before/after, progress for 'almost finished, then stopped' moments, quote and title for key lines. When the speaker names things you can draw (vehicles, places, tools, actions: bike, car, home, mosque, phone, clock...), use an icons card with real icons, each item "icon-name label" in the spoken language; mark what to avoid with a leading - (crossed out) and what to do with + (ticked), e.g. "-bike ሳይክል", "-car መኪና", "+walk በእግር". Use chips only for words with no icon. A stat card draws a chart only for growth figures (+240%, 3x); for other numbers it is a big counting number. Split and full-screen scenes push the speaker video out of the way from `side`. Do not use emoji (stickers or card items): they look unprofessional to this creator; use words, uploaded images or cards. About one card per 6-12 s; full-screen scenes (dark/light/split) 2-4 s, never overlapping a screen recording. Fill emphasis for editorial and rise captions.
+- Captions default to duo (two short lines, line 2 in the accent color). Other styles when the content asks for it: karaoke (word by word, energetic talking), pill (punchy tips, hooks), typewriter (tutorials, tech, step-by-step), quiet (calm storytelling, reflective), float (premium, aspirational), stack (short loud statements, under 40 s). Keep one caption style for the whole video. Pick highlight_color from the palette for contrast with the chosen look and the footage: sky or mint on warm or red scenes, coral or pink on blue or cool scenes, white when the scene is busy. Gold or cream only when the creator asks for gold or yellow; never the old bright yellow.
 - Pick one graphics_style for every card and text pop: glass for tech, AI and apps; bold for loud tips and hooks; editorial for calm, premium storytelling; minimal when the footage is busy or the look is strong; tech for coding and data; brutal for bold opinions and hot takes; aurora for inspiring, creative or future topics; candy for friendly, playful, lifestyle; noir for luxury, fashion, serious reflection; swiss for facts, lists and clean business; clay for calm how-tos and wellness. Make graphics big and few. A card headline must add something: never repeat the list or step text word for word.
 - Pick one background look for the whole video from the looks list, matched to the topic and mood (the person is cut out and placed on it). Prefer clean_blur when unsure; dark_glow or warm_studio for a premium feel; grid_paper or cream for teaching; color_pop only for short, loud videos; original when the real location matters to the story.
 - Library graphics (type element): pick from the Graphics library list by id and fill only the fields you change, with the creator's own words in the spoken language. Use them where they fit the words: a name lower third when the speaker introduces themself, a number counter or progress ring for a figure, a checklist or step timeline for a list or process, a comment reply when answering a viewer, a follow nudge or end card at the very end. At most one library graphic on screen at a time, none over the face, and no more than one every ~6 seconds.
@@ -1717,12 +1795,12 @@ def render(folder,final=False,status=say):
     bad=torn_frames(partial)
     if bad and len(bad)<=TORN_MAX:
         status(f'{label} · fixing {len(bad)} glitched {"frame" if len(bad)==1 else "frames"}',.99)
-        try:repair_frames(folder,partial,bad,final,lambda k:status(f'{label} · fixing glitched frame {k+1} of {len(bad)} (about 15 s each)',.99))
+        try:repair_frames(folder,partial,bad,final,lambda k:status(f'{label} · fixing glitched frame {k+1} of {len(bad)} (about 5 s each)',.99))
         finally:
             for png in Path(folder).glob('.still-*.png'):png.unlink(missing_ok=True)
     partial.replace(folder/name);return folder/name,warnings
 
-TORN_MAX=30  # more than this is not the occasional glitch: leave the render as it is
+TORN_MAX=150  # more than this is not the occasional glitch: leave the render as it is
 def _repeat(img):
     """(how well the frame matches itself shifted down, contrast) on a small grey copy."""
     a=np.asarray(img.convert('L').resize((90,160)),dtype=np.float32)
@@ -1734,13 +1812,19 @@ def torn(img):
     rep,std,_=_repeat(img)
     return bool(rep<1.5 or (rep<8 and std>12))
 
+def blink(a,b,c):
+    """b is unlike both neighbours while they are alike: one frame that blinks. Headless Chrome now and then
+    captures a glass panel (backdrop-filter) with only its blur drawn, without its tint or text."""
+    return bool(min(np.abs(b-a).mean(),np.abs(b-c).mean())>3*np.abs(a-c).mean()+1.5)
+
 def torn_frames(path):
-    """Glitched frames: self-repeating AND unlike both neighbours, so a plain stretch is never flagged."""
+    """Glitched frames: self-repeating AND unlike both neighbours, or blinking. A plain stretch or a cut is never flagged."""
     with av.open(str(path)) as c:small=[_repeat(f.to_image()) for f in c.decode(video=0)]
     out=[]
     for i,(rep,std,a) in enumerate(small):
-        if not (rep<1.5 or (rep<8 and std>12)):continue
         near=[small[k][2] for k in (i-1,i+1) if 0<=k<len(small)]
+        if len(near)==2 and blink(near[0],a,near[1]):out.append(i);continue
+        if not (rep<1.5 or (rep<8 and std>12)):continue
         odd=np.mean([np.abs(a-b).mean() for b in near]) if near else 99
         base=np.abs(near[0]-near[1]).mean() if len(near)==2 else 0
         if odd>3*base+2:out.append(i)
@@ -1749,14 +1833,19 @@ def torn_frames(path):
 def repair_frames(folder,video,bad,final,progress=lambda k:None):
     """Render each glitched frame again as a still and put it in place; the sound is copied unchanged."""
     from PIL import Image
-    folder=Path(folder).resolve();stills={}
+    folder=Path(folder).resolve();stills={};near={}
+    with av.open(str(video)) as c:  # the neighbours, to tell whether a new still blinks too
+        for i,f in enumerate(c.decode(video=0)):
+            if i-1 in bad or i+1 in bad:near[i]=_repeat(f.to_image())[2]
     for k,n in enumerate(bad):
         progress(k);png=folder/f'.still-{n}.png'
         for _ in range(3):
             cmd=['npx','remotion','still','src/index.ts','Shorts',str(png),'--props',str(folder/'render-props.json'),'--public-dir',str(folder),
                  '--frame',str(n),'--log','error']+browser_args()+([] if final else ['--scale','0.5'])
             ok=subprocess.run(cmd,cwd=MOTION,capture_output=True).returncode==0 and png.exists()
-            if ok and not torn(Image.open(png)):stills[n]=png;break
+            if not ok or torn(Image.open(png)):continue
+            if n-1 in near and n+1 in near and blink(near[n-1],_repeat(Image.open(png))[2],near[n+1]):continue
+            stills[n]=png;break
     if not stills:return
     fixed=video.with_name(video.stem+'-fixed.mp4')
     with av.open(str(video)) as inp,av.open(str(fixed),'w') as out:

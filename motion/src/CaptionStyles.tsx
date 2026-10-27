@@ -8,6 +8,7 @@ import {
 } from "remotion";
 import type { TikTokPage } from "@remotion/captions";
 import { loadFont as loadSerif } from "@remotion/google-fonts/NotoSerifEthiopic";
+import { letters, spokenIndex, textDir } from "./bidi";
 import { caseText, letterCase, type CaptionFace } from "./captionFonts";
 import { mix, onAccent } from "./colors";
 import { HEADLINE_FONT } from "./fonts";
@@ -72,8 +73,10 @@ const useTiming = (page: TikTokPage) => {
   return { frame, fps, k: (width / 1080) * scale, now, since, exit };
 };
 
+// Soft depth as text shadows, inherited by every word. Not a drop-shadow filter: over moving letters, headless
+// Chrome captures some frames before the filtered layer is redrawn and the whole caption blinks out of the render.
 const soft = (size: number, a = 0.5) =>
-  `drop-shadow(0 ${size * 0.04}px ${size * 0.06}px rgba(0,0,0,${a})) drop-shadow(0 ${size * 0.1}px ${size * 0.3}px rgba(0,0,0,${a * 0.75}))`;
+  `0 ${size * 0.04}px ${size * 0.06}px rgba(0,0,0,${a}), 0 ${size * 0.1}px ${size * 0.3}px rgba(0,0,0,${a * 0.75})`;
 
 const faceCss = (
   face: CaptionFace | null,
@@ -88,10 +91,7 @@ const faceCss = (
 export const Karaoke: React.FC<Props> = ({ page, plan, style, face }) => {
   const { fps, k, now, since, exit } = useTiming(page);
   const size = 82 * k * (face?.scale ?? 1);
-  const current = page.tokens.reduce(
-    (at, t, i) => (t.fromMs <= now ? i : at),
-    -1,
-  );
+  const current = spokenIndex(page.tokens, now);
   return (
     <div
       style={{
@@ -101,7 +101,7 @@ export const Karaoke: React.FC<Props> = ({ page, plan, style, face }) => {
         columnGap: "0.25em",
         textTransform: letterCase(plan),
         color: "white",
-        filter: soft(size),
+        textShadow: soft(size),
         opacity: 1 - exit,
       }}
     >
@@ -185,15 +185,14 @@ export const Typewriter: React.FC<Props> = ({ page, style, face, plan }) => {
   const { frame, k, now, exit } = useTiming(page);
   const size = 56 * k * (face?.scale ?? 1);
   const caret = Math.floor(frame / 8) % 2 === 0;
-  let lastShown = -1;
-  const words = page.tokens.map((t, i) => {
-    const chars = Array.from(t.text.trim());
+  const lastShown = spokenIndex(page.tokens, now + 40);
+  const words = page.tokens.map((t) => {
+    const chars = letters(t.text.trim());
     const dur = Math.max(120, Math.min(t.toMs - t.fromMs, 90 * chars.length));
     const n = Math.round(
       interpolate(now - t.fromMs + 40, [0, dur], [0, chars.length], clamp),
     );
-    if (n > 0) lastShown = i;
-    return { chars, n };
+    return { chars, n, rtl: textDir(t.text) === "rtl" };
   });
   return (
     <div style={{ ...style, opacity: 1 - exit }}>
@@ -215,7 +214,7 @@ export const Typewriter: React.FC<Props> = ({ page, style, face, plan }) => {
           color: "white",
         }}
       >
-        {words.map(({ chars, n }, i) => (
+        {words.map(({ chars, n, rtl }, i) => (
           <span key={i} style={{ position: "relative", whiteSpace: "pre" }}>
             <span>{chars.slice(0, n).join("")}</span>
             <span style={{ opacity: 0 }}>{chars.slice(n).join("")}</span>
@@ -223,7 +222,7 @@ export const Typewriter: React.FC<Props> = ({ page, style, face, plan }) => {
               <span
                 style={{
                   position: "absolute",
-                  left: `${(n / Math.max(1, chars.length)) * 100}%`,
+                  left: `${(rtl ? 1 - n / Math.max(1, chars.length) : n / Math.max(1, chars.length)) * 100}%`,
                   top: "12%",
                   bottom: "8%",
                   width: Math.max(2, 5 * k),
@@ -257,7 +256,8 @@ export const Quiet: React.FC<Props> = ({ page, style }) => {
         letterSpacing: "0.01em",
         color: "#F7F4EE",
         columnGap: "0.3em",
-        filter: `${soft(size, 0.45)}${p < 1 ? ` blur(${(1 - p) * 6 * k}px)` : ""}`,
+        textShadow: soft(size, 0.45),
+        filter: p < 1 ? `blur(${(1 - p) * 6 * k}px)` : undefined,
         opacity: p * (1 - exit),
         translate: `0 calc(-50% + ${(1 - p) * 14 * k}px)`,
       }}
@@ -334,7 +334,7 @@ export const Stack: React.FC<Props> = ({ page, plan, style, face }) => {
         rowGap: 0,
         lineHeight: 0.98,
         textTransform: letterCase(plan),
-        filter: soft(90 * k),
+        textShadow: soft(90 * k),
         opacity: 1 - exit,
       }}
     >
@@ -385,9 +385,10 @@ export const Sweep: React.FC<Props> = ({ page, plan, style, face }) => {
   const { frame, k, now, exit } = useTiming(page);
   const size = 88 * k * (face?.scale ?? 1);
   const enter = interpolate(frame, [0, 6], [0, 1], clamp);
+  const depth = `0 ${size * 0.05}px ${size * 0.18}px rgba(0,0,0,.45)`;
   // Each letter's moment: spread across its word while the word is spoken (at most 90 ms a letter).
   const words = page.tokens.map((t) => {
-    const chars = Array.from(caseText(t.text.trim(), plan));
+    const chars = letters(caseText(t.text.trim(), plan));
     const dur = Math.max(120, Math.min(t.toMs - t.fromMs, 90 * chars.length));
     return chars.map((c, j) => ({ c, at: t.fromMs - 40 + (dur * j) / Math.max(1, chars.length) }));
   });
@@ -399,7 +400,7 @@ export const Sweep: React.FC<Props> = ({ page, plan, style, face }) => {
         fontSize: size,
         columnGap: "0.24em",
         textTransform: letterCase(plan),
-        filter: `drop-shadow(0 ${size * 0.05}px ${size * 0.18}px rgba(0,0,0,.45))`,
+        textShadow: depth,
         opacity: enter * (1 - exit),
       }}
     >
@@ -421,7 +422,7 @@ export const Sweep: React.FC<Props> = ({ page, plan, style, face }) => {
                   color: mix("#b4b9c3", "#ffffff", lit),
                   opacity: 0.55 + lit * 0.45,
                   filter: lit < 1 ? `blur(${(1 - lit) * 2.5 * k}px)` : undefined,
-                  textShadow: lit > 0.05 && lit < 1 ? `0 0 ${size * 0.25}px rgba(255,255,255,${0.7 * Math.sin(lit * Math.PI)})` : undefined,
+                  textShadow: lit > 0.05 && lit < 1 ? `0 0 ${size * 0.25}px rgba(255,255,255,${0.7 * Math.sin(lit * Math.PI)}), ${depth}` : undefined,
                 }}
               >
                 {c}

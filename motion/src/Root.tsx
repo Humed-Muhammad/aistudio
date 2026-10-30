@@ -7,6 +7,8 @@ import { Film } from "./film/Film";
 import { DEFAULT_FILM, FilmScene, ScenePreview, type ScenePreviewProps } from "./film/Preview";
 import { SCENES } from "./film/registry.gen";
 import type { FilmProps } from "./film/types";
+import { Faceless, facelessDefaults, type FacelessProps } from "./faceless/Faceless";
+import { Thumbnail, thumbnailDefaults } from "./faceless/Thumbnail";
 
 // Real props come from runs/<job>/render-props.json (written by shorts.py).
 const defaultProps: ShortsProps = {
@@ -54,6 +56,12 @@ const calculateMetadata: CalculateMetadataFunction<ShortsProps> = ({
 
 // Motion Studio films: real props come from runs/films/<job>/film-props.json (written by films.py).
 const filmProps: FilmProps = { film: DEFAULT_FILM, fps: 30, width: 1080, height: 1920, durationInFrames: 90, sounds: {}, assets: [] };
+const facelessMetadata: CalculateMetadataFunction<FacelessProps> = ({ props }) => ({
+  fps: props.fps,
+  width: props.width,
+  height: props.height,
+  durationInFrames: props.durationInFrames,
+});
 const filmMetadata: CalculateMetadataFunction<FilmProps> = ({ props }) => ({
   fps: props.fps,
   width: props.width,
@@ -88,6 +96,10 @@ export const RemotionRoot: React.FC = () => (
       defaultProps={defaultProps}
       calculateMetadata={calculateMetadata}
     />
+    {/* A faceless YouTube video from the Channel tool: --props render-props.json written by channel_render.py. */}
+    <Composition id="Faceless" component={Faceless} fps={30} width={1920} height={1080} durationInFrames={90} defaultProps={facelessDefaults} calculateMetadata={facelessMetadata} />
+    {/* Its 1280×720 YouTube thumbnail: --props thumbs/.props-N.json (channel.py thumbnails). */}
+    <Composition id="Thumbnail" component={Thumbnail} fps={30} width={1280} height={720} durationInFrames={1} defaultProps={thumbnailDefaults} />
     <Composition id="Film" component={Film} fps={30} width={1080} height={1920} durationInFrames={90} defaultProps={filmProps} calculateMetadata={filmMetadata} />
     {/* One scene of a film, for review stills: --props film-props.json plus "index". */}
     <Composition

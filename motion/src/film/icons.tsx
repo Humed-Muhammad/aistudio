@@ -1,5 +1,5 @@
 import {
-  Activity, AlarmClock, ArrowRight, ArrowUpRight, AtSign, Award, Baby, Banknote, BadgeCheck, Bell, Bike, Bolt, BookOpen, Bot, Brain, Briefcase, Building, Bus,
+  Activity, AlarmClock, ArrowRight, ArrowUpRight, AtSign, Award, Baby, Banknote, BadgeCheck, Bell, Bike, Bird, Bug, Cat, Dog, Fish, Rabbit, Rat, Shell, Snail, Squirrel, Turtle, Worm, Bolt, BookOpen, Bot, Brain, Briefcase, Building, Bus,
   Calculator, Calendar, CalendarCheck, Camera, Car, ChartColumn, Church, ChartLine, ChartPie, Check, ChevronRight, CircleAlert, CircleCheck, CircleX,
   ClipboardCheck, Clock, Cloud, Code, Coffee, Coins, Cpu, CreditCard, Crown, Database, DollarSign, Download, Droplet, Dumbbell, Ear, Eye, FileText,
   FingerprintPattern, Flame, Folder, Footprints, Gem, Gift, Globe, GraduationCap, Hammer, Hand, Handshake, Hash, Headphones, Heart, HeartPulse, Hourglass, House,
@@ -27,7 +27,8 @@ const ICONS: Record<string, LucideIcon> = {
   image: Image, inbox: Inbox, infinity: InfinityIcon, key: Key, bank: Landmark, languages: Languages, laptop: Laptop, layers: Layers,
   dashboard: LayoutDashboard, leaf: Leaf, idea: Lightbulb, link: Link, checklist: ListChecks, lock: Lock, mail: Mail, map: Map, pin: MapPin,
   megaphone: Megaphone, chat: MessageCircle, mic: Mic, monitor: Monitor, moon: Moon, music: Music, navigation: Navigation, package: Package,
-  brush: Paintbrush, palette: Palette, paw: PawPrint, pill: Pill, pen: PenTool, percent: Percent, phone: Phone, piggy: PiggyBank, plane: Plane,
+  brush: Paintbrush, palette: Palette, paw: PawPrint, bug: Bug, snail: Snail, worm: Worm, turtle: Turtle, fish: Fish, bird: Bird, rabbit: Rabbit, squirrel: Squirrel,
+  cat: Cat, dog: Dog, rat: Rat, shell: Shell, pill: Pill, pen: PenTool, percent: Percent, phone: Phone, piggy: PiggyBank, plane: Plane,
   play: Play, plus: Plus, puzzle: Puzzle, qr: QrCode, receipt: Receipt, refresh: RefreshCw, rocket: Rocket, scan: ScanLine, scissors: Scissors,
   search: Search, send: Send, settings: Settings, share: Share2, shield: Shield, "shield-check": ShieldCheck, shirt: Shirt, bag: ShoppingBag,
   cart: ShoppingCart, smartphone: Smartphone, sparkles: Sparkles, sprout: Sprout, star: Star, stethoscope: Stethoscope, store: Store, sun: Sun,

@@ -85,7 +85,7 @@ def summary(path):
     job=read(path,'job.json') or {}
     return {'id':path.name,**meta(path),'duration':info.get('duration'),'stage':stage(path),'thumb':thumb,
             'state':s['state'],'action':s.get('action'),'progress':s.get('progress'),'status':s.get('status',''),
-            'client':job.get('client') or None,'delivery':job.get('delivery',''),
+            'client':job.get('client') or None,'delivery':job.get('delivery',''),'from':(job.get('source') or {}).get('kind'),
             'updated':max([p.stat().st_mtime for p in (path/'status.json',path/'plan.json',path/'job.json') if p.exists()] or [meta(path)['created']])}
 
 def set_job(path,**fields):

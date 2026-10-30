@@ -1,4 +1,4 @@
-"""Humed’s AI Studio: one local server for the Shorts editor, Motion Studio films, Motion graphics and the Audio cleaner."""
+"""Humed’s AI Studio: one local server for the Shorts editor, YouTube to Shorts, the faceless YouTube Channel tool, Motion Studio films, Motion graphics and the Audio cleaner."""
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -8,11 +8,13 @@ from cleaner_app import router as cleaner_router
 from graphics_app import router as graphics_router
 from library_app import router as library_router
 from films_app import router as films_router
+from clipper_app import router as clipper_router
+from channel_app import router as channel_router
 
 ROOT=Path(__file__).resolve().parent
 RUNS=ROOT/'runs';RUNS.mkdir(exist_ok=True)
 app=FastAPI(title='Humed’s AI Studio')
-for router in (shorts_router,cleaner_router,graphics_router,library_router,films_router):app.include_router(router)
+for router in (shorts_router,clipper_router,cleaner_router,graphics_router,library_router,films_router,channel_router):app.include_router(router)
 
 @app.get('/')
 def home():return RedirectResponse('/shorts')

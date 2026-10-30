@@ -90,6 +90,7 @@ export const STYLE_NAMES: Record<string, string> = {
   noir: "Noir",
   swiss: "Swiss",
   clay: "Clay",
+  cartoon: "Cartoon",
 };
 export const BACKDROP_NAMES: Record<string, string> = {
   aurora: "Aurora glow",
@@ -100,6 +101,7 @@ export const BACKDROP_NAMES: Record<string, string> = {
   rays: "Light rays",
   plain: "Style colour",
   paper: "Paper",
+  cartoon: "Cartoon sky",
 };
 export const TRANSITION_NAMES: Record<string, string> = {
   push: "Push",

@@ -11,10 +11,12 @@ Upload a talking video, and Humed’s AI Studio cuts the retakes and pauses, add
 | Tool | What it does |
 | --- | --- |
 | **Shorts editor** (`/shorts`) | Cut → captions → graphics → look → sound → render. "Edit it for me" does the whole edit in one click; you review and ask for changes in your own words. Clients and brand kits for editing for other people. |
+| **YouTube to Shorts** (`/shorts?view=youtube`) | Paste a YouTube link. Claude reads the whole video (with YouTube's most-replayed graph) and finds the moments that hook, teach or matter most; each one is cropped to 9:16 around the speaker and edited as a short with a hook, captions and graphics. For videos you own or may reuse. |
+| **YouTube channel** (`/shorts?view=channel`) | A faceless channel from start to finish: niche research on real YouTube numbers, a researched script you review, an ElevenLabs voice-over, cartoon illustrations with a recurring mascot (or stock footage), graphics for every number, a 16:9 video (3 minutes by default), shorts cut from it, titles, description with chapters, thumbnails, and an optional upload. |
 | **Motion graphics** (`/graphics`) | Promos, explainers and ads from your images. Describe it, Claude Code builds the animation, then change any word, price or color and re-render in seconds. |
 | **Audio cleaner** (`/cleaner`) | Removes fans, hum, hiss and room noise from audio or video, and writes a transcript with subtitles (SRT). |
 
-All three share one app, one sidebar and four color themes.
+All of them share one app, one sidebar and four color themes.
 
 ### Shorts editor highlights
 
@@ -28,16 +30,28 @@ All three share one app, one sidebar and four color themes.
 - **Post text**: three title options, a description and hashtags written from your own words.
 - **Clients**: notes and brand kits per client, so every video for them starts in their style.
 
+### YouTube channel highlights
+
+- **Niche research**: your seed ideas are searched on YouTube (free API key); Claude Code judges each niche on demand, competition and how well small or new channels do, and lists video ideas modelled on proven outliers.
+- **Topic ideas**: for your channel, what to make next: recent hits in your niche, your competitors' videos that beat their usual views, and what people type into YouTube search. Claude Code checks what is new on the web and gives each idea an angle, three points and its evidence; one click makes it a video.
+- **Script**: Claude Code researches the topic on the web, notes every source, and writes the narration (hook, chapters, payoff). You read, edit and approve it: that review keeps the videos yours.
+- **Voice**: scripts are written as a performance (natural rhythm, stressed words, pauses and delivery cues like [curious] or [whispers]) that Eleven v4 acts out, so it sounds like a person telling a story, not a robot reading; **Make it sound human** adds that to any script. ElevenLabs reads it with the voice you chose; each paragraph is voiced once and kept, so an edit re-voices only that paragraph. Every word comes back timed: no transcription needed.
+- **Look**: flat cartoon illustrations by default (or doodle, 3D, comic, realistic), drawn by fal.ai from Claude's shot plan, with a mascot that stays the same in every scene, plus code-drawn graphics, chapter cards and a music bed. Each video has an AI budget; nothing paid runs without your click.
+- **Out**: a 1920×1080 video, shorts re-laid-out in 9:16 and handed to the Shorts editor with exact captions, titles, a description with chapters, sources and credits, three thumbnails, captions (SRT), and an optional upload to your channel (private or scheduled).
+
 ## What it costs
 
 The software is free (MIT). Everything renders on your computer. Two optional services use **your own** keys and are paid per use:
 
 | Service | Needed for | Without it |
 | --- | --- | --- |
-| [Claude API](https://console.anthropic.com) (`ANTHROPIC_API_KEY`) | One-click "Edit it for me", auto-planning, post text | Plan the edit by asking Claude Code, or edit by hand in the UI |
-| [ElevenLabs](https://elevenlabs.io) (`ELEVENLABS_API_KEY`) | **Amharic transcripts** (Scribe) and "Strong" noise removal | English transcripts run locally with whisper.cpp; Light noise removal is local |
+| [Claude API](https://console.anthropic.com) (`ANTHROPIC_API_KEY`) | One-click "Edit it for me", auto-planning, post text, finding YouTube moments | Plan the edit by asking Claude Code, or edit by hand in the UI |
+| [ElevenLabs](https://elevenlabs.io) (`ELEVENLABS_API_KEY`) | **Amharic transcripts** (Scribe), "Strong" noise removal, and Channel voice-overs (about 2,700 credits per 3-minute video; the free plan's audio may not be used commercially) | English transcripts run locally with whisper.cpp; Light noise removal is local |
+| [fal.ai](https://fal.ai) (`FAL_KEY`) | Channel illustrations, mascot and animated clips (about $0.04 an image; about $1–2 for a 3-minute video), always within the video's AI budget | Channel videos use graphics and words only |
+| [YouTube Data API](https://console.cloud.google.com) (`YOUTUBE_API_KEY`, free) | Channel niche research with real numbers (10,000 units a day) | Claude brainstorms niches without data |
+| [Pexels](https://www.pexels.com/api/) / [Pixabay](https://pixabay.com/api/docs/) (free) | Stock footage for realistic channels | Illustrations and graphics only |
 
-Motion graphics builds use your Claude Code plan (not an API key).
+Motion graphics builds and all Channel writing (reports, scripts, shot plans, posts) use your Claude Code plan (not an API key).
 
 ## Install
 
@@ -119,10 +133,12 @@ Prefer a coding agent? Open the folder in Claude Code and say: *"Install Humed�
 ## Using it
 
 1. **Shorts**: click **New video**, drop in one or more recordings (they are joined in name order), pick the spoken language (**Amharic** by default; avoid auto-detect for Amharic), and tick **Edit it for me**. Watch the draft, then ask for changes in plain words or adjust any tab by hand. Render the final and copy the post text from **Deliver**.
-2. **Motion graphics**: create a project with your images, describe the ad, let Claude draft the 4-part brief, build, then tweak text and colors and render.
-3. **Audio cleaner**: drop a file, choose Light (free) or Strong (ElevenLabs), choose the language, and compare Original ↔ Cleaned with one switch.
+2. **YouTube to Shorts**: click **From YouTube**, paste a link and press **Make shorts**. The video downloads (up to 1080p), Claude picks the moments, and each short appears in **Videos** as a draft, made one after another. Untick **Make the shorts right away** to choose the moments yourself first.
+3. **Motion graphics**: create a project with your images, describe the ad, let Claude draft the 4-part brief, build, then tweak text and colors and render.
+4. **YouTube channel**: open **Channels**, create your channel (audience, narrator voice, look, mascot), then **Niche research** to pick a niche, and **Topic ideas** for what to make next. **Make this video** starts the script; read and approve it, then **Finish it for me** (voice, shots, illustrations, draft, post) or go tab by tab. Make the shorts from the **Shorts** tab and upload or download from **Publish**.
+5. **Audio cleaner**: drop a file, choose Light (free) or Strong (ElevenLabs), choose the language, and compare Original ↔ Cleaned with one switch.
 
-Command-line versions exist for everything: `python shorts.py --help`, `python graphics.py --help`, `python cleaner.py --help`.
+Command-line versions exist for everything: `python shorts.py --help`, `python clipper.py --help`, `python channel.py --help`, `python graphics.py --help`, `python cleaner.py --help`.
 
 ### Working with Claude Code
 
@@ -130,13 +146,14 @@ Command-line versions exist for everything: `python shorts.py --help`, `python g
 
 ## Privacy
 
-Humed’s AI Studio listens on `127.0.0.1` only. Your videos stay in `runs/` on your computer. Audio is sent to ElevenLabs only when you choose Amharic transcription or Strong noise removal; transcripts, keyframes and uploaded images are sent to Anthropic only when you use the Claude API features. Don't expose the app to the internet: it has no login.
+Humed’s AI Studio listens on `127.0.0.1` only. Your videos stay in `runs/` on your computer. Audio is sent to ElevenLabs only when you choose Amharic transcription or Strong noise removal; transcripts, keyframes and uploaded images are sent to Anthropic only when you use the Claude API features. Channel scripts go to ElevenLabs when you voice them, shot descriptions (and your mascot picture) to fal.ai when you make illustrations, and a video goes to YouTube only when you press Upload. Don't expose the app to the internet: it has no login.
 
 ## Troubleshooting
 
 | Problem | Fix |
 | --- | --- |
 | A tool says it isn't installed | Run the `make` target it names, then `make doctor`. |
+| YouTube download fails ("Sign in to confirm", 403) | Update the downloader: `.venv/bin/python -m pip install -U "yt-dlp[default]"`. Private, members-only and age-restricted videos can't be downloaded. |
 | Amharic words missing from captions | Set the language to Amharic (not auto) and make sure `ELEVENLABS_API_KEY` is set. |
 | Render fails or Chrome crashes | Set `SHORTS_BROWSER` in `.env` to your Chrome path. |
 | Windows: "running scripts is disabled on this system" | Use the `powershell -ExecutionPolicy Bypass -File .\install-windows.ps1` command from the install steps. |
@@ -151,12 +168,15 @@ Humed’s AI Studio listens on `127.0.0.1` only. Your videos stay in `runs/` on 
 install-mac.sh      one-step install: macOS        install-ubuntu.sh  Ubuntu        install-windows.ps1  Windows (WSL)
 app.py              one server for all tools
 shorts.py           Shorts engine (cut, plan, render)      shorts_app.py    its API
+clipper.py          YouTube to Shorts (moments, 9:16 crop)  clipper_app.py   its API
+channel.py          YouTube channel (research → upload)     channel_app.py   its API
+channel_*.py        voice (ElevenLabs), media (fal.ai, stock), render, YouTube API
 graphics.py         Motion graphics engine                 graphics_app.py  its API
 cleaner.py          Audio cleaner engine                   cleaner_app.py   its API
 clients.py          clients and brand kits
 motion/             Remotion compositions (motion/src) and the studio UI (motion/studio)
 static/             Motion graphics and Audio cleaner pages, shared sidebar (tools.css, tools.js)
-docs/               caption/graphics style guide, motion-graphics guide
+docs/               caption/graphics style guide, motion-graphics guide, channel style guide
 tests/              offline tests: make test (no paid calls)
 ```
 

@@ -25,3 +25,8 @@ static/studio/
 # Graphics library: the generated list, and graphics made on this machine (by you or Claude)
 motion/src/elements/registry.gen.ts
 motion/src/elements/mine/
+
+# Channel tool: channel profiles and the YouTube upload sign-in (never in git)
+channels.json
+youtube-oauth.json
+youtube-token.json

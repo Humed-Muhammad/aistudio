@@ -18,7 +18,7 @@ export const SIZES: Record<Format, [number, number]> = {
 /** How one scene hands over to the next (film/transitions.tsx). */
 export type TransitionName = "push" | "slide" | "zoom" | "blur" | "whip" | "wipe" | "iris" | "flip" | "fade" | "cut";
 /** The film's backdrop, drawn under every scene and continuous across cuts (film/Backdrop.tsx). */
-export type BackdropName = "aurora" | "mesh" | "grid" | "dots" | "spotlight" | "rays" | "plain" | "paper";
+export type BackdropName = "aurora" | "mesh" | "grid" | "dots" | "spotlight" | "rays" | "plain" | "paper" | "cartoon";
 /** Camera: still, a slow drift inside each scene, or one continuous flight through a 3D world. */
 export type CameraName = "still" | "drift" | "world";
 

@@ -175,7 +175,8 @@ export type Plan = {
     | "candy"
     | "noir"
     | "swiss"
-    | "clay";
+    | "clay"
+    | "cartoon";
   graphics_auto?: boolean;
   captions_auto?: boolean;
   caption_y: number;

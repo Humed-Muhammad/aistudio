@@ -115,6 +115,28 @@ export const Backdrop: React.FC<{
         <AbsoluteFill style={{ background: `radial-gradient(40% 30% at 50% 40%, ${accent2}${dark ? "40" : "22"}, transparent 70%)` }} />
       </AbsoluteFill>
     );
+  } else if (name === "cartoon") {
+    // Flat cartoon world: pastel sky, two low rolling hills and a few clouds drifting slowly. No blur, no glow.
+    // Hills stay under ~80% and clouds in the top strip, so they never run behind scene text or icons.
+    const sky = dark ? mix("#2b2d42", accent2, 0.25) : mix("#ffffff", accent2, 0.22);
+    const far = dark ? mix("#2b2d42", accent, 0.35) : mix("#ffffff", accent, 0.32);
+    const near = dark ? mix("#2b2d42", accent2, 0.45) : mix("#ffffff", accent2, 0.5);
+    const drift = (speed: number, phase: number) => ((t * speed + phase) % 130) - 15;
+    const cloud = (x: number, y: number, s: number, key: number) => (
+      <div key={key} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: 220 * s * k, height: 64 * s * k, borderRadius: 999, background: dark ? "rgba(255,255,255,.14)" : "#ffffff" }}>
+        <div style={{ position: "absolute", left: "18%", bottom: "40%", width: 96 * s * k, height: 96 * s * k, borderRadius: "50%", background: "inherit" }} />
+        <div style={{ position: "absolute", left: "44%", bottom: "30%", width: 128 * s * k, height: 128 * s * k, borderRadius: "50%", background: "inherit" }} />
+      </div>
+    );
+    layer = (
+      <AbsoluteFill style={{ background: sky }}>
+        {[cloud(drift(0.9, 10), 7, 0.85, 1), cloud(drift(0.6, 70), 13, 0.6, 2), cloud(drift(0.75, 120), 4, 0.5, 3)]}
+        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ position: "absolute", inset: 0 }} preserveAspectRatio="none">
+          <path d={`M0 ${height * 0.87} C ${width * 0.25} ${height * 0.8}, ${width * 0.45} ${height * 0.82}, ${width * 0.62} ${height * 0.88} S ${width * 0.9} ${height * 0.82}, ${width} ${height * 0.85} L ${width} ${height} L 0 ${height} Z`} fill={far} />
+          <path d={`M0 ${height * 0.93} C ${width * 0.2} ${height * 0.89}, ${width * 0.5} ${height * 0.91}, ${width * 0.7} ${height * 0.94} S ${width * 0.92} ${height * 0.92}, ${width} ${height * 0.91} L ${width} ${height} L 0 ${height} Z`} fill={near} />
+        </svg>
+      </AbsoluteFill>
+    );
   } else if (name === "paper") {
     layer = (
       <AbsoluteFill
@@ -136,8 +158,8 @@ export const Backdrop: React.FC<{
         </filter>
         <rect width="100%" height="100%" filter={`url(#${grain})`} />
       </svg>
-      {/* Vignette: the eye stays in the middle. */}
-      <AbsoluteFill style={{ background: `radial-gradient(120% 90% at 50% 45%, transparent 55%, ${dark ? "rgba(0,0,0,.38)" : "rgba(40,40,60,.08)"} 100%)` }} />
+      {/* Vignette: the eye stays in the middle (not on flat cartoon colour). */}
+      <AbsoluteFill hidden={name === "cartoon"} style={{ background: `radial-gradient(120% 90% at 50% 45%, transparent 55%, ${dark ? "rgba(0,0,0,.38)" : "rgba(40,40,60,.08)"} 100%)` }} />
     </AbsoluteFill>
   );
 };

@@ -2,6 +2,7 @@ import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
 import { loadFont as loadEthiopic } from "@remotion/google-fonts/NotoSansEthiopic";
 import { loadFont as loadSpace } from "@remotion/google-fonts/SpaceGrotesk";
 import { loadFont as loadMono } from "@remotion/google-fonts/JetBrainsMono";
+import { loadFont as loadFredoka } from "@remotion/google-fonts/Fredoka";
 import { ACCENT_FONT, HEADLINE_FONT } from "./fonts";
 import { mix } from "./colors";
 
@@ -23,6 +24,10 @@ const space = loadSpace("normal", {
 }).fontFamily;
 const mono = loadMono("normal", {
   weights: ["500", "700"],
+  subsets: ["latin"],
+}).fontFamily;
+const fredoka = loadFredoka("normal", {
+  weights: ["500", "600", "700"],
   subsets: ["latin"],
 }).fontFamily;
 const eth = `${ethiopic}, "Geeza Pro"`;
@@ -317,6 +322,51 @@ export const KITS: Record<string, Kit> = {
       dark: "radial-gradient(70% 50% at 20% 20%, #5b3fd1aa, transparent 70%), radial-gradient(70% 50% at 85% 85%, #ee7a5f88, transparent 70%), #120c22",
       light:
         "radial-gradient(70% 50% at 20% 20%, #d9cdfc, transparent 70%), radial-gradient(70% 50% at 85% 85%, #fdd5c8, transparent 70%), #f7f3fb",
+    },
+  },
+  cartoon: {
+    // Flat illustrated explainer: cream sticker cards with a soft ink outline and a hard drop, chunky rounded type,
+    // flat pastel colour (no gradients or glass), made to sit next to flat AI illustrations.
+    name: "Cartoon",
+    dark: {
+      ...base,
+      ink: "#ffffff",
+      inkSub: "rgba(255,255,255,.8)",
+      text: "#2b2d42",
+      sub: "#5c5f7a",
+      card: "#fff8ec",
+      chip: "#2b2d42",
+      border: "#2b2d42",
+      line: 2.2,
+      shadow: "0 9px 0 #1b1c2c",
+      head: `${fredoka}, ${eth}, sans-serif`,
+      body: `${fredoka}, ${eth}, sans-serif`,
+      headWeight: 700,
+      tracking: "-0.005em",
+      type: 1.32,
+      radius: 1.6,
+      accent: "color",
+    },
+    light: {
+      ...base,
+      text: "#2b2d42",
+      sub: "#5c5f7a",
+      card: "#ffffff",
+      chip: "#ffe9c7",
+      border: "#2b2d42",
+      line: 2.2,
+      shadow: "0 9px 0 #2b2d42",
+      head: `${fredoka}, ${eth}, sans-serif`,
+      body: `${fredoka}, ${eth}, sans-serif`,
+      headWeight: 700,
+      tracking: "-0.005em",
+      type: 1.32,
+      radius: 1.6,
+      accent: "color",
+    },
+    scene: {
+      dark: "#2b2d42",
+      light: "#fdf3e1",
     },
   },
   candy: {

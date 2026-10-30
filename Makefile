@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 PORT ?= 8770
 
-.PHONY: help setup shorts graphics run doctor test check
+.PHONY: help setup shorts graphics channel run doctor test check
 
 help: ## Show available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  make %-8s %s\n",$$1,$$2}'
@@ -23,6 +23,11 @@ graphics: ## Optional: enable motion graphics (HyperFrames, GSAP, fonts, local F
 	HYPERFRAMES_NO_TELEMETRY=1 graphics-kit/node_modules/.bin/hyperframes telemetry disable
 	npx --yes skills@1.7.4 add heygen-com/hyperframes -a claude-code -s '*' -y --copy
 	$(PY) doctor.py --graphics
+
+channel: ## Optional: enable the YouTube channel tool (Remotion + studio UI; keys in .env)
+	@command -v node >/dev/null || { echo "Install Node.js 18+ first (https://nodejs.org)"; exit 1; }
+	cd motion && npm ci && npm run studio:build
+	$(PY) doctor.py --channel
 
 run: ## Start the app at http://127.0.0.1:8770 (other port: make run PORT=8771)
 	PORT=$(PORT) bash start.command

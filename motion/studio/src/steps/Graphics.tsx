@@ -81,6 +81,7 @@ const STYLES: [NonNullable<NonNullable<JobApi["job"]["plan"]>["graphics_style"]>
   ["noir", "Noir", "Black, serif accent · luxury", <><b>The</b> <i>problem</i></>],
   ["swiss", "Swiss", "Square, all caps · facts, lists", <><b>THE</b> <i>PROBLEM</i></>],
   ["clay", "Clay", "Soft 3D grey · calm how-tos", <><b>The</b> <i>problem</i></>],
+  ["cartoon", "Cartoon", "Flat sticker cards · playful explainers", <><b>The</b> <i>problem</i></>],
 ];
 
 export const Graphics: React.FC<JobApi> = ({ job, busy, setup, show, post, savePlan, toast, preview }) => {

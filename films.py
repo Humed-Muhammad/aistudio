@@ -29,7 +29,7 @@ GUIDE=ROOT/'docs'/'motion-studio.md'
 FPS=30
 FORMATS={'portrait':(1080,1920),'square':(1080,1080),'feed':(1080,1350),'landscape':(1920,1080)}
 STYLES=shorts.GRAPHIC_STYLES
-BACKDROPS=['aurora','mesh','grid','dots','spotlight','rays','plain','paper']
+BACKDROPS=['aurora','mesh','grid','dots','spotlight','rays','plain','paper','cartoon']
 CAMERAS=['still','drift','world']
 # Frames each hand-over overlaps two scenes: keep in step with motion/src/film/transitions.tsx (FRAMES) and World.tsx.
 TRANSITIONS={'push':18,'slide':18,'zoom':16,'blur':18,'whip':12,'wipe':18,'iris':20,'flip':22,'fade':16,'cut':0}

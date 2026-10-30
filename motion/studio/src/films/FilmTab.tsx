@@ -3,7 +3,7 @@ import { ColorRow, Range } from "../steps/EventEditor";
 import { fileUrl } from "../api";
 import { BACKDROP_NAMES, CAMERA_NAMES, FORMAT_NAMES, STYLE_NAMES, TRANSITION_NAMES, type Film, type FilmSetup, type FilmState } from "./filmApi";
 
-const SAMPLE: Record<string, [string, string]> = { glass: ["Paid", "faster"], bold: ["PAID", "FASTER"], editorial: ["Paid", "faster"], minimal: ["Paid", "faster"], tech: ["Paid", "faster"], brutal: ["Paid", "faster"], aurora: ["Paid", "faster"], candy: ["Paid", "faster"], noir: ["Paid", "faster"], swiss: ["PAID", "FASTER"], clay: ["Paid", "faster"] };
+const SAMPLE: Record<string, [string, string]> = { glass: ["Paid", "faster"], bold: ["PAID", "FASTER"], editorial: ["Paid", "faster"], minimal: ["Paid", "faster"], tech: ["Paid", "faster"], brutal: ["Paid", "faster"], aurora: ["Paid", "faster"], candy: ["Paid", "faster"], noir: ["Paid", "faster"], swiss: ["PAID", "FASTER"], clay: ["Paid", "faster"], cartoon: ["Paid", "faster"] };
 
 /** The whole film's look and sound: format, graphic style, colours, backdrop, transitions, camera, brand, music and voice. */
 export const FilmTab: React.FC<{

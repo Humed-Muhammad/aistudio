@@ -29,6 +29,8 @@ export type ShortEvent = {
   x: number;
   y: number;
   behind_subject: boolean;
+  /** The creator set the position or size: the plan check keeps it there. */
+  placed?: boolean;
   asset: string;
   emoji: string;
   anchor: "screen" | "hand" | "face";
@@ -154,6 +156,8 @@ export type Plan = {
     | "menbere"
     | "agbalumo"
     | "abyssinica"
+    | "google_sans"
+    | "serif_black"
     | "classic";
   caption_motion?: "pop" | "word" | "rise" | "lift";
   caption_fill?: "glass" | "chrome" | "glow" | "solid";
@@ -211,6 +215,8 @@ export type ShortsProps = {
   /** Levelled voice (voice-level.wav); when set, the video's own sound is muted. */
   voice?: string | null;
   foreground: string | null;
+  /** The room without the speaker (room.jpg) for the blurred look; null without a cutout or a blurred look. */
+  room?: string | null;
   captions: Caption[];
   tracks: Tracks;
   plan: Plan;

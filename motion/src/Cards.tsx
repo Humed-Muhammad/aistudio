@@ -1172,7 +1172,7 @@ export const Card: React.FC<Props> = ({
         left: "50%",
         top,
         translate: "-50% -50%",
-        scale: interpolate(enter, [0, 1], [0.94, 1]),
+        scale: interpolate(enter, [0, 1], [0.94, 1]) * (e.size || 1),
       }}
     >
       {body}

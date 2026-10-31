@@ -88,6 +88,18 @@ export const footageStyle = (
 export const liftFilter = (bg: BackgroundLook) =>
   bg.lift > 0 ? `brightness(${1 + 0.35 * bg.lift}) saturate(${1 + 0.1 * bg.lift})` : undefined;
 
+/** Blurred look over the footage: the room with the speaker removed (room.jpg from shorts.room_plate), blurred and
+ * dimmed like the footage. Blurring the footage itself smears the speaker into a dark halo around the cutout. */
+export const RoomBlur: React.FC<{ bg: BackgroundLook; room: string | null; k: number }> = ({ bg, room, k }) => {
+  const media = useMedia();
+  return bg.mode === "blur" && room ? (
+    <Img
+      src={media(room)}
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", ...footageStyle(bg, k, true) }}
+    />
+  ) : null;
+};
+
 /** Replacement background plus any LED light tubes standing on it. */
 export const Backdrop: React.FC<{
   bg: BackgroundLook;

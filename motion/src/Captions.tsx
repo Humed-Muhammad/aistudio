@@ -589,11 +589,13 @@ const Page: React.FC<{
               borderRadius: 12 * k,
               background:
                 boxed && active ? plan.highlight_color : "transparent",
-              color: active ? (boxed ? "#111" : plan.highlight_color) : "white",
-              WebkitTextStroke:
-                boxed && active ? 0 : `${(boxed ? 7 : 11) * k}px black`,
-              paintOrder: "stroke fill",
-              textShadow: `0 ${6 * k}px ${18 * k}px rgba(0,0,0,.45)`,
+              color: active ? (boxed ? onAccent(plan.highlight_color) : plan.highlight_color) : "white",
+              // Readable on bright footage from soft depth, not a hard black outline (it read as cheap).
+              textShadow:
+                boxed && active
+                  ? "none"
+                  : `0 ${3 * k}px ${5 * k}px rgba(0,0,0,.55), 0 0 ${16 * k}px rgba(0,0,0,.5), 0 ${8 * k}px ${26 * k}px rgba(0,0,0,.35)`,
+              boxShadow: boxed && active ? `0 ${6 * k}px ${18 * k}px rgba(0,0,0,.3)` : undefined,
               // Small scale + lift: a large scale on long words eats the gap.
               scale: active ? interpolate(pop, [0, 1], [1, 1.05]) : 1,
               translate:

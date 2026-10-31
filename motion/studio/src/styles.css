@@ -1,5 +1,5 @@
 /* Every color comes from a theme token (theme.ts). Mixes derive hover/soft variants from them. */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Ethiopic:wdth,wght@62.5..100,400..900&family=Noto+Serif+Ethiopic:wght@500&family=Menbere:wght@700&family=Agbalumo&family=Abyssinica+SIL&family=Montserrat:wght@800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Ethiopic:wdth,wght@62.5..100,400..900&family=Noto+Serif+Ethiopic:wght@500;900&family=Google+Sans:wght@700&family=Menbere:wght@700&family=Agbalumo&family=Abyssinica+SIL&family=Montserrat:wght@800&display=swap");
 
 :root {
   --soft: color-mix(in srgb, var(--accent) 14%, transparent);

@@ -17,7 +17,7 @@ from pydantic import BaseModel,Field,ValidationError
 from config import ROOT,setting,credential
 FPS=30;MOTION=ROOT/'motion'
 PRESETS=['duo','karaoke','pill','typewriter','quiet','float','stack','clean','editorial','rise','bold','minimal','boxed','sweep','none']
-CAPTION_FONTS=['noto_black','wide','noto_condensed','noto_bold','menbere','agbalumo','abyssinica','classic']
+CAPTION_FONTS=['noto_black','wide','noto_condensed','noto_bold','menbere','google_sans','serif_black','agbalumo','abyssinica','classic']
 CAPTION_MOTIONS=['pop','word','rise','lift']
 GRAPHIC_STYLES=['glass','bold','editorial','minimal','tech','brutal','aurora','candy','noir','swiss','clay','cartoon']
 TRANSITIONS=['bloom','leak','blur','whip','dip','flash','none']  # what flash events look like (motion/src/Transitions.tsx)
@@ -50,6 +50,7 @@ class Event(BaseModel):
     x:float=Field(0.5,description='screen anchor / text: horizontal centre 0-1')
     y:float=Field(0.3,description='screen anchor / text: vertical centre 0-1')
     behind_subject:bool=Field(False,description='text, a card with scene overlay, or a library element: place behind the person (person cutout drawn on top)')
+    placed:bool=Field(False,description='the creator set this graphic\'s position or size: the plan check keeps it where it is')
     asset:str=Field('',description='sticker: uploaded image filename from assets/')
     emoji:str=Field('',description='sticker: emoji to use when no asset')
     anchor:Literal['screen','hand','face']=Field('screen',description='sticker, or a library element (hand only): screen position, or ride on the tracked hand / face')
@@ -980,7 +981,7 @@ def apply_cut(folder,status=say):
     except (OSError,ValueError):before=kit_plan(job_kit(folder)) or Plan()  # a client's video starts from their brand kit
     captions=json.loads((folder/'full-captions.json').read_text())['captions'];units=json.loads((folder/'units.json').read_text())
     cut=load_cut(folder);info=json.loads((folder/'source-info.json').read_text())
-    for stale in ['tracks.json','foreground.webm','tracking-preview.mp4','shorts-draft.mp4','shorts-final.mp4','plan.json','plan-warnings.json']:(folder/stale).unlink(missing_ok=True)
+    for stale in ['tracks.json','foreground.webm','room.jpg','tracking-preview.mp4','shorts-draft.mp4','shorts-final.mp4','plan.json','plan-warnings.json']:(folder/stale).unlink(missing_ok=True)
     shutil.rmtree(folder/'keyframes',ignore_errors=True)
     if not captions or (not cut.tighten and cut.keep==list(range(len(units)))):
         step='Step 1 of 2 · Preparing the whole recording';status(step,0);meta=normalize(src,folder/'source.mp4',audio,lambda p:status(step,p))
@@ -1241,11 +1242,12 @@ def frame_y(tracks,bg):
     return lambda y:move(1-(1-y)*bg.scale)
 
 def head_band(tracks,at,start,end):
-    """Top of the head and the chin (0-1 of the frame height) while an event is up, or None without a face."""
+    """Top of the head, the chin, the face's x and the top of the forehead (0-1 of the frame) while an event is up,
+    or None without a face."""
     faces=[f for f in tracks['face'][round(start*FPS):round(end*FPS)+1] if f]
     if len(faces)<3:return None
-    tops=sorted(at(f[1]-.9*f[2]) for f in faces);chins=sorted(at(f[1]+.5*f[2]) for f in faces)
-    return tops[len(tops)//10],chins[-1-len(chins)//10],sorted(f[0] for f in faces)[len(faces)//2]
+    tops=sorted(at(f[1]-.9*f[2]) for f in faces);chins=sorted(at(f[1]+.5*f[2]) for f in faces);brows=sorted(at(f[1]-.5*f[2]) for f in faces)
+    return tops[len(tops)//10],chins[-1-len(chins)//10],sorted(f[0] for f in faces)[len(faces)//2],brows[len(brows)//10]
 
 def caption_band(plan,head):
     """The captions' top and bottom while the face is at head, or None when there are none."""
@@ -1257,19 +1259,25 @@ def caption_band(plan,head):
 def graphic_half(e):
     """Rough half-height of a screen-placed graphic as a share of the frame height, or None if it may sit anywhere."""
     if e.type=='text' and not e.behind_subject:return (.05 if len(e.text)<=18 else .09)*e.size+(.015 if e.background=='pill' else 0)
-    if e.type=='card' and e.scene in ('overlay','dim'):return CARD_HALF.get(e.template,.1)
+    if e.type=='card' and e.scene in ('overlay','dim'):return CARD_HALF.get(e.template,.1)*e.size
     if e.type=='sticker' and e.anchor=='screen':return .085*e.size
     if e.type=='element' and e.anchor=='screen' and e.element not in POINTERS and element_catalog().get(e.element,{}).get('layout')!='full':return .08*e.size
     return None
 
 def clear_face(e,half,head,caps):
-    """Centre for a graphic clear of the face: its own when already clear, the nearest free spot, or None without room."""
-    top,chin,fx=head;gap=.02
-    hits=lambda y:y+half>top-gap/2 and y-half<chin+gap/2
-    if not hits(e.y) or abs(e.x-fx)>.42:return e.y
+    """Centre for a graphic inside the safe zone and clear of the face and the captions: its own when it already is,
+    else the nearest free spot, or None without room. A close-up leaves no room above the hair or under the captions,
+    so as a last resort the graphic may cover the hair, down to the forehead, as editors do on selfie videos."""
+    top,chin,fx,brow=head;gap=.02;lo,hi=SAFE_TOP+half,SAFE_BOTTOM-half
+    on_caps=lambda y:bool(caps) and y+half>caps[0] and y-half<caps[1]
+    hits=lambda y,top:abs(e.x-fx)<=.42 and y+half>top-gap/2 and y-half<chin+gap/2
+    y=min(max(e.y,lo),hi)
+    if not hits(y,top) and not on_caps(y):return y
     spots=[chin+gap+half,top-gap-half]+([caps[1]+gap+half,caps[0]-gap-half] if caps else [])
-    fits=[y for y in spots if SAFE_TOP+half<=y<=SAFE_BOTTOM-half and not hits(y) and not (caps and y+half>caps[0] and y-half<caps[1])]
-    return min(fits,key=lambda y:abs(y-e.y)) if fits else None
+    for t in (top,brow):
+        fits=[s for s in spots+[t-gap-half] if lo<=s<=hi and not hits(s,t) and not on_caps(s)]
+        if fits:return min(fits,key=lambda s:abs(s-e.y))
+    return None
 
 def face_note(folder,plan):
     """Where the face usually is, for the planner and the chat."""
@@ -1278,8 +1286,9 @@ def face_note(folder,plan):
     caps=caption_band(plan,head)
     return (f'Face position (0 = top of the frame, 1 = bottom): the head runs from about {head[0]:.2f} to the chin at {head[1]:.2f}'
             +(f'; captions sit at {caps[0]:.2f}-{caps[1]:.2f}' if caps else '')+'. Give text pops, overlay and dim cards and library graphics a y '
-            f'that keeps them off the face: under the chin and clear of the captions, or above the head when there is room (nothing higher than {SAFE_TOP}). '
-            'The plan check moves anything that would cover the face.')
+            f'that keeps them off the face: under the chin and clear of the captions, or above the head when there is room (nothing higher than {SAFE_TOP}, '
+            f'nothing lower than {SAFE_BOTTOM}: platform buttons cover the bottom). In a close-up with no room there, put them at the top over the hair, '
+            f'above the forehead at {head[3]:.2f}. The plan check moves anything that would cover the face, the captions or the buttons.')
 
 ICON_FILE=MOTION/'src'/'film'/'icons.tsx'
 def icon_names():
@@ -1324,8 +1333,9 @@ def check_plan(plan,folder):
             if e.layout=='front' and not (folder/'foreground.webm').exists():e.layout='full';warnings.append(f'{where}: no person cutout, so it is shown full screen')
             broll_until=e.end
         if e.type=='text' and not e.text.strip():warnings.append(f'{where}: empty text; skipped');continue
-        for k in ('accent','ink'):
-            if getattr(e,k) and not HEX.match(getattr(e,k)):setattr(e,k,'')
+        for k in ('accent','ink','color'):
+            v=PALETTE.get(getattr(e,k).strip().lower(),getattr(e,k));setattr(e,k,v)  # a palette name ("coral") becomes its hex
+            if k!='color' and v and not HEX.match(v):setattr(e,k,'')
         if e.type=='element':
             meta=element_catalog().get(e.element)
             if not meta:warnings.append(f'{where}: graphic "{e.element}" is not in the library; skipped');continue
@@ -1357,13 +1367,15 @@ def check_plan(plan,folder):
         kept.append(e)
     at=frame_y(tracks,plan.background) if any(tracks['face']) else None
     for e in kept if at else []:
+        if e.placed:continue  # the creator put it there: their choice wins over the automatic face-safe spot
         half=graphic_half(e);head=half and head_band(tracks,at,e.start,e.end)
         if not head:continue
         # Dim cards drop the captions to the bottom, out of the way.
         y=clear_face(e,half,head,None if e.type=='card' and e.scene=='dim' else caption_band(plan,head))
         what=f"{e.template} card" if e.type=='card' else {'text':'text pop','sticker':'image','element':'graphic'}[e.type]
-        if y is None:warnings.append(f'{what} at {e.start:.2f}s covers the face and there is no free space around it: make it smaller or shorter')
-        elif y!=e.y:warnings.append(f'{what} at {e.start:.2f}s was moved off the face (to {round(100*y)}% from the top)');e.y=round(y,3)
+        # No free space: the top of the safe zone still beats the platform buttons; it may reach the forehead.
+        if y is None:warnings.append(f'{what} at {e.start:.2f}s has no free space off the face: moved to the top, where it may cover the forehead; make it smaller');e.y=round(SAFE_TOP+half,3)
+        elif abs(y-e.y)>.005:warnings.append(f'{what} at {e.start:.2f}s was moved off the face, the captions or the platform buttons (to {round(100*y)}% from the top)');e.y=round(y,3)
     plan.events=sorted(kept,key=lambda e:e.start);return check_background(plan,folder,warnings),warnings
 
 HEX=re.compile(r'^#[0-9a-fA-F]{6}$')
@@ -1371,6 +1383,9 @@ def check_background(plan,folder,warnings):
     bg=plan.background
     # The creator dropped the old yellow accent (2026-10-23): plans saved before then get the new colours.
     if plan.highlight_color.upper()=='#FFD60A':plan.highlight_color=ACCENT
+    # Claude sometimes answers with the palette name ("sky") instead of its hex: CSS cannot draw a name it does not know.
+    plan.highlight_color=PALETTE.get(plan.highlight_color.strip().lower(),plan.highlight_color)
+    if not HEX.match(plan.highlight_color):warnings.append(f'Caption accent "{plan.highlight_color}" is not a colour; reset');plan.highlight_color=ACCENT
     for k in ['color','color2','light_color']:
         if getattr(bg,k).upper()=='#FFD60A':setattr(bg,k,LOOKS.get(bg.look,{}).get(k) or getattr(Background(),k))
     for k in ['blur','dim','glow','rim','vignette','spotlight','shadow','outline','wrap','reframe','grade','grain','lift']:setattr(bg,k,min(max(getattr(bg,k),0.),1.))
@@ -1620,6 +1635,49 @@ def emoji_animations(plan):
     found={m.group() for e in plan.events for text in [e.emoji,*e.items] for m in EMOJI.finditer(text or '')}
     return {k:v for k in sorted(found) if (v:=animated_emoji(k))}
 
+def box_blur(a,r):
+    """Mean over a (2r+1)-pixel square around each pixel, edges repeated."""
+    for ax in (0,1):
+        c=np.cumsum(np.pad(a,[(r+1,r) if i==ax else (0,0) for i in range(a.ndim)],mode='edge'),axis=ax,dtype=np.float64)
+        n=c.shape[ax];a=np.take(c,range(2*r+1,n),axis=ax)-np.take(c,range(0,n-2*r-1),axis=ax);a/=2*r+1
+    return a
+
+def fill_holes(img,known):
+    """Fills unknown pixels smoothly from their surroundings: weighted averages over growing squares."""
+    out=img.copy();todo=~known;w=known.astype(np.float64);r=3
+    while todo.any() and r<max(img.shape[:2]):
+        den=box_blur(w,r);num=box_blur(img*w[...,None],r);ok=todo&(den>.02)
+        out[ok]=num[ok]/den[ok][:,None];todo&=~ok;r*=2
+    soft=box_blur(out,6);return np.where(known[...,None],out,soft)
+
+def room_plate(folder):
+    """The room without the speaker (room.jpg) for the blurred look, or None without a cutout. Per pixel, the median
+    of the frames where the cutout leaves it uncovered; spots the speaker never leaves are filled from around them.
+    Blurring the footage itself smears the speaker's own hair and clothes into a dark halo around the cutout."""
+    folder=Path(folder);out=folder/'room.jpg';fg=folder/'foreground.webm';src=folder/'source.mp4'
+    if not fg.exists() or not src.exists():return None
+    if out.exists() and out.stat().st_mtime>=fg.stat().st_mtime:return out.name
+    from PIL import Image
+    W,H=216,384;seen=[]
+    with av.open(str(src)) as video,av.open(str(fg)) as matte:
+        step=max(1,(video.streams.video[0].frames or 0)//90)
+        dec=av.codec.CodecContext.create('libvpx-vp9','r')  # the default VP9 decoder drops the alpha channel
+        alphas=(f for p in matte.demux(matte.streams.video[0]) for f in dec.decode(p))
+        for i,(a,b) in enumerate(zip(video.decode(video=0),alphas)):
+            if i%step:continue
+            rgb=a.reformat(width=W,height=H,format='rgb24').to_ndarray().astype(np.float32)
+            person=b.reformat(width=W,height=H,format='rgba').to_ndarray()[...,3]>12
+            # Grow the person: hair edges and the matte's soft rim still carry the speaker's colours.
+            rgb[box_blur(person.astype(np.float64),8)>0]=np.nan;seen.append(rgb)
+    if not seen:return None
+    stack=np.stack(seen);free=(~np.isnan(stack[...,0])).sum(0)
+    # Trust a spot only when it shows in enough frames: one the speaker barely uncovers keeps a ghost of them.
+    known=free>=max(3,len(seen)//5)
+    room=np.zeros((H,W,3));room[known]=np.nanmedian(stack[:,known],axis=0)
+    room=fill_holes(room,known)
+    Image.fromarray(np.clip(room,0,255).astype(np.uint8)).resize((540,960),Image.BILINEAR).save(out,quality=88)
+    return out.name
+
 def render_props(folder):
     folder=Path(folder);plan,warnings=check_plan(load_plan(folder),folder)
     meta=json.loads((folder/'manifest.json').read_text())
@@ -1635,6 +1693,7 @@ def render_props(folder):
     plan.events=sorted([e for e in plan.events if e.type!='sfx' or e.sound in kit],key=lambda e:e.start)
     return {'fps':FPS,'width':meta['width'],'height':meta['height'],'durationInFrames':meta['frames'],
      'video':'source.mp4','voice':voice_track(folder),'foreground':'foreground.webm' if (folder/'foreground.webm').exists() else None,
+     'room':room_plate(folder) if any(b.mode=='blur' for b in [plan.background,*(look(e.look) for e in plan.events if e.type=='look' and e.look in LOOKS)]) else None,
      'captions':json.loads((folder/'captions.json').read_text())['captions'],
      'tracks':json.loads((folder/'tracks.json').read_text()),'plan':plan.model_dump(),'clips':load_clips(folder),
      'lottie':emoji_animations(plan),

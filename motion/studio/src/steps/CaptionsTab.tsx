@@ -30,6 +30,8 @@ const FONTS: [NonNullable<Plan["caption_font"]>, string, React.CSSProperties][] 
   ["noto_condensed", "Noto Condensed", { fontFamily: "'Noto Sans Ethiopic', sans-serif", fontWeight: 900, fontStretch: "62.5%" }],
   ["noto_bold", "Noto ExtraBold", { fontFamily: "'Noto Sans Ethiopic', sans-serif", fontWeight: 800 }],
   ["menbere", "Menbere", { fontFamily: "Menbere, sans-serif", fontWeight: 700 }],
+  ["google_sans", "Google Sans", { fontFamily: "'Google Sans', sans-serif", fontWeight: 700 }],
+  ["serif_black", "Serif Black", { fontFamily: "'Noto Serif Ethiopic', serif", fontWeight: 900 }],
   ["agbalumo", "Agbalumo", { fontFamily: "Agbalumo, sans-serif" }],
   ["abyssinica", "Abyssinica", { fontFamily: "'Abyssinica SIL', serif" }],
   ["classic", "Style's own", { fontFamily: "Inter, sans-serif", fontWeight: 800 }],

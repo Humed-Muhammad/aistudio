@@ -109,8 +109,9 @@ export const Look: React.FC<JobApi> = ({ job, busy, savePlan, toast, preview }) 
   const pick = (p: Preset) => {
     const { id, note, ...rest } = p;
     void note;
-    // Switching wall colour keeps the light design you picked.
-    change({ ...DEFAULT_LOOK, ...rest, pattern: look.pattern ?? "pool", lift: look.lift ?? 0, look: id }, true);
+    // Switching looks keeps the light design and the framing you have: each look's own punch-in made the
+    // picture zoom in or out on every switch. Reframe and Scale below still change it.
+    change({ ...DEFAULT_LOOK, ...rest, reframe: look.reframe, scale: look.scale, pattern: look.pattern ?? "pool", lift: look.lift ?? 0, look: id }, true);
   };
   const giveBack = async () => {
     if (!job.plan) return;

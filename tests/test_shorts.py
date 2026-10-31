@@ -1,4 +1,5 @@
 import unittest,tempfile,json
+import numpy as np
 from pathlib import Path
 from unittest.mock import patch,Mock
 from pydantic import ValidationError
@@ -631,6 +632,25 @@ class CardAndSoundTests(unittest.TestCase):
    self.assertEqual((clear.y,behind.y,sparkles.y),(.55,.3,.3))
    self.assertEqual(sum('moved off the face' in w for w in warnings),2)
    self.assertIn('Face position',shorts.face_note(p,plan))
+
+ def test_close_up_graphics_go_over_the_hair_not_the_buttons(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=job(d,frames=300,face=[[.5,.5,.4,'']]*300)  # selfie: head .14, forehead .30, chin .70; captions under the chin
+   plan,warnings=shorts.save_plan(p,{'highlight_color':'sky','events':[
+    {'type':'text','start':0,'end':2,'text':'Follow','y':.9,'accent':'coral'}]})
+   e=plan.events[0]
+   self.assertTrue(shorts.SAFE_TOP<=e.y-graphic_half(e) and e.y+graphic_half(e)<=.3,e.y)  # above the forehead, clear of the buttons
+   self.assertEqual((plan.highlight_color,e.accent),(shorts.PALETTE['sky'],shorts.PALETTE['coral']))  # names become colours
+   self.assertTrue(any('platform buttons' in w for w in warnings))
+   plan,warnings=shorts.save_plan(p,{'events':[{'type':'text','start':0,'end':2,'text':'Mine','y':.55,'size':1.3,'placed':True}]})
+   self.assertEqual((plan.events[0].y,plan.events[0].size),(.55,1.3));self.assertEqual(warnings,[])  # the creator's spot is kept
+
+ def test_hole_fill_keeps_known_pixels_and_fills_the_rest(self):
+  img=np.zeros((40,30,3));img[:,:15]=200.;known=np.ones((40,30),bool);known[10:30,10:20]=False
+  out=shorts.fill_holes(img,known)
+  self.assertTrue((out[known]==img[known]).all())
+  self.assertGreater(out[20,10,0],out[20,19,0])  # the hole leans to the bright side it touches
+  self.assertFalse(np.isnan(out).any())
 
  def test_auto_sound_is_sparse_and_under_the_voice(self):
   E=shorts.Event

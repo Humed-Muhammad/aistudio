@@ -6,6 +6,7 @@ import {
   DEFAULT_LOOK,
   footageStyle,
   needsSubject,
+  RoomBlur,
   Subject,
   Vignette,
 } from "./Background";
@@ -23,6 +24,7 @@ export const LookSwitch: React.FC<{
   look: BackgroundLook;
   video: string;
   foreground: string | null;
+  room?: string | null;
   tracks: Tracks;
   reframe: Reframe;
   from: number;
@@ -34,6 +36,7 @@ export const LookSwitch: React.FC<{
   look: partial,
   video,
   foreground,
+  room = null,
   tracks,
   reframe,
   from,
@@ -72,6 +75,7 @@ export const LookSwitch: React.FC<{
         trimBefore={from}
         style={footageStyle(look, k, !!subject)}
       />
+      {subject ? <RoomBlur bg={look} room={room} k={k} /> : null}
       {subject ? <Backdrop bg={look} tracks={tracks} reframe={reframe} /> : null}
       {subject ? <BackLight bg={look} tracks={tracks} /> : null}
       {subject ? (

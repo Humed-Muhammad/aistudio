@@ -1,11 +1,13 @@
 import { loadFont as loadAbyssinica } from "@remotion/google-fonts/AbyssinicaSIL";
 import { loadFont as loadAgbalumo } from "@remotion/google-fonts/Agbalumo";
+import { loadFont as loadGoogleSans } from "@remotion/google-fonts/GoogleSans";
 import { loadFont as loadMenbere } from "@remotion/google-fonts/Menbere";
 import { loadFont as loadMontserrat } from "@remotion/google-fonts/Montserrat";
 import {
   loadFont as loadNoto,
   loadVariableFont as loadNotoVariable,
 } from "@remotion/google-fonts/NotoSansEthiopic";
+import { loadFont as loadSerif } from "@remotion/google-fonts/NotoSerifEthiopic";
 import { ARABIC_FONT } from "./fonts";
 import type { Plan } from "./types";
 
@@ -66,6 +68,24 @@ const LOADERS: Record<Exclude<CaptionFontId, "classic">, () => CaptionFace> = {
       subsets: ["ethiopic", "latin"],
     }).fontFamily,
     weight: 400,
+    scale: 1,
+  }),
+  google_sans: () => ({
+    // Google's own UI face (open since 2025): clean, open Ethiopic letters that stay readable when small.
+    family: loadGoogleSans("normal", {
+      weights: ["700"],
+      subsets: ["ethiopic", "latin"],
+    }).fontFamily,
+    weight: 700,
+    scale: 1.04,
+  }),
+  serif_black: () => ({
+    // Heavy Ethiopic serif for quotes and storytelling.
+    family: loadSerif("normal", {
+      weights: ["900"],
+      subsets: ["ethiopic", "latin"],
+    }).fontFamily,
+    weight: 900,
     scale: 1,
   }),
   abyssinica: () => ({

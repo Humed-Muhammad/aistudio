@@ -138,6 +138,7 @@ class Turn:
         if name=='update_event':
             old=self.event(args.get('index'));changes=dict(args.get('changes') or {});changes.pop('type',None)
             if 'props' in changes:changes['props']={**old.props,**(changes['props'] or {})}
+            if {'x','y','size'}&changes.keys():changes['placed']=True  # moved on the creator's word: keep it there
             new=Event.model_validate({**old.model_dump(),**changes});self.events[args['index']]=new
             self.changes.append('Changed '+label(new));self.plan_changed=True
             return f"#{args['index']} is now "+json.dumps(new.model_dump(exclude_defaults=True),ensure_ascii=False)

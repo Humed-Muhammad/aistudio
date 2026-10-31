@@ -20,6 +20,7 @@ import {
   gradeFilter,
   liftFilter,
   needsSubject,
+  RoomBlur,
   Subject,
   Vignette,
 } from "./Background";
@@ -92,6 +93,7 @@ export const Shorts: React.FC<ShortsProps> = (props) => (
 const Edit: React.FC<ShortsProps> = ({
   video,
   foreground,
+  room = null,
   captions,
   tracks,
   plan,
@@ -164,6 +166,7 @@ const Edit: React.FC<ShortsProps> = ({
               style={footageStyle(look, k, !!subject)}
             />
           ) : null}
+          {subject ? <RoomBlur bg={look} room={room} k={k} /> : null}
           {subject ? <Backdrop bg={look} tracks={tracks} reframe={reframe} /> : null}
           {subject ? <BackLight bg={look} tracks={tracks} /> : null}
           {behind.map((e, i) => {
@@ -203,6 +206,7 @@ const Edit: React.FC<ShortsProps> = ({
                       look={{ ...looks[e.look!], lift: look.lift }}
                       video={video}
                       foreground={foreground}
+                      room={room}
                       tracks={tracks}
                       reframe={reframe}
                       from={from}

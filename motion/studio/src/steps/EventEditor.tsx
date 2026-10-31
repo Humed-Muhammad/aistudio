@@ -230,7 +230,9 @@ export const EventEditor: React.FC<{
   clips: string[];
   onChange: (e: ShortEvent) => void;
 }> = ({ event: e, issue, video, palette, looks, images, clips, onChange }) => {
-  const set = (patch: Partial<ShortEvent>) => onChange({ ...e, ...patch });
+  // Moving or resizing marks the graphic as placed by the creator, so the face-safe check stops moving it.
+  const set = (patch: Partial<ShortEvent>) =>
+    onChange({ ...e, ...patch, ...("x" in patch || "y" in patch || "size" in patch ? { placed: true } : {}) });
   const listy = ["list", "steps", "chips", "icons"].includes(e.template);
 
   return (
@@ -287,6 +289,12 @@ export const EventEditor: React.FC<{
               ))}
             </div>
           </div>
+          {e.scene === "overlay" || e.scene === "dim" ? (
+            <>
+              <Range label="Height" value={e.y} min={0.1} max={0.85} step={0.01} show={(v) => `${Math.round(v * 100)}%`} onChange={(y) => set({ y })} />
+              <Range label="Size" value={e.size} min={0.6} max={1.4} step={0.05} show={(v) => `${v.toFixed(2)}×`} onChange={(size) => set({ size })} />
+            </>
+          ) : null}
           <label className="field">
             <span>Headline · put *stars* around words to colour them</span>
             <input dir="auto" value={e.text} onChange={(x) => set({ text: x.target.value })} placeholder="e.g. Vote in the *comments*" />
